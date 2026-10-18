@@ -5,6 +5,9 @@ local H = require("tests.helpers.addon")
 local function newRXP()
   local af = { shown = true, element = { zone = 1453, x = 64.6, y = 37.2, title = "Furen" } }
   function af:IsShown() return self.shown end
+  -- The arrow frame's texture, set by RXP from its active theme.
+  af.texture = { path = "Interface/AddOns/RXPGuides/Textures/v2/rxp_navigation_arrow-1" }
+  function af.texture:GetTexture() return self.path end
   _G.RXPG_ARROW = af
   _G.RXP = {
     arrowFrame = af,
@@ -39,9 +42,23 @@ describe("RXP bridge", function()
       expect(wp.icon).toBe("rxp")
     end)
 
-    it("uses RXP's own target icon, following its theme", function()
+    it("uses the navigation arrow RXP is drawing, following its theme", function()
       tick()
-      expect(ctx.ns.ICONS.rxp).toBe("Interface\\AddOns\\RXPGuides\\Textures\\map_active_step_target_icon")
+      expect(ctx.ns.ICONS.rxp).toBe("Interface/AddOns/RXPGuides/Textures/v2/rxp_navigation_arrow-1")
+    end)
+
+    it("follows a theme change on the next waypoint", function()
+      tick()
+      af.texture.path = "Interface/AddOns/RXPGuides/Textures/rxp_navigation_arrow-1"
+      af.element = { zone = 1453, x = 20, y = 30, title = "Next stop" }
+      tick()
+      expect(ctx.ns.ICONS.rxp).toBe("Interface/AddOns/RXPGuides/Textures/rxp_navigation_arrow-1")
+    end)
+
+    it("accepts a numeric file id from the arrow texture", function()
+      af.texture.path = 1234567
+      tick()
+      expect(ctx.ns.ICONS.rxp).toBe(1234567)
     end)
 
     it("does not duplicate the waypoint while the target is unchanged", function()
@@ -101,11 +118,27 @@ describe("RXP bridge", function()
     end)
   end)
 
-  describe("RXP without a readable theme", function()
+  describe("RXP whose arrow texture is not readable", function()
     local ctx = H.use({
       boot = true,
       world = function()
-        newRXP()
+        local af = newRXP()
+        af.texture = nil
+      end,
+    })
+
+    it("falls back to RXP's v1 navigation arrow by name", function()
+      ctx.world:update(0.3)
+      expect(ctx.ns.ICONS.rxp).toBe("Interface\\AddOns\\RXPGuides\\Textures\\rxp_navigation_arrow-1")
+    end)
+  end)
+
+  describe("RXP without any readable arrow texture", function()
+    local ctx = H.use({
+      boot = true,
+      world = function()
+        local af = newRXP()
+        af.texture = nil
         _G.RXP.GetV1Texture = function() error("no theme") end
       end,
     })
@@ -114,6 +147,21 @@ describe("RXP bridge", function()
       ctx.world:update(0.3)
       expect(ctx.ns:GetWaypoint(1).icon).toBe("rxp")
       expect(ctx.ns.ICONS.rxp).toBe(ctx.ns.ICONS.turnin)
+    end)
+  end)
+
+  describe("RXP whose arrow texture call fails", function()
+    local ctx = H.use({
+      boot = true,
+      world = function()
+        local af = newRXP()
+        function af.texture:GetTexture() error("boom") end
+      end,
+    })
+
+    it("falls back to RXP's v1 navigation arrow by name", function()
+      ctx.world:update(0.3)
+      expect(ctx.ns.ICONS.rxp).toBe("Interface\\AddOns\\RXPGuides\\Textures\\rxp_navigation_arrow-1")
     end)
   end)
 

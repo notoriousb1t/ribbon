@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256" role="img" aria-label="Ribbon">
+  <polygon points="10,122 50,122 50,178 10,178 28,150" fill="#124a5e"/>
+  <polygon points="246,122 206,122 206,178 246,178 228,150" fill="#124a5e"/>
+  <polygon points="34,100 222,100 222,156 34,156" fill="#1f7a99"/>
+  <polygon points="34,100 222,100 222,108 34,108" fill="#2a93b5"/>
+  <polygon points="34,156 50,156 50,178" fill="#0d3646"/>
+  <polygon points="222,156 206,156 206,178" fill="#0d3646"/>
+  <circle cx="128" cy="128" r="62" fill="#0d3646"/>
+  <circle cx="128" cy="128" r="56" fill="#e9b949"/>
+  <circle cx="128" cy="128" r="48" fill="#10303f"/>
+  <polygon points="128,80 136,120 176,128 136,136 128,176 120,136 80,128 120,120" fill="#f3ead2"/>
+  <polygon points="128,80 136,120 120,120" fill="#e2574c"/>
+  <circle cx="128" cy="128" r="6" fill="#e9b949"/>
+</svg>

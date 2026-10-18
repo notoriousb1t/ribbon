@@ -52,7 +52,7 @@ describe("Core", function()
     it("keeps saved values and fills in missing defaults", function()
       expect(RibbonDB.compass.width).toBe(700)
       expect(RibbonDB.compass.fov).toBe(140)
-      expect(RibbonDB.guide.shown).toBe(true)
+      expect(RibbonDB.compass.locked).toBe(false)
     end)
   end)
 

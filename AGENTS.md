@@ -1,39 +1,74 @@
 # Ribbon
 
-WoW addon for the Forever beta client (build `1.60.1 / 70450 / 16001`): compass ribbon, map and minimap pins, waypoint API, guide tracking frame. Lua 5.1 semantics (WoW and LuaJIT).
+WoW addon for the Forever beta client (build `1.60.1 / 70450 / 16001`): compass ribbon, map and minimap pins, waypoint API, TomTom / RestedXP / tracked-quest bridges. Lua 5.1 semantics (WoW and LuaJIT).
 
 ## Layout
 
-- `src/` is the addon. Only this folder ships; `tools/install.ps1` copies it to `AddOns\Ribbon`.
+- `src/` is the addon. Only this folder ships: copy it to `Interface\AddOns\Ribbon` (the folder name must match `Ribbon.toc`). A new file needs a full client restart, not `/reload`.
 - `tests/` is the test suite (runner, jasmine-style framework, fakes, specs). It never ships.
-- `tools/` holds PowerShell helpers.
+- `README.md` is for players and addon authors; keep developer detail here.
+- `src/probe/` (the `/ribbonprobe` inspection tool) is git-ignored and not in the TOC; see `.gitignore` to enable it locally.
+- `assets/` holds the logo: `powershell -NoProfile -ExecutionPolicy Bypass -File assets/build-logo.ps1` rebuilds `assets/logo.svg`, `assets/logo.png` and `src/icon.tga` (the addon list icon) from one shape list.
+
+```
+src/
+  Ribbon.toc            load order (the specs read it too)
+  core/                 Core (events, tickers, saved variables, start-up), Client (the only game-API adapter),
+                        Geometry (pure math), Registry (waypoint model, API, distance, arrival),
+                        Coordinates (/ribbon text parsing, zone lookup), Commands (/ribbon)
+  compass/              Layout (pure placement), Compass (view)
+  map/                  PinManager (pin bookkeeping, library injected), Map (wiring, Clear Pins button)
+  integrations/         TomTom, RXP, Quest bridges, each with a pure Translate module
+```
+
+Data flows one way: `Client` reads the game, `Registry` turns waypoints plus the player's position into `dist` and `delta` at 30 Hz, and the views render what the registry holds. Views never compute positions themselves.
 
 ## Commands
 
 ```powershell
-luajit tests/run.lua              # all specs; exit code 1 on failure
+luajit tests/run.lua              # all specs; exit code 1 on failure (winget install DEVCOM.LuaJIT)
 luajit tests/run.lua Registry     # specs whose full name contains "Registry"
-powershell -NoProfile -ExecutionPolicy Bypass -File tools/install.ps1   # install into the game
 ```
 
 Run the specs before every commit and after every change under `src/`.
 
 ## Rules
 
-- **Client boundary:** Only `src/core/Client.lua` calls position and map APIs (`UnitPosition`, `GetPlayerFacing`, `C_Map.*`). Everything else calls `ns.client`.
-- **Probe module:** `src/probe/` is the development inspection tool (`/ribbonprobe`). It is exempt from the client boundary because it calls arbitrary APIs. Add a probe with `ns.probe.register(name, description, fn(args, env))`; `env` is `_G` in game and a fake table in specs, so probes are specced against fake environments.
-- **Integration boundary:** Only `src/integrations/` touches other addons' globals (TomTom, RXPGuides, HereBeDragons). Observe them with `hooksecurefunc`; never replace their functions or install their globals. Translation of their arguments stays pure (`TomTomTranslate.lua`).
-- **Pure logic:** Math, layout and row/model code (`core/Geometry.lua`, `compass/Layout.lua`, `guide/Rows.lua`, `map/PinManager.lua`) take plain values and touch no frames or client globals. Keep new logic there and keep the views (`Compass.lua`, `Guide.lua`, `Map.lua`) thin.
+- **Client boundary:** Only `src/core/Client.lua` calls game APIs for position, maps and quests (`UnitPosition`, `GetPlayerFacing`, `C_Map.*`, `C_QuestLog.*`, `C_SuperTrack.*`). Everything else calls `ns.client`.
+- **Integration boundary:** Only `src/integrations/` touches other addons' globals (TomTom, RXPGuides, HereBeDragons). Observe them with `hooksecurefunc` or by reading; never replace their functions or install their globals (no `TomTom` global, no `/way`). Translating their data stays pure (`*Translate.lua`).
+- **Pure logic:** Math, layout and row/model code take plain values and touch no frames or client globals. Keep new logic there and keep the views thin.
 - **Fail soft:** Public API calls validate arguments and return `nil` on bad input. Never raise to a caller. Handler and ticker errors go to `geterrorhandler()`.
-- **Load order:** `src/Ribbon.toc` is the single source of load order; the specs read it. Add every new file there.
+- **Load order:** `src/Ribbon.toc` is the single source; add every new file there.
 - **Every module** starts with `local ADDON, ns = ...` and hangs its API off `ns`. Modules talk through `ns:On` / `ns:Fire` events (`INIT`, `WAYPOINT_ADDED`, `WAYPOINT_REMOVED`, `WAYPOINT_CHANGED`, `WAYPOINT_ARRIVED`, `FOCUS_CHANGED`).
-- **Conventions (measured, do not change without re-measuring):** world axes `first` = north-positive, `second` = west-positive; facing is counter-clockwise radians from north; positive `delta` is a target on the left; zone coordinates are 0-100; zones are addressed by `uiMapID`.
-- **Tests:** Every behavior change gets a spec. Use the fakes in `tests/fakes/wow.lua` and verify calls with spies rather than reaching into frames. Specs must pass with no real client.
-- **Elevation** is delayed, not dropped. The client reports Z = 0 today.
+- **Slash keys:** register each slash command under a key no other addon uses (`SlashCmdList["RIBBON_DEBUG"]`, not a short name another addon might choose): a later addon with the same key silently replaces it.
+- **Tests:** Every behavior change gets a spec. Use the fakes in `tests/fakes/wow.lua` and verify calls with spies. Specs must pass with no real client.
 - **Shell:** PowerShell on Windows. No Python or Go scripts; use PowerShell or Node for tooling.
+
+## Measured client facts (change only after re-measuring)
+
+- World axes: `UnitPosition("player")` returns `first, second, z, instanceID`; `first` increases north, `second` increases west. `C_Map.GetWorldPosFromMapPos` returns the same axes in the same order.
+- `GetPlayerFacing()` is radians from north, increasing counter-clockwise. `delta = wrap(atan2(dSecond, dFirst) - facing)`: positive means the target is on the left; ribbon offset is `-delta / (FOV / 2) * (width / 2)`, clamped.
+- Zone maps are not square (Stormwind City is about 1737 yd wide and 1158 yd tall), so all geometry uses world yards. Zone coordinates are 0-100; zones are `uiMapID`s. Waypoints on another `instanceID` are not projected.
+- The client has the modern `C_Map` API and map data providers; `GetPlayerMapPosition` is absent.
+- `UnitPosition` Z read 0 everywhere sampled (all in Stormwind). `C_Navigation.GetDistance` to the tracked quest is a 3D distance (engine² = flat² + height²), but gives the size of the height gap only, not its sign, and only for the one tracked target. Elevation is delayed, not dropped; a baked terrain-height data set from the forever_guide terrain export would give the sign for every waypoint.
+- `C_QuestLog.GetQuestsOnMap(mapID)` lists quest points per map as 0-1 fractions; `GetNextWaypoint` returned nothing for the tracked quest probed.
+- TomTom (v4.3.12): every way of setting a waypoint ends in `TomTom:AddWaypoint(m, x, y, opts)` with x and y as 0-1 fractions; a handle is `{ m, x, y, title = ... }`; `RemoveWaypoint` and `ClearAllWaypoints` funnel into `ClearWaypoint`. RXPGuides (v4.11.26): the arrow frame is the global `RXPG_ARROW`, its `element` carries `zone`, `x`, `y` (0-100) for zone targets.
+- Pins use `LibStub("HereBeDragons-Pins-2.0")` from RXPGuides, Forever_Guide or TomTom; without it pins are disabled and the compass still works.
+
+## Test suite
+
+- `tests/framework/jasmine.lua`: `describe`, `it`, `beforeEach`, `afterEach`, `xit`, `fit`, `expect(...).toBe / toEqual / toBeCloseTo / toHaveBeenCalledWith / ...`, `.never` for negation (`not` is a Lua keyword).
+- `tests/framework/spy.lua`: `andReturn`, `andCall`, `andCallThrough`; `spyOn(obj, "method")` is restored after each spec.
+- `tests/fakes/wow.lua`: a fake client with a controllable world (measured Stormwind and Eastern Kingdoms bounds, player position and facing, quest tracking, missing-API simulation) and recording frames where every method is a spy.
+- `tests/helpers/addon.lua`: loads `src/` in TOC order into a fresh namespace per spec (`H.use{ boot = true }`) or just pure modules (`H.pure{...}`).
+- Specs are `tests/specs/*_spec.lua`, listed in `tests/specs.lua`. Pure modules are tested with plain values; the adapter and views against the fakes. Real frame layout and library rendering still need a check in the game.
+
+## Not built
+
+- Radius rings for area waypoints; elevation chevrons; dungeon and indoor behavior is unmeasured (the ribbon hides markers when position is unavailable).
 
 ## Do not
 
 - Put test code, fakes or `luajit` references under `src/`.
 - Commit `WTF/` or SavedVariables output.
-- Replace `LibStub` copies of HereBeDragons: use the instance RXPGuides or Forever_Guide already loaded.
+- Replace `LibStub` copies of HereBeDragons: use the instance already loaded.

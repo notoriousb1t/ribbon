@@ -25,12 +25,26 @@ local function snapshot()
   return { shown = ok and shown and true or false, element = af.element }
 end
 
--- Use RXP's own target icon, following its theme; fall back to the quest turn-in icon.
+local function usable(texture)
+  return (type(texture) == "string" and texture ~= "") or type(texture) == "number"
+end
+
+-- Use RXP's own navigation arrow, whichever theme is active: first the texture the arrow frame is
+-- drawing now, then the v1 theme texture by name. Without either it stays the quest turn-in icon.
 local function refreshIcon()
+  local af = arrowFrame()
+  if af and type(af.texture) == "table" and type(af.texture.GetTexture) == "function" then
+    local ok, texture = pcall(af.texture.GetTexture, af.texture)
+    if ok and usable(texture) then
+      ns.ICONS.rxp = texture
+      return
+    end
+  end
   local rxp = _G.RXP
-  if type(rxp) ~= "table" or type(rxp.GetV1Texture) ~= "function" then return end
-  local ok, texture = pcall(rxp.GetV1Texture, "map_active_step_target_icon")
-  if ok and type(texture) == "string" and texture ~= "" then ns.ICONS.rxp = texture end
+  if type(rxp) == "table" and type(rxp.GetV1Texture) == "function" then
+    local ok, texture = pcall(rxp.GetV1Texture, "rxp_navigation_arrow-1")
+    if ok and usable(texture) then ns.ICONS.rxp = texture end
+  end
 end
 
 local function clear()

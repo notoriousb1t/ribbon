@@ -14,7 +14,7 @@ ns.ICONS = {
   -- TomTom's own world map dot. The TomTom bridge replaces this with the dot of the theme the player
   -- chose in TomTom; this is TomTom's default (the modern green theme).
   tomtom = "Interface\\AddOns\\TomTom\\Images\\Modern\\Waypoints\\WaypointDotGreen",
-  -- RXPGuides' active step target. The RXP bridge replaces this with RXP's own icon (it follows RXP's
+  -- RXPGuides' active step target. The RXP bridge replaces this with RXP's navigation arrow (it follows RXP's
   -- theme); until then it is the quest turn-in icon.
   rxp = "Interface\\GossipFrame\\ActiveQuestIcon",
 }
@@ -22,7 +22,6 @@ ns.DEFAULT_ICON = "poi"
 
 ns.defaults = {
   compass = { shown = true, width = 600, fov = 140, locked = false, point = "TOP", relPoint = "TOP", x = 0, y = -40 },
-  guide = { shown = true, point = "TOPLEFT", relPoint = "TOPLEFT", x = 20, y = -200 },
 }
 
 ns.commands = {}

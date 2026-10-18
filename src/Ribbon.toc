@@ -3,6 +3,7 @@
 ## Notes: Compass Ribbon, Map/Minimap Pins & Waypoint Navigation HUD
 ## Author: notoriousb1t
 ## Version: 1.0.0
+## IconTexture: Interface\AddOns\Ribbon\icon
 ## SavedVariables: RibbonDB
 
 core\Core.lua
@@ -17,11 +18,7 @@ integrations\RXPTranslate.lua
 integrations\RXP.lua
 integrations\QuestTranslate.lua
 integrations\Quest.lua
-probe\Format.lua
-probe\Probe.lua
 compass\Layout.lua
 compass\Compass.lua
 map\PinManager.lua
 map\Map.lua
-guide\Rows.lua
-guide\Guide.lua

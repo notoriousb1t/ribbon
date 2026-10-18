@@ -25,7 +25,7 @@ cmds.debug = function()
   ns:Print(string.format("map %s %s, %s", tostring(mapID), tostring(x), tostring(y)))
 end
 
-local HELP = "commands: [zone] <x> <y> [description], clear, show, list, remove <uid>, compass [show|hide|toggle|lock|unlock|reset|width <n>|fov <n>], guide [show|hide|toggle], debug"
+local HELP = "commands: [zone] <x> <y> [description], clear, show, list, remove <uid>, compass [show|hide|toggle|lock|unlock|reset|width <n>|fov <n>], debug"
 
 function ns.HandleSlash(msg)
   if not ns.ready then

@@ -2,7 +2,6 @@
 return {
   "geometry",
   "layout",
-  "rows",
   "pinmanager",
   "client",
   "core",
@@ -16,10 +15,7 @@ return {
   "questtranslate",
   "quest",
   "questclient",
-  "probeformat",
-  "probe",
   "commands",
   "compass",
-  "guide",
   "map",
 }

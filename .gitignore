@@ -14,6 +14,13 @@ Thumbs.db
 luacov.*.out
 luacov.report.out
 
+# Local development probe: kept on disk for inspection work, not part of the addon or the repository.
+# To use it, add probe\Format.lua and probe\Probe.lua to src/Ribbon.toc and "probeformat" and "probe"
+# to tests/specs.lua (neither change should be committed).
+/src/probe/
+/tests/specs/probe_spec.lua
+/tests/specs/probeformat_spec.lua
+
 # Game-generated data must never be committed
 WTF/
 SavedVariables/
