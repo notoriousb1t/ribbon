@@ -28,6 +28,7 @@ Data flows one way: `Client` reads the game, `Registry` turns waypoints plus the
 ```powershell
 luajit tests/run.lua              # all specs; exit code 1 on failure (winget install DEVCOM.LuaJIT)
 luajit tests/run.lua Registry     # specs whose full name contains "Registry"
+.\package.ps1                     # output\Ribbon-<version>.zip: the TOC files, textures and icon under a Ribbon folder (output\ is git-ignored)
 ```
 
 Run the specs before every commit and after every change under `src/`.

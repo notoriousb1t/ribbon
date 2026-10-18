@@ -24,3 +24,6 @@ luacov.report.out
 # Game-generated data must never be committed
 WTF/
 SavedVariables/
+
+# Packaged addon zips (package.ps1)
+/output/
