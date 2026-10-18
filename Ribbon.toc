@@ -1,0 +1,8 @@
+﻿## Interface: 16001, 11509, 11506, 11505, 11504, 11503, 11502, 11501, 11500, 11403, 50504, 120100
+## Title: Ribbon
+## Notes: Compass Ribbon, Map/Minimap Pins & Waypoint Navigation HUD
+## Author: WoW Forever Team
+## Version: 1.0.0
+## SavedVariables: RibbonDB
+
+Ribbon.lua
