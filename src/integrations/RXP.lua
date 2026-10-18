@@ -62,12 +62,19 @@ function B.refresh()
   end
 
   local key = translate.key(req)
-  if current and current.key == key and ns:GetWaypoint(current.uid) then return end
+  local existing = current and current.key == key and ns:GetWaypoint(current.uid)
+  if existing then
+    -- The step's text changes in place as it progresses ("Kill Y (3/8)"), so update it, do not replace.
+    existing.title = ns.OneLine(req.title)
+    existing.description = ns.NormalizeDescription(req.description)
+    return
+  end
 
   clear()
   refreshIcon()
   local uid = ns:AddWaypoint(req.mapID, req.x, req.y, {
     title = req.title,
+    description = req.description,
     icon = "rxp",
     minimap = false,
     worldmap = false,

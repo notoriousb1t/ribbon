@@ -23,7 +23,7 @@ describe("Compass view", function()
       expect(parts.frame).toBe(RibbonCompass)
       expect(parts.frame:IsShown()).toBe(true)
       expect(parts.frame.SetSize).toHaveBeenCalledWith(600, 28)
-      expect(lastPoint(parts.frame)).toEqual({ "TOP", UIParent, "TOP", 0, -40 })
+      expect(lastPoint(parts.frame)).toEqual({ "TOP", UIParent, "TOP", 0, -72 })
     end)
 
     it("builds a tick for every 5 degrees and a label for each of the eight bearings", function()
@@ -93,8 +93,11 @@ describe("Compass view", function()
       ctx.ns:AddWaypoint(1453, 61.99, 70.58 + 100 / YD_PER_Y)   -- behind the player
       frameTick()
       local m = parts.markers[1]
-      expect(math.abs(lastPoint(m)[4])).toBe(300)
-      expect(m.SetAlpha).toHaveBeenCalledWith(0.5)
+      -- held inside the bar's end by half the marker, the padding and the arrow
+      local cfg = ctx.ns.compassStyle.marker
+      local size = ctx.ns.compassLayout.markerSize(ctx.ns:GetWaypoint(1).dist, false, cfg)
+      expect(math.abs(lastPoint(m)[4])).toBeCloseTo(300 - (size / 2 + cfg.pad + cfg.arrow + 1), 6)
+      expect(m.SetAlpha).toHaveBeenCalledWith(cfg.edgeAlpha)
     end)
 
     it("sets the icon texture for the waypoint", function()
@@ -151,20 +154,6 @@ describe("Compass view", function()
       frameTick()
       parts.markers[1]:Trigger("OnClick", "RightButton")
       expect(ctx.ns:GetWaypoint(uid).visible).toBe(false)
-    end)
-  end)
-
-  describe("coordinate badge", function()
-    it("shows the player's map coordinates", function()
-      ctx.world:update(0.11)
-      expect(parts.badge.SetText).toHaveBeenCalledWith("61.99, 70.58")
-    end)
-
-    it("is empty when no position is available", function()
-      ctx.world.player.noPosition = true
-      ctx.world:update(0.11)
-      local calls = parts.badge.SetText.calls
-      expect(calls[#calls][1]).toBe("")
     end)
   end)
 

@@ -1,0 +1,65 @@
+-- Compass style: the look of the bar as plain data (colours, sizes, texture paths). No frames.
+-- The bar is the logo's ribbon: a teal band with swallowtail ends, cream ticks and labels, and a
+-- compass dial under its bottom edge whose needle always points to due north (the coordinates are in the
+-- dial's tooltip). The textures are image files in src/textures in the same shapes and
+-- palette as the logo.
+local ADDON, ns = ...
+
+local S = {}
+ns.compassStyle = S
+
+local DIR = "Interface\\AddOns\\Ribbon\\textures\\"
+
+S.textures = {
+  capLeft = DIR .. "ribbon-cap-left",
+  capRight = DIR .. "ribbon-cap-right",
+  dial = DIR .. "compass-dial",
+  needle = DIR .. "compass-needle",
+  edgeArrow = DIR .. "edge-arrow",   -- points right; the view flips it for the left end
+}
+
+-- Texture file names (without extension) under src/textures; the specs check they exist.
+S.textureFiles = { "ribbon-cap-left", "ribbon-cap-right", "compass-dial", "compass-needle", "edge-arrow" }
+
+-- Swallowtail end caps, in display pixels. The left cap's box starts `leftEdge` pixels left of the
+-- bar; the right cap's box mirrors it, so it starts `rightEdge` pixels left of the bar's right edge.
+S.cap = { width = 32, height = 40, leftEdge = 18, rightEdge = 14 }
+
+-- The dial hangs under the bar, `gap` pixels below its bottom edge; the caption sits above the bar.
+S.dial = { size = 36, gap = 1 }
+S.band = { highlight = 2, shadow = 2 }
+
+-- Waypoint markers grow as you get close and shrink with distance (pixels). At `nearYd` yards or
+-- closer a marker is `max` (taller than the 28 px ribbon, so it stands out of the band); at `farYd` or
+-- beyond it is `min`; in between the size follows the logarithm of the distance, so each doubling of
+-- distance shrinks it by the same amount. `default` is used when the distance is unknown.
+-- The focused marker is `focusBoost` pixels larger than it would be otherwise.
+-- A marker for a waypoint outside the view is held near the end of the bar, `edgeAlpha` opaque, with an
+-- arrow `arrow` pixels wide pointing the way; `pad` pixels keep marker and arrow off the ribbon's tail.
+S.marker = {
+  min = 18, max = 38, nearYd = 15, farYd = 1200, default = 20, focusBoost = 4,
+  pad = 3, arrow = 14, edgeAlpha = 0.7,
+}
+
+-- Direction labels (N, NE, ...): font pixels. They are outlined and shadowed to stand out.
+S.labelSize = 12
+
+-- How see-through the ribbon is (1 = solid). The default is also in core/Core.lua's saved defaults.
+S.opacity = { default = 0.75, min = 0.2, max = 1 }
+
+-- The caption above the bar: a headline (name and distance) and a short description, on a dark plate
+-- so they stay readable over any scenery. Sizes are font pixels; pad is plate padding.
+S.caption = { headSize = 13, detailSize = 11, padX = 10, padY = 4, gap = 4, lineGap = 1, minWidth = 120 }
+
+-- r, g, b, a
+S.colors = {
+  captionPlate = { 0.051, 0.212, 0.275, 0.88 },   -- the logo's dark teal
+  detail = { 0.953, 0.918, 0.824, 1 },            -- description text: cream
+  band = { 0.122, 0.478, 0.600, 0.92 },       -- #1f7a99
+  highlight = { 0.165, 0.576, 0.710, 1 },     -- #2a93b5
+  shadow = { 0.051, 0.212, 0.275, 1 },        -- #0d3646
+  gold = { 0.914, 0.725, 0.286, 1 },          -- #e9b949
+  cream = { 0.953, 0.918, 0.824, 1 },         -- #f3ead2
+  north = { 0.886, 0.341, 0.298, 1 },         -- #e2574c
+  notch = { 0.953, 0.918, 0.824, 0.9 },
+}

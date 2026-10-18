@@ -37,17 +37,44 @@ function L.scale(heading, fov, width)
   return ticks, labels
 end
 
+-- Marker size in pixels for a distance in yards. cfg = { min, max, nearYd, farYd, default, focusBoost }
+-- (compass/Style.lua). Closer is bigger: `max` up to nearYd, `min` from farYd, logarithmic between.
+function L.markerSize(dist, focused, cfg)
+  local size
+  if type(dist) ~= "number" then
+    size = cfg.default
+  else
+    local near, far = math.log(cfg.nearYd), math.log(cfg.farYd)
+    local t = (math.log(math.max(dist, cfg.nearYd)) - near) / (far - near)
+    if t < 0 then t = 0 elseif t > 1 then t = 1 end
+    size = cfg.max - (cfg.max - cfg.min) * t
+  end
+  if focused then size = size + cfg.focusBoost end
+  return floor(size + 0.5)
+end
+
 -- Marker placements for waypoints (nearest first, as returned by ns:Sorted()).
--- Returns an array of { wp, x, edge } (at most max) and the waypoint to caption (focus, else nearest).
-function L.markers(list, fovDeg, width, max, focusUID)
+-- Returns an array of { wp, x, edge, side, focused, size } (at most max, plus the focused waypoint when
+-- it is beyond the limit) and the waypoint to caption (the focused one, else the nearest). `side` is
+-- "left" or "right" for a waypoint outside the field of view, which gets an arrow pointing that way.
+-- `cfg` is the marker configuration (compass/Style.lua): sizes, and `pad` and `arrow`, which keep a
+-- marker and its arrow inside the bar. Without it every marker is 20 px (26 when focused) and may sit
+-- on the very end of the bar.
+function L.markers(list, fovDeg, width, max, focusUID, cfg)
   local fovRad = rad(fovDeg)
+  local limit = max or L.MAX_MARKERS
+  local sizing = cfg or { min = 20, max = 20, nearYd = 1, farYd = 2, default = 20, focusBoost = 6 }
   local placements, label = {}, nil
   for _, wp in ipairs(list) do
-    if #placements >= (max or L.MAX_MARKERS) then break end
-    if wp.compass and wp.delta then
-      local x, edge = ns.geometry.markerOffset(wp.delta, fovRad, width)
-      placements[#placements + 1] = { wp = wp, x = x, edge = edge }
-      if not label or wp.uid == focusUID then label = wp end
+    local focused = focusUID ~= nil and wp.uid == focusUID
+    if wp.compass and wp.delta and (#placements < limit or focused) then
+      local size = L.markerSize(wp.dist, focused, sizing)
+      local inset = (cfg and cfg.arrow) and (size / 2 + cfg.pad + cfg.arrow + 1) or 0
+      local x, edge, side = ns.geometry.markerOffset(wp.delta, fovRad, width, inset)
+      placements[#placements + 1] = {
+        wp = wp, x = x, edge = edge, side = side, focused = focused, size = size,
+      }
+      if not label or focused then label = wp end
     end
   end
   return placements, label
@@ -56,6 +83,64 @@ end
 function L.targetText(wp)
   if not wp or not wp.dist then return "" end
   return string.format("%s - %d yd%s", wp.title, wp.dist, wp.arrived and " (arrived)" or "")
+end
+
+-- Text cut to at most max bytes, ending in "..." when something was removed. A cut never leaves half
+-- of a multi-byte (UTF-8) character behind.
+function L.shorten(text, max)
+  if #text <= max then return text end
+  local cut = text:sub(1, max - 3)
+  -- Drop an incomplete trailing UTF-8 sequence (a lead byte without all its continuation bytes).
+  for back = 1, math.min(3, #cut) do
+    local byte = cut:byte(#cut - back + 1)
+    if byte >= 0xC0 then
+      local need = byte >= 0xF0 and 4 or (byte >= 0xE0 and 3 or 2)
+      if back < need then cut = cut:sub(1, #cut - back) end
+      break
+    elseif byte < 0x80 then
+      break
+    end
+  end
+  return cut:gsub("%s+$", "") .. "..."
+end
+
+L.DETAIL_LINES = 2
+L.DETAIL_WIDTH = 70
+
+-- The short description shown under the bar: up to DETAIL_LINES lines, each cut to DETAIL_WIDTH.
+function L.details(wp)
+  local out = {}
+  if not wp or type(wp.description) ~= "table" then return out end
+  for i = 1, math.min(#wp.description, L.DETAIL_LINES) do
+    out[i] = L.shorten(wp.description[i], L.DETAIL_WIDTH)
+  end
+  return out
+end
+
+local POINTS = { "N", "NE", "E", "SE", "S", "SW", "W", "NW" }
+
+-- Compass heading in degrees clockwise from north (0-360, from geometry.heading's -180..180) and its
+-- eight-point name ("NE").
+function L.headingDegrees(heading)
+  local d = heading % 360
+  return d
+end
+
+function L.compassPoint(degrees)
+  local d = degrees % 360
+  return POINTS[math.floor((d + 22.5) / 45) % 8 + 1]
+end
+
+-- The dial's tooltip: coordinates as the title, then the zone and the heading. Position missing
+-- (indoors, loading) gives "Position unavailable".
+function L.coordinateTooltip(zoneName, x, y, heading)
+  local lines = {}
+  if zoneName and zoneName ~= "" then lines[#lines + 1] = zoneName end
+  if heading then
+    local d = L.headingDegrees(heading)
+    lines[#lines + 1] = string.format("Facing %s (%d degrees)", L.compassPoint(d), math.floor(d + 0.5) % 360)
+  end
+  return { title = x and L.coordsText(x, y) or "Position unavailable", lines = lines }
 end
 
 function L.coordsText(x, y)

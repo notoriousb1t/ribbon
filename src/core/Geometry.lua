@@ -36,14 +36,18 @@ function geo.bearing(playerFirst, playerSecond, targetFirst, targetSecond, facin
   return dist, geo.wrap(atan2(d2, d1) - facing)
 end
 
--- Horizontal offset in pixels from the bar centre for a delta (positive = right), and whether the
--- marker was clamped to an edge because it is outside the field of view.
-function geo.markerOffset(delta, fovRad, width)
-  local half, halfWidth = fovRad / 2, width / 2
-  local x = -delta / half * halfWidth
-  if x > halfWidth then return halfWidth, true end
-  if x < -halfWidth then return -halfWidth, true end
-  return x, abs(delta) > half
+-- Horizontal offset in pixels from the bar centre for a delta (positive = right), whether the marker
+-- is outside the field of view (then it is held at the end of the bar), and on which side that is
+-- ("left" or "right"; nil when inside the field of view). `inset` keeps markers that many pixels
+-- away from the bar's ends so a marker and its off-screen arrow fit inside the bar (default 0).
+function geo.markerOffset(delta, fovRad, width, inset)
+  local half = fovRad / 2
+  local limit = width / 2 - (inset or 0)
+  local x = -delta / half * (width / 2)
+  if x > limit then x = limit elseif x < -limit then x = -limit end
+  local edge = abs(delta) > half
+  local side = edge and (delta > 0 and "left" or "right") or nil
+  return x, edge, side
 end
 
 function geo.clamp(v, lo, hi)

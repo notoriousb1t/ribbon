@@ -19,6 +19,7 @@ integrations\RXP.lua
 integrations\QuestTranslate.lua
 integrations\Quest.lua
 compass\Layout.lua
+compass\Style.lua
 compass\Compass.lua
 map\PinManager.lua
 map\Map.lua

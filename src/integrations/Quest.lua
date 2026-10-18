@@ -27,13 +27,22 @@ function B.refresh()
     return
   end
 
-  local icon = translate.iconFor(point, ns.client.questObjectives(questID))
+  local objectives = ns.client.questObjectives(questID)
+  local icon = translate.iconFor(point, objectives)
+  local description = translate.description(objectives)
   local key = translate.key(questID, mapID, point.x, point.y, icon)
-  if current and current.key == key and ns:GetWaypoint(current.uid) then return end
+
+  local existing = current and current.key == key and ns:GetWaypoint(current.uid)
+  if existing then
+    -- Progress ("3/8") changes the text every kill; update it in place instead of replacing the marker.
+    existing.description = ns.NormalizeDescription(description)
+    return
+  end
 
   clear()
   local uid = ns:AddWaypoint(mapID, point.x, point.y, {
     title = ns.client.questTitle(questID) or ("Quest " .. questID),
+    description = description,
     icon = icon,
     minimap = false,
     worldmap = false,

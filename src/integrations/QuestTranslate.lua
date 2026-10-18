@@ -29,6 +29,24 @@ function T.iconFor(point, objectives)
   return "turnin"
 end
 
+-- Short description lines for the caption: the unfinished objectives ("Boar slain: 3/8"); when every
+-- objective is done, the quest's own hand-in text (log objectives, "Bring X to Y"), else "Ready to
+-- turn in". Empty when the quest has no objectives.
+function T.description(objectives)
+  local all = type(objectives) == "table" and objectives or {}
+  local lines = {}
+  local function text(o) return type(o.text) == "string" and o.text ~= "" and o.text or nil end
+  for _, o in ipairs(all) do
+    if not o.finished and text(o) then lines[#lines + 1] = text(o) end
+  end
+  if #lines > 0 then return lines end
+  for _, o in ipairs(all) do
+    if o.type == "log" and text(o) then lines[#lines + 1] = text(o) end
+  end
+  if #lines == 0 and #all > 0 then lines[1] = "Ready to turn in" end
+  return lines
+end
+
 -- Identity of what is mirrored; a change replaces the Ribbon waypoint.
 function T.key(questID, mapID, x, y, icon)
   return string.format("%d:%d:%.2f:%.2f:%s", questID, mapID, x, y, icon)

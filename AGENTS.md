@@ -4,11 +4,11 @@ WoW addon for the Forever beta client (build `1.60.1 / 70450 / 16001`): compass 
 
 ## Layout
 
-- `src/` is the addon. Only this folder ships: copy it to `Interface\AddOns\Ribbon` (the folder name must match `Ribbon.toc`). A new file needs a full client restart, not `/reload`.
+- `src/` is the addon (with `src/textures/`, built by the asset scripts). Only this folder ships: copy it to `Interface\AddOns\Ribbon` (the folder name must match `Ribbon.toc`). A new file needs a full client restart, not `/reload`.
 - `tests/` is the test suite (runner, jasmine-style framework, fakes, specs). It never ships.
 - `README.md` is for players and addon authors; keep developer detail here.
 - `src/probe/` (the `/ribbonprobe` inspection tool) is git-ignored and not in the TOC; see `.gitignore` to enable it locally.
-- `assets/` holds the logo: `powershell -NoProfile -ExecutionPolicy Bypass -File assets/build-logo.ps1` rebuilds `assets/logo.svg`, `assets/logo.png` and `src/icon.tga` (the addon list icon) from one shape list.
+- `assets/` holds the logo (`logo.svg`, `logo.png`) and the README screenshot. The textures in `src/textures/` and `src/icon.tga` are plain image files in the logo's colours; there is no build step, edit or replace them directly (32-bit uncompressed TGA, power-of-two sizes, top-left origin). Colours, sizes and texture paths live in `src/compass/Style.lua`; `tests/specs/style_spec.lua` checks that every texture it names exists.
 
 ```
 src/
@@ -16,7 +16,7 @@ src/
   core/                 Core (events, tickers, saved variables, start-up), Client (the only game-API adapter),
                         Geometry (pure math), Registry (waypoint model, API, distance, arrival),
                         Coordinates (/ribbon text parsing, zone lookup), Commands (/ribbon)
-  compass/              Layout (pure placement), Compass (view)
+  compass/              Layout (pure placement), Style (colours, sizes, texture paths), Compass (view)
   map/                  PinManager (pin bookkeeping, library injected), Map (wiring, Clear Pins button)
   integrations/         TomTom, RXP, Quest bridges, each with a pure Translate module
 ```

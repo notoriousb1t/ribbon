@@ -8,6 +8,32 @@ local sorted = {}
 
 local function opt(v) return v ~= false end
 
+-- Text on a single line: line breaks become spaces, so a title with an embedded newline cannot push the
+-- distance onto a second line of the caption.
+function ns.OneLine(text)
+  local out = tostring(text):gsub("%s*[\r\n]+%s*", " "):gsub("^%s+", ""):gsub("%s+$", "")
+  return out
+end
+
+-- A description as a list of non-empty lines: a string (split on newlines) or a list of strings.
+function ns.NormalizeDescription(value)
+  local out = {}
+  local function add(text)
+    for line in tostring(text):gmatch("[^\r\n]+") do
+      line = line:gsub("^%s+", ""):gsub("%s+$", "")
+      if line ~= "" then out[#out + 1] = line end
+    end
+  end
+  if type(value) == "string" then
+    add(value)
+  elseif type(value) == "table" then
+    for _, v in ipairs(value) do
+      if type(v) == "string" then add(v) end
+    end
+  end
+  return out
+end
+
 -- Public API ---------------------------------------------------------------
 
 -- Returns a unique integer uid, or nil for any bad argument.
@@ -24,8 +50,9 @@ function ns:AddWaypoint(mapID, x, y, options)
     uid = nextUID,
     mapID = mapID, x = x, y = y,
     first = first, second = second, instance = instance,
-    title = tostring(options.title or "Waypoint"),
+    title = ns.OneLine(options.title or "Waypoint"),
     icon = ns.ICONS[options.icon] and options.icon or ns.DEFAULT_ICON,
+    description = ns.NormalizeDescription(options.description),   -- short text shown under the bar
     lines = type(options.lines) == "table" and options.lines or nil,
     minimap = opt(options.minimap), worldmap = opt(options.worldmap), compass = opt(options.compass),
     radius = tonumber(options.arrival_distance) or 5,
@@ -56,6 +83,7 @@ function ns:SetWaypointVisible(uid, isVisible)
   isVisible = isVisible and true or false
   if wp.visible == isVisible then return end
   wp.visible = isVisible
+  if not isVisible and ns.focus == uid then ns:SetFocus(nil) end   -- a hidden waypoint cannot stay focused
   ns:Fire("WAYPOINT_CHANGED", wp)
 end
 
