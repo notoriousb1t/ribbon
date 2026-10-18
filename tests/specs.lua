@@ -1,0 +1,15 @@
+-- Spec files run by tests/run.lua, in order (tests/specs/<name>_spec.lua).
+return {
+  "geometry",
+  "layout",
+  "rows",
+  "pinmanager",
+  "client",
+  "core",
+  "registry",
+  "tomtom",
+  "commands",
+  "compass",
+  "guide",
+  "map",
+}

@@ -4,5 +4,17 @@
 ## Author: notoriousb1t
 ## Version: 1.0.0
 ## SavedVariables: RibbonDB
+## OptionalDeps: TomTom
 
-Ribbon.lua
+core\Core.lua
+core\Client.lua
+core\Geometry.lua
+core\Registry.lua
+core\TomTom.lua
+core\Commands.lua
+compass\Layout.lua
+compass\Compass.lua
+map\PinManager.lua
+map\Map.lua
+guide\Rows.lua
+guide\Guide.lua

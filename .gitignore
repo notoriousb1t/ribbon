@@ -1,0 +1,19 @@
+# Editor and OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.swp
+
+# Scratch and backups
+*.bak
+*.tmp
+/tmp/
+
+# Test tooling output
+luacov.*.out
+luacov.report.out
+
+# Game-generated data must never be committed
+WTF/
+SavedVariables/

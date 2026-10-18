@@ -1,0 +1,113 @@
+local H = require("tests.helpers.addon")
+
+describe("Compass layout", function()
+  local ns = H.pure({ "core/Geometry.lua", "compass/Layout.lua" })
+  local L = ns.compassLayout
+
+  describe("scale", function()
+    it("labels north at the centre when heading north", function()
+      local _, labels = L.scale(0, 140, 600)
+      expect(labels[0].name).toBe("N")
+      expect(labels[0].x).toBe(0)
+    end)
+
+    it("shows only labels inside the field of view", function()
+      local _, labels = L.scale(0, 140, 600)
+      expect(labels[45]).toBeTruthy()   -- NE at +45 degrees
+      expect(labels[315]).toBeTruthy()  -- NW at -45 degrees
+      expect(labels[90]).toBeNil()      -- E at +90 is outside +/-70
+      expect(labels[180]).toBeNil()
+    end)
+
+    it("moves labels left as heading turns clockwise", function()
+      local _, labels = L.scale(45, 140, 600)
+      expect(labels[45].x).toBe(0)
+      expect(labels[0].x).toBeLessThan(0)
+      expect(labels[90].x).toBeGreaterThan(0)
+    end)
+
+    it("draws major ticks every 15 degrees and minor ticks every 5", function()
+      local ticks = L.scale(0, 140, 600)
+      -- index 4 = heading 15 (major), index 3 = heading 10 (minor)
+      expect(ticks[4].height).toBe(12)
+      expect(ticks[3].height).toBe(6)
+      expect(ticks[4].alpha).toBeGreaterThan(ticks[3].alpha)
+    end)
+
+    it("leaves tick slots empty where a label is drawn or the view ends", function()
+      local ticks = L.scale(0, 140, 600)
+      expect(ticks[1]).toBe(false)    -- heading 0 is the N label
+      expect(ticks[37]).toBe(false)   -- heading 180, far outside the view
+    end)
+
+    it("scales offsets with the bar width", function()
+      local _, narrow = L.scale(0, 140, 500)
+      local _, wide = L.scale(0, 140, 800)
+      expect(math.abs(wide[45].x)).toBeGreaterThan(math.abs(narrow[45].x))
+    end)
+
+    it("wraps across north", function()
+      local _, labels = L.scale(350, 140, 600)
+      expect(labels[0].x).toBeGreaterThan(0)
+    end)
+  end)
+
+  describe("markers", function()
+    local function wp(uid, delta, extra)
+      local t = { uid = uid, delta = delta, compass = true, dist = 10 * uid, title = "wp" .. uid }
+      for k, v in pairs(extra or {}) do t[k] = v end
+      return t
+    end
+
+    it("places markers left for positive delta and right for negative", function()
+      local placements = L.markers({ wp(1, math.rad(35)), wp(2, math.rad(-35)) }, 140, 600)
+      expect(placements[1].x).toBeCloseTo(-150, 6)
+      expect(placements[2].x).toBeCloseTo(150, 6)
+      expect(placements[1].edge).toBe(false)
+    end)
+
+    it("clamps and flags markers outside the field of view", function()
+      local placements = L.markers({ wp(1, math.rad(120)) }, 140, 600)
+      expect(placements[1].x).toBe(-300)
+      expect(placements[1].edge).toBe(true)
+    end)
+
+    it("skips waypoints without a delta or with compass disabled", function()
+      local placements = L.markers({ wp(1, nil), wp(2, 0, { compass = false }), wp(3, 0) }, 140, 600)
+      expect(#placements).toBe(1)
+      expect(placements[1].wp.uid).toBe(3)
+    end)
+
+    it("draws at most max markers", function()
+      local list = {}
+      for i = 1, 30 do list[i] = wp(i, 0) end
+      expect(#(L.markers(list, 140, 600))).toBe(L.MAX_MARKERS)
+      expect(#(L.markers(list, 140, 600, 5))).toBe(5)
+    end)
+
+    it("captions the nearest waypoint, or the focused one", function()
+      local list = { wp(1, 0), wp(2, 0), wp(3, 0) }
+      local _, nearest = L.markers(list, 140, 600)
+      expect(nearest.uid).toBe(1)
+      local _, focused = L.markers(list, 140, 600, 20, 3)
+      expect(focused.uid).toBe(3)
+    end)
+  end)
+
+  describe("text", function()
+    it("formats the target caption", function()
+      expect(L.targetText({ title = "Anvil", dist = 123.7 })).toBe("Anvil - 123 yd")
+      expect(L.targetText({ title = "Anvil", dist = 2, arrived = true })).toBe("Anvil - 2 yd (arrived)")
+    end)
+
+    it("is empty without a waypoint or distance", function()
+      expect(L.targetText(nil)).toBe("")
+      expect(L.targetText({ title = "x" })).toBe("")
+    end)
+
+    it("formats coordinates to one decimal", function()
+      expect(L.coordsText(61.99, 70.58)).toBe("62.0, 70.6")
+      expect(L.coordsText(nil, nil)).toBe("")
+    end)
+  end)
+end)
