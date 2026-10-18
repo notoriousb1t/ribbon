@@ -1,6 +1,6 @@
 # Ribbon
 
-WoW addon for the Forever beta client (build `1.60.1 / 70450 / 16001`): compass ribbon, map and minimap pins, waypoint API, TomTom shim, guide tracking frame. Lua 5.1 semantics (WoW and LuaJIT).
+WoW addon for the Forever beta client (build `1.60.1 / 70450 / 16001`): compass ribbon, map and minimap pins, waypoint API, guide tracking frame. Lua 5.1 semantics (WoW and LuaJIT).
 
 ## Layout
 
@@ -21,6 +21,8 @@ Run the specs before every commit and after every change under `src/`.
 ## Rules
 
 - **Client boundary:** Only `src/core/Client.lua` calls position and map APIs (`UnitPosition`, `GetPlayerFacing`, `C_Map.*`). Everything else calls `ns.client`.
+- **Probe module:** `src/probe/` is the development inspection tool (`/ribbonprobe`). It is exempt from the client boundary because it calls arbitrary APIs. Add a probe with `ns.probe.register(name, description, fn(args, env))`; `env` is `_G` in game and a fake table in specs, so probes are specced against fake environments.
+- **Integration boundary:** Only `src/integrations/` touches other addons' globals (TomTom, RXPGuides, HereBeDragons). Observe them with `hooksecurefunc`; never replace their functions or install their globals. Translation of their arguments stays pure (`TomTomTranslate.lua`).
 - **Pure logic:** Math, layout and row/model code (`core/Geometry.lua`, `compass/Layout.lua`, `guide/Rows.lua`, `map/PinManager.lua`) take plain values and touch no frames or client globals. Keep new logic there and keep the views (`Compass.lua`, `Guide.lua`, `Map.lua`) thin.
 - **Fail soft:** Public API calls validate arguments and return `nil` on bad input. Never raise to a caller. Handler and ticker errors go to `geterrorhandler()`.
 - **Load order:** `src/Ribbon.toc` is the single source of load order; the specs read it. Add every new file there.

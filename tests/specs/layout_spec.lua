@@ -106,7 +106,7 @@ describe("Compass layout", function()
     end)
 
     it("formats coordinates to one decimal", function()
-      expect(L.coordsText(61.99, 70.58)).toBe("62.0, 70.6")
+      expect(L.coordsText(61.99, 70.58)).toBe("61.99, 70.58")
       expect(L.coordsText(nil, nil)).toBe("")
     end)
   end)

@@ -4,14 +4,21 @@
 ## Author: notoriousb1t
 ## Version: 1.0.0
 ## SavedVariables: RibbonDB
-## OptionalDeps: TomTom
 
 core\Core.lua
 core\Client.lua
 core\Geometry.lua
 core\Registry.lua
-core\TomTom.lua
+core\Coordinates.lua
 core\Commands.lua
+integrations\TomTomTranslate.lua
+integrations\TomTom.lua
+integrations\RXPTranslate.lua
+integrations\RXP.lua
+integrations\QuestTranslate.lua
+integrations\Quest.lua
+probe\Format.lua
+probe\Probe.lua
 compass\Layout.lua
 compass\Compass.lua
 map\PinManager.lua

@@ -70,3 +70,38 @@ function client.mapChildren(rootID)
   if ok and type(children) == "table" then return children end
   return {}
 end
+
+-- Quest tracking -------------------------------------------------------------------
+
+-- Call tbl[name](...) when both exist; returns ok and the first result.
+local function safe(tbl, name, ...)
+  if type(tbl) ~= "table" or type(tbl[name]) ~= "function" then return false end
+  local ok, result = pcall(tbl[name], ...)
+  return ok, result
+end
+
+-- The quest the player is tracking on the map (super-tracked), or nil.
+function client.superTrackedQuestID()
+  local ok, id = safe(C_SuperTrack, "GetSuperTrackedQuestID")
+  if ok and type(id) == "number" and id > 0 then return id end
+end
+
+function client.questTitle(questID)
+  local ok, title = safe(C_QuestLog, "GetTitleForQuestID", questID)
+  if ok and type(title) == "string" and title ~= "" then return title end
+end
+
+-- Quest points on a map: a list of { questID, x, y (0-1), isQuestStart, inProgress }.
+function client.questPoints(mapID)
+  local ok, list = safe(C_QuestLog, "GetQuestsOnMap", mapID)
+  if ok and type(list) == "table" then return list end
+  return {}
+end
+
+-- A quest's objectives: a list of { text, type, finished, ... }.
+function client.questObjectives(questID)
+  local ok, list = safe(C_QuestLog, "GetQuestObjectives", questID)
+  if ok and type(list) == "table" then return list end
+  return {}
+end
+

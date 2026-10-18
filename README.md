@@ -5,7 +5,9 @@ A navigation HUD for the Forever beta client (build `1.60.1 / 70450 / 16001`).
 - **Compass ribbon:** a heading bar with cardinal and ordinal labels, 5° and 15° ticks, a live coordinate badge and a marker per waypoint.
 - **Map and minimap pins:** the same waypoints on the world map and minimap, through the HereBeDragons-Pins instance already loaded by RXPGuides or Forever_Guide.
 - **Waypoint API:** register, remove, hide and track waypoints from any addon, with arrival callbacks.
-- **TomTom shim:** a `TomTom` global and `/way` when the real TomTom is not installed.
+- **TomTom bridge:** waypoints set through TomTom (by other addons or `/way`) also appear on Ribbon's compass with TomTom's own map dot (in the theme you chose in TomTom); TomTom keeps drawing its own map and minimap icons. Ribbon never installs a TomTom global or `/way`, and does nothing if TomTom is absent. Written against TomTom v4.3.12.
+- **RestedXP on the compass:** the waypoint RXPGuides is currently pointing its arrow at appears as a compass marker with RXP's own target icon. RXP keeps drawing its own arrow and map pins; Ribbon only reads it.
+- **Tracked quest on the compass:** the quest you track in the game appears as a compass marker: the quest turn-in icon for a turn-in or anything without a monster or item objective, a skull for a kill objective, a bag for an item objective, and the pick-up icon for a quest to accept.
 - **Guide tracking frame:** a small list of the nearest waypoints, with a header a guide addon can set.
 
 The core addon holds no guide logic. A guide (for example the output of the Forever Guide route engine) is just another client of the API.
@@ -22,13 +24,16 @@ Copies `src/` to `...\_classic_beta_\Interface\AddOns\Ribbon`. Pass `-AddOns "<p
 
 | Command | Effect |
 | --- | --- |
-| `/way [zone] <x> <y> [description]` | Create a waypoint (zone name optional; current zone by default) |
+| `/ribbon [zone] <x> <y> [description]` | Create a waypoint (zone name optional; current zone by default) |
 | `/ribbon clear` / `/ribbon show` | Hide / restore every waypoint |
 | `/ribbon list` | Print visible waypoints with distances |
 | `/ribbon remove <uid>` | Remove one waypoint |
 | `/ribbon compass [show\|hide\|toggle\|lock\|unlock\|reset\|width <500-800>\|fov <90-180>]` | Configure the ribbon |
 | `/ribbon guide [show\|hide\|toggle]` | Toggle the tracking frame |
 | `/ribbon debug` | Print the client's position and map for diagnosis |
+| `/ribbon tomtom` | Show whether TomTom was found, which functions are hooked and how many waypoints are mirrored |
+| `/ribbon rxp` | Show what the RestedXP arrow points at and whether it is mirrored |
+| `/ribbonprobe [name] [args]` | Development inspection (also `/ribbon probe ...`): run a probe, print the result and save it to `RibbonDB.probes`. Probes: `quest`, `player`, `navigation`, `apis`, `dump`, `addons` |
 
 Right-click any marker or pin to hide that waypoint on every surface. The world map has a **Clear Pins** button. Drag the ribbon or the tracking frame to move them; `lock` pins the ribbon.
 
@@ -68,7 +73,14 @@ src/
     Client.lua        the only module that calls position and map APIs
     Geometry.lua      pure math: wrap, heading, bearing, marker offset
     Registry.lua      waypoint model, public API, distance and arrival
-    TomTom.lua        TomTom global and /way
+    Coordinates.lua   "/ribbon [zone] x y [desc]" parsing and zone-name lookup
+  integrations/
+    TomTomTranslate.lua  pure: TomTom data (AddWaypoint arguments, waypoint handles) to waypoint requests
+    TomTom.lua        hooks AddWaypoint, RemoveWaypoint and ClearWaypoint and mirrors waypoints
+    RXPTranslate.lua  pure: the RXP arrow target (zone, x, y, title) to a waypoint request
+    RXP.lua           reads the RXPG_ARROW frame and mirrors its target as a compass waypoint
+    QuestTranslate.lua  pure: quest points and the icon for a quest state
+    Quest.lua         mirrors the tracked quest as a compass waypoint
     Commands.lua      /ribbon
   compass/
     Layout.lua        pure: heading scale and marker placement
@@ -76,6 +88,9 @@ src/
   map/
     PinManager.lua    pure(ish): keeps pins in step with waypoints; library and factory injected
     Map.lua           wiring: pin frames, HereBeDragons-Pins, Clear Pins button
+  probe/
+    Format.lua        pure: serialize values for probe output
+    Probe.lua         /ribbonprobe: probe registry, saved results, built-in probes
   guide/
     Rows.lua          pure: tracking-frame rows
     Guide.lua         view: the tracking frame
@@ -96,7 +111,7 @@ All geometry uses world yards, never normalized map coordinates (a zone map is n
 
 ### Client facts
 
-The client exposes the modern `C_Map` API and map data providers (`WorldMapFrame.pinPools`); `GetPlayerMapPosition` is absent. Whether `WORLD_MAP_UPDATE` fires was not probed, and the addon does not depend on it. `TomTom` is not preinstalled. `UnitPosition` Z read `0` in every sample taken (two Stormwind spots, one of them the canal), so elevation chevrons are on hold until a re-probe shows otherwise. Pins use `LibStub("HereBeDragons-Pins-2.0")`, which RXPGuides or Forever_Guide already load; if it is missing, pins are disabled and the ribbon still works.
+The client exposes the modern `C_Map` API and map data providers (`WorldMapFrame.pinPools`); `GetPlayerMapPosition` is absent. Whether `WORLD_MAP_UPDATE` fires was not probed, and the addon does not depend on it. `UnitPosition` Z read `0` in every sample taken (two Stormwind spots, one of them the canal), so elevation chevrons are on hold until a re-probe shows otherwise. Pins use `LibStub("HereBeDragons-Pins-2.0")`, which RXPGuides or Forever_Guide already load; if it is missing, pins are disabled and the ribbon still works.
 
 ## Tests
 
@@ -116,18 +131,17 @@ How it is organised, in the style of jasmine:
 - `tests/framework/spy.lua`: spies with `andReturn`, `andCall`, `andCallThrough`; `spyOn(obj, "method")` is restored after each spec.
 - `tests/fakes/wow.lua`: a fake client. A controllable world (maps with measured Stormwind and Eastern Kingdoms bounds, player position and facing, missing-API simulation) and recording frames where every method is a spy, so specs verify calls such as `expect(frame.SetPoint).toHaveBeenCalledWith("CENTER", parent, "CENTER", x, 0)`.
 - `tests/helpers/addon.lua`: loads `src/` files in TOC order into a fresh namespace per spec (`H.use{ boot = true }`), or just the pure modules (`H.pure{...}`).
-- `tests/specs/*_spec.lua`, listed in `tests/specs.lua`: geometry, layout, rows, pin manager, client, core, registry, TomTom, commands, and the compass, guide and map views.
+- `tests/specs/*_spec.lua`, listed in `tests/specs.lua`: geometry, layout, rows, pin manager, client, core, registry, coordinates, TomTom translation and bridge, RXP translation and bridge, probe, commands, and the compass, guide and map views.
 
 The pure modules are tested with plain values. The adapter (`Client.lua`) and the views are tested against the fakes. Real frame layout and HereBeDragons rendering still need a check in the game.
 
 ## Status and roadmap
 
-Implemented and covered by the specs, but not yet run in the game client: registry and API, ribbon, map and minimap pins (via HereBeDragons-Pins), dismissal controls, TomTom layer, tracking frame, `/ribbon` commands, saved ribbon position, width, FOV and lock.
+Implemented and covered by the specs, but not yet run in the game client: registry and API, ribbon, map and minimap pins (via HereBeDragons-Pins), dismissal controls, text coordinates, tracking frame, `/ribbon` commands, saved ribbon position, width, FOV and lock.
 
 Notes:
 
 - The tracking frame (`guide/`) ships in the addon. A separate guide addon can drive it through the API.
-- `TomTom:AddWaypoint(x, y, desc)` follows real TomTom (current zone); `AddZWaypoint` accepts a `uiMapID` as the zone and returns `nil` for continent and zone-index pairs it cannot resolve.
 - Arrival runs on the 30 Hz geometry tick; the minimap rim clamp and rotation are handled by HereBeDragons-Pins.
 
 Not yet:

@@ -60,5 +60,5 @@ end
 
 function L.coordsText(x, y)
   if not x then return "" end
-  return string.format("%.1f, %.1f", x, y)
+  return string.format("%.2f, %.2f", x, y)
 end

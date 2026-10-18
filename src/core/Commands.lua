@@ -13,7 +13,7 @@ cmds.list = function()
   local n = 0
   for _, wp in ipairs(ns:Sorted()) do
     n = n + 1
-    ns:Print(string.format("#%d %s (%d, %.1f %.1f) %s", wp.uid, wp.title, wp.mapID, wp.x, wp.y,
+    ns:Print(string.format("#%d %s (%d, %.2f %.2f) %s", wp.uid, wp.title, wp.mapID, wp.x, wp.y,
       wp.dist and string.format("%d yd", wp.dist) or "no distance"))
   end
   if n == 0 then ns:Print("no visible waypoints.") end
@@ -25,7 +25,7 @@ cmds.debug = function()
   ns:Print(string.format("map %s %s, %s", tostring(mapID), tostring(x), tostring(y)))
 end
 
-local HELP = "commands: clear, show, list, remove <uid>, compass [show|hide|toggle|lock|unlock|reset|width <n>|fov <n>], guide [show|hide|toggle], debug"
+local HELP = "commands: [zone] <x> <y> [description], clear, show, list, remove <uid>, compass [show|hide|toggle|lock|unlock|reset|width <n>|fov <n>], guide [show|hide|toggle], debug"
 
 function ns.HandleSlash(msg)
   if not ns.ready then
@@ -35,7 +35,13 @@ function ns.HandleSlash(msg)
   end
   local cmd, args = string.match(msg or "", "^(%S*)%s*(.-)$")
   local fn = cmds[string.lower(cmd or "")]
-  if fn then fn(args) else ns:Print(HELP) end
+  if fn then
+    fn(args)
+  elseif ns.ParseCoords(msg) then
+    ns.HandleCoords(msg)   -- "/ribbon [zone] x y [desc]" creates a waypoint
+  else
+    ns:Print(HELP)
+  end
 end
 
 SLASH_RIBBON1 = "/ribbon"

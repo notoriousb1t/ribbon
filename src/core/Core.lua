@@ -11,6 +11,12 @@ ns.ICONS = {
   loot = "Interface\\Icons\\INV_Misc_Bag_08",
   grind = "Interface\\Icons\\Ability_DualWield",
   poi = "Interface\\Icons\\INV_Misc_Map_01",
+  -- TomTom's own world map dot. The TomTom bridge replaces this with the dot of the theme the player
+  -- chose in TomTom; this is TomTom's default (the modern green theme).
+  tomtom = "Interface\\AddOns\\TomTom\\Images\\Modern\\Waypoints\\WaypointDotGreen",
+  -- RXPGuides' active step target. The RXP bridge replaces this with RXP's own icon (it follows RXP's
+  -- theme); until then it is the quest turn-in icon.
+  rxp = "Interface\\GossipFrame\\ActiveQuestIcon",
 }
 ns.DEFAULT_ICON = "poi"
 

@@ -43,7 +43,10 @@ local function newObject(world, kind)
     GetFrameLevel = function(self) return self.state.level end,
     SetScript = function(self, name, fn) self.state.scripts[name] = fn end,
     GetScript = function(self, name) return self.state.scripts[name] end,
-    RegisterEvent = function(self, e) self.state.events[e] = true end,
+    RegisterEvent = function(self, e)
+      if world.unknownEvents and world.unknownEvents[e] then error("Attempt to register unknown event \"" .. e .. "\"") end
+      self.state.events[e] = true
+    end,
     UnregisterAllEvents = function(self) self.state.events = {} end,
     SetParent = function(self, p) self.state.parent = p end,
     GetParent = function(self) return self.state.parent end,
@@ -161,7 +164,9 @@ function Fake.install()
   for k, v in pairs(_G) do snapshot[k] = v end
 
   local world = setmetatable({
-    objects = {}, maps = {}, libs = {}, printed = {}, errors = {},
+    objects = {}, maps = {}, libs = {}, printed = {}, errors = {}, unknownEvents = {},
+    -- tracked: super-tracked questID; points[mapID] = { { questID, x, y (0-1), isQuestStart, inProgress } };
+    quest = { tracked = 0, titles = {}, points = {}, objectives = {} },
     player = { first = 0, second = 0, instance = 0, facing = 0, mapID = nil, noPosition = false },
   }, World)
 
@@ -223,6 +228,16 @@ function Fake.install()
     end,
   }
 
+  -- Quest tracking: the tracked quest, its title, map points and objectives.
+  _G.C_SuperTrack = {
+    GetSuperTrackedQuestID = function() return world.quest.tracked end,
+  }
+  _G.C_QuestLog = {
+    GetTitleForQuestID = function(id) return world.quest.titles[id] end,
+    GetQuestsOnMap = function(mapID) return world.quest.points[mapID] or {} end,
+    GetQuestObjectives = function(id) return world.quest.objectives[id] or {} end,
+  }
+
   -- Chat, slash commands, libraries
   _G.SlashCmdList = {}
   _G.hash_SlashCmdList = {}
@@ -234,6 +249,20 @@ function Fake.install()
   _G.geterrorhandler = function() return function(err) world.errors[#world.errors + 1] = err end end
   _G.strtrim = function(s) return (s:gsub("^%s+", ""):gsub("%s+$", "")) end
   _G.LibStub = function(name) return world.libs[name] end
+
+  -- hooksecurefunc(table, name, fn) / hooksecurefunc(name, fn): fn runs after the original, same arguments.
+  _G.hooksecurefunc = function(a, b, c)
+    local tbl, name, fn
+    if type(a) == "table" then tbl, name, fn = a, b, c else tbl, name, fn = _G, a, b end
+    local original = tbl[name]
+    tbl[name] = function(...)
+      local r = { n = 0 }
+      local function pack(...) r.n = select("#", ...) for i = 1, r.n do r[i] = (select(i, ...)) end end
+      pack(original(...))
+      fn(...)
+      return unpack(r, 1, r.n)
+    end
+  end
 
   -- HereBeDragons-Pins stand-in.
   local pins = {}

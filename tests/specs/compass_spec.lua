@@ -157,7 +157,7 @@ describe("Compass view", function()
   describe("coordinate badge", function()
     it("shows the player's map coordinates", function()
       ctx.world:update(0.11)
-      expect(parts.badge.SetText).toHaveBeenCalledWith("62.0, 70.6")
+      expect(parts.badge.SetText).toHaveBeenCalledWith("61.99, 70.58")
     end)
 
     it("is empty when no position is available", function()
