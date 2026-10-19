@@ -98,6 +98,42 @@ function client.questPoints(mapID)
   return {}
 end
 
+-- Where a quest stands for this character: "done" (turned in), "complete" (ready to turn in), "active" (in the log)
+-- or "none".
+function client.questStatus(questID)
+  local ok, done = safe(C_QuestLog, "IsQuestFlaggedCompleted", questID)
+  if ok and done then return "done" end
+  local inLog, index = safe(C_QuestLog, "GetLogIndexForQuestID", questID)
+  if inLog and index then
+    local _, complete = safe(C_QuestLog, "IsComplete", questID)
+    return complete and "complete" or "active"
+  end
+  return "none"
+end
+
+-- The player's class, race and faction as upper-case tokens ("WARRIOR", "NightElf" -> "NIGHTELF" is the guide
+-- planner's job), plus level and a key that tells characters apart.
+function client.character()
+  local function call(fn, ...)
+    if type(fn) ~= "function" then return end
+    local r = { pcall(fn, ...) }
+    if r[1] then return r[2], r[3] end
+  end
+  local _, class = call(UnitClass, "player")
+  local _, race = call(UnitRace, "player")
+  local faction = call(UnitFactionGroup, "player")
+  local name = call(UnitName, "player")
+  local realm = call(GetRealmName)
+  local level = call(UnitLevel, "player")
+  return {
+    class = class and string.upper(class) or nil,
+    race = race and string.upper(race) or nil,
+    faction = faction and string.upper(faction) or nil,
+    level = type(level) == "number" and level or nil,
+    key = (name or "player") .. "-" .. (realm or "realm"),
+  }
+end
+
 -- A quest's objectives: a list of { text, type, finished, ... }.
 function client.questObjectives(questID)
   local ok, list = safe(C_QuestLog, "GetQuestObjectives", questID)

@@ -19,7 +19,7 @@ src/
   compass/              Layout (pure placement), Style (colours, sizes, texture paths), Compass (view)
   map/                  PinManager (pin bookkeeping, library injected), Map (wiring, Clear Pins button)
   integrations/         TomTom, RXP, Quest bridges, each with a pure Translate module
-  guide/                Builder (the chained calls a generated guide file makes; registers the one guide)
+  guide/                Builder (chained calls a generated guide file makes; registers the one guide), Planner (pure: who sees which steps, positions, completion), Text (pure: captions from ids and the guide's name tables), Player (state, polling, waypoints, skip/jump), Browser (chapter/step dialog)
 ```
 
 The guide layer is planned in `docs/guide-plan.md` (not shipped). Nothing in Ribbon knows about guides until the first `Ribbon.Guide(id, { schema = 1 })` call; the Builder is pure data, runs before the client is ready, and never raises (errors are kept on `guide.errors` and the bad chapter is skipped). `docs/samples/mulgore.lua` is real emitter output and `tests/specs/guide_spec.lua` loads it.

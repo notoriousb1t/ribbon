@@ -166,7 +166,9 @@ function Fake.install()
   local world = setmetatable({
     objects = {}, maps = {}, libs = {}, printed = {}, errors = {}, unknownEvents = {},
     -- tracked: super-tracked questID; points[mapID] = { { questID, x, y (0-1), isQuestStart, inProgress } };
-    quest = { tracked = 0, titles = {}, points = {}, objectives = {} },
+    -- log[id] = { complete = bool } for quests in the log; done[id] = true for quests turned in.
+    quest = { tracked = 0, titles = {}, points = {}, objectives = {}, log = {}, done = {} },
+    character = { name = "Tester", realm = "Realm", class = "WARRIOR", race = "Tauren", faction = "Horde", level = 1 },
     player = { first = 0, second = 0, instance = 0, facing = 0, mapID = nil, noPosition = false },
   }, World)
 
@@ -236,7 +238,19 @@ function Fake.install()
     GetTitleForQuestID = function(id) return world.quest.titles[id] end,
     GetQuestsOnMap = function(mapID) return world.quest.points[mapID] or {} end,
     GetQuestObjectives = function(id) return world.quest.objectives[id] or {} end,
+    IsQuestFlaggedCompleted = function(id) return world.quest.done[id] == true end,
+    GetLogIndexForQuestID = function(id) if world.quest.log[id] then return 1 end end,
+    IsComplete = function(id) return world.quest.log[id] ~= nil and world.quest.log[id].complete == true end,
   }
+
+  -- The player character.
+  local c = world.character
+  _G.UnitName = function() return c.name end
+  _G.GetRealmName = function() return c.realm end
+  _G.UnitClass = function() return c.class:sub(1, 1) .. c.class:sub(2):lower(), c.class end
+  _G.UnitRace = function() return c.race, c.race end
+  _G.UnitFactionGroup = function() return c.faction, c.faction end
+  _G.UnitLevel = function() return c.level end
 
   -- Chat, slash commands, libraries
   _G.SlashCmdList = {}

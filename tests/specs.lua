@@ -30,4 +30,6 @@ return {
   "opacity",
   "map",
   "guide",
+  "guideplanner",
+  "guideplayer",
 }

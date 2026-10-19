@@ -287,13 +287,16 @@ function methods:Done()
     return guide
   end
   local chapter = { name = self.name, opts = self.opts, steps = self.steps }
+  local replaced = false
   for i, c in ipairs(guide.chapters) do
     if c.name == self.name then
       guide.chapters[i] = chapter
-      return guide
+      replaced = true
+      break
     end
   end
-  guide.chapters[#guide.chapters + 1] = chapter
+  if not replaced then guide.chapters[#guide.chapters + 1] = chapter end
+  ns:Fire("GUIDE_CHAPTER_ADDED", chapter)
   return guide
 end
 
@@ -307,6 +310,24 @@ function Guide:Chapter(name, opts)
   if not isText(name) then cursor:fail("Chapter", "needs a name") end
   if opts ~= nil and type(opts) ~= "table" then cursor:fail("Chapter", "options must be a table") end
   return cursor
+end
+
+local NAME_KINDS = { "MAP", "NPC", "CREATURE", "OBJECT", "ITEM", "QUEST" }
+
+-- Display names of the ids a file uses: { QUEST = { [747] = "The Hunt Begins" }, NPC = ... }. The captions are
+-- written from these; the client has no creature-by-id lookup. Bad entries are ignored.
+function Guide:Names(list)
+  if type(list) ~= "table" then return self end
+  for _, kind in ipairs(NAME_KINDS) do
+    local entries = list[kind]
+    if type(entries) == "table" then
+      local dst = self.names[kind]
+      for id, name in pairs(entries) do
+        if isId(id) and isText(name) then dst[id] = name end
+      end
+    end
+  end
+  return self
 end
 
 -- A null guide for a refused registration: every call is accepted and does nothing, so a generated file
@@ -333,7 +354,8 @@ function ns.Guide(id, opts)
     ns:Print(string.format("guide '%s' refused: it uses format %s and this Ribbon reads format %d.", id, tostring(opts.schema), B.SCHEMA))
     return nullGuide()
   end
-  local guide = setmetatable({ id = id, title = isText(opts.title) and opts.title or id, schema = opts.schema, chapters = {}, errors = {} }, Guide)
+  local guide = setmetatable({ id = id, title = isText(opts.title) and opts.title or id, schema = opts.schema, chapters = {}, errors = {},
+    names = { MAP = {}, NPC = {}, CREATURE = {}, OBJECT = {}, ITEM = {}, QUEST = {} } }, Guide)
   ns.guide = guide
   ns:Fire("GUIDE_REGISTERED", guide)
   return guide

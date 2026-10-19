@@ -24,3 +24,7 @@ compass\Compass.lua
 map\PinManager.lua
 map\Map.lua
 guide\Builder.lua
+guide\Planner.lua
+guide\Text.lua
+guide\Player.lua
+guide\Browser.lua

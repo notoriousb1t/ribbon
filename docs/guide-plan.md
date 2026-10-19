@@ -149,7 +149,7 @@ R:Chapter("1-11 Mulgore (Tauren)", { levels = { 1, 11 }, race = "TAUREN", factio
 
 1. **Format, sample and emitter (done for the Horde guide).** The emitter fixes the builder format; `docs/samples/mulgore.lua` is its real output for Mulgore. Not yet: the Alliance guide check.
 2. **Builder and registration** in Ribbon (done: `src/guide/Builder.lua`, `tests/specs/guide_spec.lua`; `Ribbon.Guide(id, opts)` is get-or-create and the first call registers the one guide, so there is no separate `RegisterGuide`). All 48 emitted Horde chapters (2194 steps) load with no validation errors. Gating so far: `/ribbon guide` answers "no guide installed" and the command is not advertised without a guide; the player's frames and events come with step 3.
-3. **Player, counter, pin groups** against the sample.
+3. **Player, browser, counter, pin groups.** Done: `Planner` (character filtering, positions, completion), `Text` (captions from ids and names), `Player` (state per character in `RibbonDB.guide`, polling the quest log, waypoints on the compass, skip/prev/jump/reset), `Browser` (dialog: chapters left, steps right, click to jump, Start chapter, Skip step; `/ribbon guide`). Not yet: the grind counter, spawn pin groups on the map, pausing the RXP bridge while a guide runs, in-game verification.
 4. **Emitter follow-ups:** `validate` checks for the Ribbon output, the Alliance guide, retiring the RestedXP output.
 5. **Travel mesh** in Ribbon (last, after the player works): export zone-crossing nodes and edges from the network, routing module with specs, `:Travel` and `/ribbon travel`; then verify in game.
 
