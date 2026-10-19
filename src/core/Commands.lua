@@ -25,7 +25,26 @@ cmds.debug = function()
   ns:Print(string.format("map %s %s, %s", tostring(mapID), tostring(x), tostring(y)))
 end
 
-local HELP = "commands: [zone] <x> <y> [description], clear, show, list, remove <uid>, compass [show|hide|toggle|lock|unlock|reset|width <n>|fov <n>], debug"
+-- Status of the registered guide. The command exists always but is not advertised until a guide is registered.
+cmds.guide = function(args)
+  local guide = ns.guide
+  if not guide then
+    ns:Print("no guide installed.")
+    return
+  end
+  if string.lower(args or "") == "errors" then
+    if #guide.errors == 0 then ns:Print("no guide errors.") end
+    for _, e in ipairs(guide.errors) do ns:Print(e) end
+    return
+  end
+  ns:Print(string.format("%s: %d chapters%s.", guide.title, #guide.chapters,
+    #guide.errors > 0 and string.format(", %d errors (/ribbon guide errors)", #guide.errors) or ""))
+end
+
+local function help()
+  return "commands: [zone] <x> <y> [description], clear, show, list, remove <uid>, compass [show|hide|toggle|lock|unlock|reset|width <n>|fov <n>], debug"
+    .. (ns.guide and ", guide [errors]" or "")
+end
 
 function ns.HandleSlash(msg)
   if not ns.ready then
@@ -40,7 +59,7 @@ function ns.HandleSlash(msg)
   elseif ns.ParseCoords(msg) then
     ns.HandleCoords(msg)   -- "/ribbon [zone] x y [desc]" creates a waypoint
   else
-    ns:Print(HELP)
+    ns:Print(help())
   end
 end
 

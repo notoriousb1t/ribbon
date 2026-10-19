@@ -1,0 +1,273 @@
+local H = require("tests.helpers.addon")
+
+-- A small valid chapter, as a generated file writes it.
+local function mulgore(R)
+  return R:Chapter("1-11 Mulgore (Tauren)", { levels = { 1, 11 }, race = "TAUREN", faction = "HORDE" })
+    :Step()
+      :Goto(1412, 44.50, 77.50)
+      :Accept(747):At(2980)
+      :Goto(1412, 43.90, 76.70)
+      :Accept(752):At(2981)
+    :Step()
+      :Goto(1412, 47.00, 77.80)
+      :Loot(4739, 7, { quest = 747, index = 1, from = { 2955 } })
+      :Spawns(1412, { { 42.20, 77.70 }, { 42.30, 81.10 } })
+    :Step()
+      :Only{ class = "WARRIOR", race = "TAUREN" }
+      :Goto(1412, 44.50, 77.50)
+      :Accept(3091):At(2980)
+    :Done()
+end
+
+describe("Guide", function()
+  describe("without a guide", function()
+    local ctx = H.use({ boot = true })
+
+    it("has no guide layer", function()
+      expect(ctx.ns.guide).toBeNil()
+    end)
+
+    it("answers /ribbon guide with no guide installed", function()
+      SlashCmdList.RIBBON("guide")
+      expect(ctx.world:output()).toContain("no guide installed")
+    end)
+
+    it("does not advertise the guide command", function()
+      SlashCmdList.RIBBON("frobnicate")
+      expect(ctx.world:output()).never.toContain("guide")
+    end)
+
+    it("fires no registration event", function()
+      local registered = createSpy()
+      ctx.ns:On("GUIDE_REGISTERED", registered)
+      ctx.world:fireEvent("PLAYER_LOGIN")
+      expect(registered).never.toHaveBeenCalled()
+    end)
+  end)
+
+  describe("registration", function()
+    local ctx = H.use({ boot = true })
+
+    it("registers the first guide and fires GUIDE_REGISTERED", function()
+      local registered = createSpy()
+      ctx.ns:On("GUIDE_REGISTERED", registered)
+      local g = Ribbon.Guide("forever-horde", { title = "Forever Horde", schema = 1 })
+      expect(ctx.ns.guide).toBe(g)
+      expect(g.title).toBe("Forever Horde")
+      expect(registered).toHaveBeenCalledTimes(1)
+    end)
+
+    it("returns the same guide for the same id, so chapter files can share it", function()
+      local a = Ribbon.Guide("forever-horde", { schema = 1 })
+      local b = Ribbon.Guide("forever-horde", { schema = 1 })
+      expect(b).toBe(a)
+    end)
+
+    it("refuses a second guide and lets its calls run harmlessly", function()
+      Ribbon.Guide("one", { schema = 1 })
+      local other = Ribbon.Guide("two", { schema = 1 })
+      expect(ctx.ns.guide.id).toBe("one")
+      expect(function() mulgore(other) end).never.toThrow()
+      expect(ctx.world:output()).toContain("already registered")
+    end)
+
+    it("refuses a format it does not read", function()
+      local g = Ribbon.Guide("future", { schema = 2 })
+      expect(ctx.ns.guide).toBeNil()
+      expect(function() mulgore(g) end).never.toThrow()
+      expect(ctx.world:output()).toContain("format 2")
+    end)
+
+    it("refuses a missing id", function()
+      Ribbon.Guide(nil, { schema = 1 })
+      expect(ctx.ns.guide).toBeNil()
+    end)
+
+    it("works before the client is ready (a guide addon loads before login)", function()
+      local ns = H.load({}) -- not booted
+      local g = Ribbon.Guide("early", { schema = 1 })
+      expect(function() mulgore(g) end).never.toThrow()
+      expect(#g.chapters).toBe(1)
+      expect(ns.ready).toBeFalsy()
+    end)
+
+    it("advertises the guide command once a guide exists", function()
+      Ribbon.Guide("g", { title = "My Guide", schema = 1 })
+      SlashCmdList.RIBBON("frobnicate")
+      expect(ctx.world:output()).toContain("guide")
+      SlashCmdList.RIBBON("guide")
+      expect(ctx.world:output()).toContain("My Guide: 0 chapters")
+    end)
+  end)
+
+  describe("building a chapter", function()
+    local ctx = H.use({ boot = true })
+    local guide
+    beforeEach(function() guide = Ribbon.Guide("g", { schema = 1 }) end)
+
+    it("keeps the chapter with its steps, located groups and calls", function()
+      mulgore(guide)
+      expect(#guide.errors).toBe(0)
+      local ch = guide.chapters[1]
+      expect(ch.name).toBe("1-11 Mulgore (Tauren)")
+      expect(ch.opts.levels).toEqual({ 1, 11 })
+      expect(#ch.steps).toBe(3)
+      local hub = ch.steps[1]
+      expect(#hub.groups).toBe(2)
+      expect(hub.groups[1].at).toEqual({ map = 1412, x = 44.5, y = 77.5 })
+      expect(hub.groups[1].calls[1].kind).toBe("Accept")
+      expect(hub.groups[1].calls[1].quest).toBe(747)
+      expect(hub.groups[1].calls[1].npc).toBe(2980)
+      expect(hub.groups[2].calls[1].npc).toBe(2981)
+    end)
+
+    it("attaches spawns to the objective before them", function()
+      mulgore(guide)
+      local loot = guide.chapters[1].steps[2].groups[1].calls[1]
+      expect(loot.kind).toBe("Loot")
+      expect(loot.from).toEqual({ 2955 })
+      expect(loot.spawns.map).toBe(1412)
+      expect(#loot.spawns.points).toBe(2)
+    end)
+
+    it("puts an Only right after Step on the step and a later one on the group", function()
+      mulgore(guide)
+      local step = guide.chapters[1].steps[3]
+      expect(step.only).toEqual({ class = "WARRIOR", race = "TAUREN" })
+      local g = Ribbon.Guide("g", { schema = 1 })
+      g:Chapter("mixed"):Step():Goto(1412, 1, 1):Accept(5):Only{ class = "HUNTER" }:Done()
+      expect(g.chapters[2].steps[1].groups[1].only).toEqual({ class = "HUNTER" })
+      expect(g.chapters[2].steps[1].only).toBeNil()
+    end)
+
+    it("replaces a chapter loaded twice under one name", function()
+      mulgore(guide)
+      mulgore(guide)
+      expect(#guide.chapters).toBe(1)
+    end)
+
+    it("accepts calls before a Goto in a group with no location", function()
+      guide:Chapter("c"):Step():Loot(4800, 1, { quest = 9, index = 1 }):Done()
+      local g = guide.chapters[1].steps[1].groups[1]
+      expect(g.at).toBeNil()
+      expect(g.calls[1].kind).toBe("Loot")
+    end)
+
+    it("takes every call a generated chapter makes", function()
+      guide:Chapter("all"):Step()
+        :Goto(1412, 10, 20):Collect(4851, 1, { quest = 781 }):Use(4851):Accept(781)
+        :Kill(2955, 3, { quest = 781, index = 1 }):Interact(337, { quest = 753, index = 1 })
+        :Explore(752, { index = 1, npc = 2991 }):Fp("Camp Taurajo"):Fly("Crossroads")
+        :Hearth("Bloodhoof Village"):Home("Bloodhoof Village"):Ding(10)
+        :Train(3063, { "Charge (Rank 1)" }):Train(nil, { "Rend" }):Deathwarp():Skip(764)
+        :Travel():Enter(1413):Subzone("The Venture Co."):Skippable()
+        :Grind(1412, 62.1, 71.9, 40, { npc = { 2963 }, count = 9 })
+        :Spawns(1412, { { 60.4, 63 } })
+        :Loop(1412, { { 1, 2 }, { 3, 4 } })
+        :Done()
+      expect(#guide.errors).toBe(0)
+      expect(#guide.chapters).toBe(1)
+    end)
+  end)
+
+  describe("validation", function()
+    local ctx = H.use({ boot = true })
+    local guide
+    beforeEach(function() guide = Ribbon.Guide("g", { schema = 1 }) end)
+
+    local function bad(build, fragment)
+      expect(function() build(guide:Chapter("bad"):Step()):Done() end).never.toThrow()
+      expect(#guide.chapters).toBe(0)
+      local last = guide.errors[#guide.errors]
+      expect(last).toContain("bad, step 1")
+      if fragment then expect(last).toContain(fragment) end
+    end
+
+    it("rejects a coordinate outside 0-100", function()
+      bad(function(c) return c:Goto(1412, 101, 5) end, ":Goto")
+    end)
+
+    it("rejects a coordinate with a third decimal", function()
+      bad(function(c) return c:Goto(1412, 44.123, 5) end, "two decimals")
+    end)
+
+    it("accepts two decimals despite floating point (42.2, 77.7)", function()
+      guide:Chapter("ok"):Step():Goto(1412, 42.2, 77.7):Done()
+      expect(#guide.errors).toBe(0)
+    end)
+
+    it("rejects a non-id map, quest, npc and count", function()
+      bad(function(c) return c:Goto("Mulgore", 1, 1) end, "map")
+      bad(function(c) return c:Accept("747") end, "quest")
+      bad(function(c) return c:Kill(0, 3) end, "creature")
+      bad(function(c) return c:Kill(2955, 2.5) end, "count")
+    end)
+
+    it("rejects :At without an accept or turn-in", function()
+      bad(function(c) return c:Goto(1412, 1, 1):Kill(2955, 3):At(5) end, ":At")
+    end)
+
+    it("rejects :Spawns without an objective", function()
+      bad(function(c) return c:Goto(1412, 1, 1):Accept(5):Spawns(1412, { { 1, 1 } }) end, ":Spawns")
+    end)
+
+    it("rejects a bad list of drop sources and bad points", function()
+      bad(function(c) return c:Loot(1, 1, { from = { "x" } }) end, "from")
+      bad(function(c) return c:Spawns(1412, {}) end, ":Spawns")
+      bad(function(c) return c:Loop(1412, { { 1, 1 } }) end, "two")
+    end)
+
+    it("rejects a grind with no goal", function()
+      bad(function(c) return c:Grind(1412, 1, 1, 40, { npc = { 5 } }) end, "count or a level")
+    end)
+
+    it("rejects a level above 60", function()
+      bad(function(c) return c:Ding(61) end, "1-60")
+    end)
+
+    it("reports a call made before :Step()", function()
+      guide:Chapter("early"):Accept(5):Done()
+      expect(guide.errors[1]).toContain("needs :Step() first")
+    end)
+
+    it("reports an unknown call instead of raising", function()
+      expect(function() guide:Chapter("typo"):Step():Acept(5):Done() end).never.toThrow()
+      expect(guide.errors[1]).toContain(":Acept is not a guide call")
+    end)
+
+    it("reports a missing chapter name", function()
+      guide:Chapter():Step():Done()
+      expect(#guide.chapters).toBe(0)
+      expect(#guide.errors).toBe(1)
+    end)
+
+    it("skips only the bad chapter and says so", function()
+      guide:Chapter("bad"):Step():Goto(1412, 200, 1):Done()
+      mulgore(guide)
+      expect(#guide.chapters).toBe(1)
+      expect(ctx.world:output()).toContain("guide chapter skipped")
+    end)
+
+    it("lists errors with /ribbon guide errors", function()
+      guide:Chapter("bad"):Step():Goto(1412, 200, 1):Done()
+      SlashCmdList.RIBBON("guide errors")
+      expect(ctx.world:output()).toContain("bad, step 1")
+      SlashCmdList.RIBBON("guide")
+      expect(ctx.world:output()).toContain("1 errors")
+    end)
+  end)
+
+  describe("a generated chapter", function()
+    local ctx = H.use({ boot = true })
+
+    it("loads the emitter's Mulgore sample without errors", function()
+      local chunk = assert(loadfile("docs/samples/mulgore.lua"))
+      expect(function() chunk() end).never.toThrow()
+      local g = ctx.ns.guide
+      expect(g).toBeTruthy()
+      expect(#g.errors).toBe(0)
+      expect(#g.chapters).toBe(1)
+      expect(#g.chapters[1].steps).toBeGreaterThan(50)
+    end)
+  end)
+end)

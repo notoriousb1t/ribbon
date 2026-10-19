@@ -29,4 +29,5 @@ return {
   "dial",
   "opacity",
   "map",
+  "guide",
 }
