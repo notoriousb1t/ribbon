@@ -6,6 +6,11 @@
 ## IconTexture: Interface\AddOns\Ribbon\icon
 ## SavedVariables: RibbonDB
 
+libs\LibStub\LibStub.lua
+libs\CallbackHandler-1.0\CallbackHandler-1.0.lua
+libs\HereBeDragons\HereBeDragons-2.0.lua
+libs\HereBeDragons\HereBeDragons-Pins-2.0.lua
+
 core\Core.lua
 core\Client.lua
 core\Geometry.lua

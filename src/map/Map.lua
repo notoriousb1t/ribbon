@@ -57,7 +57,7 @@ end
 ns:On("INIT", function()
   local lib = LibStub and LibStub("HereBeDragons-Pins-2.0", true)
   if not lib then
-    ns:Print("map pins disabled: HereBeDragons-Pins-2.0 is not loaded.")
+    ns:Print("map pins disabled: the bundled HereBeDragons-Pins-2.0 did not load.")
     return
   end
 

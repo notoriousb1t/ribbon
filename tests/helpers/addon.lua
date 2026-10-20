@@ -8,7 +8,8 @@ local function tocFiles()
   local files = {}
   for line in io.lines("src/Ribbon.toc") do
     local f = line:match("^%s*(.-%.lua)%s*$")
-    if f then files[#files + 1] = (f:gsub("\\", "/")) end
+    -- Embedded third-party libraries (src/libs) are not run against the fake client; the fakes stand in for them.
+    if f and not f:match("^libs[\\/]") then files[#files + 1] = (f:gsub("\\", "/")) end
   end
   return files
 end

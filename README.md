@@ -31,7 +31,7 @@ RestedXP and TomTom keep drawing their own arrows and map icons. Ribbon only rea
 2. Rename it to `Ribbon`, so you have `Interface\AddOns\Ribbon\Ribbon.toc`.
 3. Restart the game. (A `/reload` is not enough for new files.)
 
-Ribbon is optional-friendly: it works on its own, and RestedXP, TomTom and HereBeDragons are used only if they are installed.
+Ribbon works on its own: it bundles HereBeDragons for map pins (a newer copy from RestedXP or TomTom is shared if present). RestedXP and TomTom are read only if they are installed.
 
 ## Using it
 

@@ -57,7 +57,7 @@ Run the specs before every commit and after every change under `src/`.
 - `UnitPosition` Z read 0 everywhere sampled (all in Stormwind). `C_Navigation.GetDistance` to the tracked quest is a 3D distance (engine² = flat² + height²), but gives the size of the height gap only, not its sign, and only for the one tracked target. Elevation is delayed, not dropped; a baked terrain-height data set from the forever_guide terrain export would give the sign for every waypoint.
 - `C_QuestLog.GetQuestsOnMap(mapID)` lists quest points per map as 0-1 fractions; `GetNextWaypoint` returned nothing for the tracked quest probed.
 - TomTom (v4.3.12): every way of setting a waypoint ends in `TomTom:AddWaypoint(m, x, y, opts)` with x and y as 0-1 fractions; a handle is `{ m, x, y, title = ... }`; `RemoveWaypoint` and `ClearAllWaypoints` funnel into `ClearWaypoint`. RXPGuides (v4.11.26): the arrow frame is the global `RXPG_ARROW`, its `element` carries `zone`, `x`, `y` (0-100) for zone targets.
-- Pins use `LibStub("HereBeDragons-Pins-2.0")` from RXPGuides, Forever_Guide or TomTom; without it pins are disabled and the compass still works.
+- Pins use `LibStub("HereBeDragons-Pins-2.0")`. Ribbon embeds LibStub, CallbackHandler-1.0 and HereBeDragons 2.18 under `src/libs` (copied unmodified from RXPGuides; the 7.x migration file is left out). LibStub keeps the newest copy, so when RXPGuides or TomTom ships a newer one theirs wins and Ribbon shares it. The libraries load first in the TOC and are not run by the specs (the fakes stand in).
 
 ## Test suite
 
@@ -75,4 +75,4 @@ Run the specs before every commit and after every change under `src/`.
 
 - Put test code, fakes or `luajit` references under `src/`.
 - Commit `WTF/` or SavedVariables output.
-- Replace `LibStub` copies of HereBeDragons: use the instance already loaded.
+- Edit the files in `src/libs` (third-party; replace them whole when updating) or load a second copy of a library outside LibStub.
