@@ -202,6 +202,53 @@ describe("Guide player", function()
       expect(select(2, ns.guidePlayer.current())).toBe(1)
     end)
 
+    it("lands on the last step when the saved position is past the end, without resetting the save", function()
+      local ns, world = H.load({})
+      RibbonDB = { guide = { ["Tester-Realm"] = { guide = "g", chapter = 9, step = 1 } } }
+      build(Ribbon.Guide("g", { schema = 1 }))
+      world:fireEvent("PLAYER_LOGIN")
+      local entry, cursor = ns.guidePlayer.current()
+      expect(cursor).toBe(#ns.guidePlayer.state().flat)
+      expect(entry.chapter).toBe(2)
+      expect(ns.db.guide["Tester-Realm"].chapter).toBe(2)
+    end)
+
+    it("says once when a step cannot be placed, then stays quiet", function()
+      local ns, world = H.load({})
+      Ribbon.Guide("g", { schema = 1 }):Chapter("Nowhere")
+        :Step():Goto(1453, 50, 50):Accept(747):Done()
+      world.maps[1453] = nil           -- the client no longer knows the map
+      world:fireEvent("PLAYER_LOGIN")
+      ns.guidePlayer.refresh()
+      ns.guidePlayer.refresh()
+      expect(count(ns.waypoints)).toBe(0)
+      local out = world:output()
+      expect(out).toContain("cannot place")
+      expect(select(2, out:gsub("cannot place", ""))).toBe(1)
+    end)
+
+    it("marks a skippable step in its title", function()
+      local ns, world = H.load({})
+      Ribbon.Guide("g", { schema = 1 }):Chapter("Elite")
+        :Step():Skippable():Goto(1453, 50, 50):Accept(747):Done()
+      world:fireEvent("PLAYER_LOGIN")
+      expect(titles(ns)[1]).toContain("(skippable) Accept")
+    end)
+
+    it("announces a text change once, not on every poll", function()
+      start()
+      ctx.world.quest.log[747] = { complete = false }
+      ctx.world.quest.objectives[747] = { { numFulfilled = 3, numRequired = 7, finished = false }, { numFulfilled = 0, numRequired = 7, finished = false } }
+      ctx.ns.guidePlayer.refresh()
+      local changed = 0
+      ctx.ns:On("WAYPOINT_CHANGED", function() changed = changed + 1 end)
+      ctx.ns.guidePlayer.refresh()
+      expect(changed).toBe(0)
+      ctx.world.quest.objectives[747][1] = { numFulfilled = 4, numRequired = 7, finished = false }
+      ctx.ns.guidePlayer.refresh()
+      expect(changed).toBe(1)
+    end)
+
     it("polls on a ticker", function()
       start()
       ctx.world.quest.log[747] = { complete = false }

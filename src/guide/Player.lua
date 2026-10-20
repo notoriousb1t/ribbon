@@ -74,7 +74,9 @@ local function desired(entry)
       if #lines > 0 then
         local detail = {}
         for i = 2, #lines do detail[#detail + 1] = lines[i] end
-        out[gi] = { map = map, x = x, y = y, title = lines[1], description = detail, icon = text.icon(group) }
+        local title = lines[1]
+        if entry.step.skippable then title = "(skippable) " .. title end
+        out[gi] = { map = map, x = x, y = y, title = title, description = detail, icon = text.icon(group) }
       end
     end
   end
@@ -96,15 +98,27 @@ local function syncWaypoints(entry)
       -- Progress changes the text in place ("Kill Plainstrider (3/7)"), not the waypoint.
       local wp = ns:GetWaypoint(w.uid)
       if wp then
-        wp.title = ns.OneLine(d.title)
-        wp.description = ns.NormalizeDescription(d.description)
+        local title, description = ns.OneLine(d.title), ns.NormalizeDescription(d.description)
+        if title ~= wp.title or table.concat(description, "|") ~= table.concat(wp.description or {}, "|") then
+          wp.title, wp.description = title, description
+          ns:Fire("WAYPOINT_CHANGED", wp)
+        end
       end
     else
       local uid = ns:AddWaypoint(d.map, d.x, d.y, {
         title = d.title, description = d.description, icon = d.icon,
         lines = { "Guide: " .. (chapterName(entry) or S.guide.title) },
       })
-      if uid then S.waypoints[gi] = { uid = uid, map = d.map, x = d.x, y = d.y } end
+      if uid then
+        S.waypoints[gi] = { uid = uid, map = d.map, x = d.x, y = d.y }
+      else
+        -- The client could not place it (unknown map, no world position). Say so once, or the step just stalls.
+        local key = string.format("%d:%d:%s:%s", S.cursor, gi, tostring(d.map), tostring(d.x))
+        if not S.unplaced[key] then
+          S.unplaced[key] = true
+          ns:Print(string.format("cannot place \"%s\" (map %s, %.2f %.2f); use /ribbon guide skip to move on.", ns.OneLine(d.title), tostring(d.map), d.x, d.y))
+        end
+      end
     end
   end
 end
@@ -138,7 +152,9 @@ local function replan()
   if S.finished and #S.flat > 0 then
     i = #S.flat + 1
   else
-    i = planner.locate(S.flat, S.pos) or 1
+    -- A saved position past the last visible step (guide shortened, chapters hidden for this character) lands on the
+    -- last step instead of restarting the guide and overwriting the save.
+    i = planner.locate(S.flat, S.pos) or math.max(1, #S.flat)
   end
   local pos, finished = S.pos, S.finished
   setCursor(i)
@@ -242,7 +258,7 @@ end
 
 function Pl.start(guide)
   if S then return end
-  S = { guide = guide, who = ns.client.character(), view = {}, flat = {}, cursor = 1, waypoints = {}, arrived = {}, dirty = true }
+  S = { guide = guide, who = ns.client.character(), view = {}, flat = {}, cursor = 1, waypoints = {}, arrived = {}, unplaced = {}, dirty = true }
   local mine = saved()
   if mine and mine.finished then
     S.finished = true

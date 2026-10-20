@@ -283,7 +283,10 @@ function methods:Done()
   local guide = self.guide
   if self.bad then
     for _, e in ipairs(self.errors) do guide.errors[#guide.errors + 1] = e end
-    ns:Print(string.format("guide chapter skipped: %s", self.errors[1]))
+    -- One line per guide: a guide with many bad chapters would otherwise flood the chat at login.
+    if #guide.errors == #self.errors then
+      ns:Print(string.format("guide chapter skipped: %s (more: /ribbon guide errors)", self.errors[1]))
+    end
     return guide
   end
   local chapter = { name = self.name, opts = self.opts, steps = self.steps }
