@@ -270,15 +270,37 @@ local function buildDialog()
   if UISpecialFrames then table.insert(UISpecialFrames, "RibbonGuideBrowser") end
 end
 
--- The docked panel is a child of the world map, so it shows and hides with the map, and sits over the map's right side.
+-- Where the docked panel goes. The map and its quest log are one frame, and the quest log panel draws over anything
+-- put inside the frame's right side, so the panel sits just outside the frame's right edge when the screen has room
+-- for it, and only falls back to overlapping the frame (above the quest log) when the map fills the screen.
+function Br.placeDock()
+  if not (dock and WorldMapFrame) then return end
+  local right, screen = WorldMapFrame:GetRight(), UIParent:GetRight()
+  local width = dock:GetWidth() or 0
+  dock:ClearAllPoints()
+  if type(right) == "number" and type(screen) == "number" and screen - right >= width + 8 then
+    dock:SetPoint("TOPLEFT", WorldMapFrame, "TOPRIGHT", 4, 0)
+    dock:SetPoint("BOTTOMLEFT", WorldMapFrame, "BOTTOMRIGHT", 4, 0)
+  else
+    dock:SetPoint("TOPRIGHT", WorldMapFrame, "TOPRIGHT", -6, -66)
+    dock:SetPoint("BOTTOMRIGHT", WorldMapFrame, "BOTTOMRIGHT", -6, 6)
+  end
+  dock:SetFrameLevel(WorldMapFrame:GetFrameLevel() + 200)
+end
+
+-- The docked panel is a child of the world map, so it shows and hides with the map.
 local function buildDock()
   dock = build({
     name = "RibbonGuideDock", parent = WorldMapFrame, leftW = DOCK_LEFT_W, rightW = DOCK_RIGHT_W, buttonW = 92,
     onClose = function() Br.setDock(false) end,
   })
-  dock:SetPoint("TOPRIGHT", WorldMapFrame, "TOPRIGHT", -6, -66)
-  dock:SetPoint("BOTTOMRIGHT", WorldMapFrame, "BOTTOMRIGHT", -6, 6)
-  dock:SetFrameLevel(WorldMapFrame:GetFrameLevel() + 50)
+  Br.placeDock()
+  -- The map moves and resizes (maximize, drag): follow it.
+  pcall(function()
+    WorldMapFrame:HookScript("OnShow", Br.placeDock)
+    WorldMapFrame:HookScript("OnSizeChanged", Br.placeDock)
+  end)
+  dock:SetScript("OnShow", Br.placeDock)
 end
 
 -- A step change drops the chapter being browsed, so the panels go back to the active chapter (the one just clicked,

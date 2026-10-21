@@ -311,13 +311,36 @@ describe("Guide progress", function()
 
     local function dockPanel() return ctx.ns.guideBrowser.dock() end
 
-    it("is a child of the world map, anchored down its right side, and above the map's own frames", function()
+    it("is a child of the world map and sits just outside its right edge when the screen has room", function()
+      WorldMapFrame.GetRight = function() return 700 end
+      UIParent.GetRight = function() return 1920 end
       ctx.ns.map.guideButton:Trigger("OnClick")
       local d = dockPanel()
       expect(d:GetParent()).toBe(WorldMapFrame)
+      expect(d.SetPoint).toHaveBeenCalledWith("TOPLEFT", WorldMapFrame, "TOPRIGHT", 4, 0)
+      expect(d.SetPoint).toHaveBeenCalledWith("BOTTOMLEFT", WorldMapFrame, "BOTTOMRIGHT", 4, 0)
+    end)
+
+    it("overlaps the map's right side, over its quest log, when there is no room outside", function()
+      WorldMapFrame.GetRight = function() return 1900 end
+      UIParent.GetRight = function() return 1920 end
+      ctx.ns.map.guideButton:Trigger("OnClick")
+      local d = dockPanel()
       expect(d.SetPoint).toHaveBeenCalledWith("TOPRIGHT", WorldMapFrame, "TOPRIGHT", -6, -66)
       expect(d.SetPoint).toHaveBeenCalledWith("BOTTOMRIGHT", WorldMapFrame, "BOTTOMRIGHT", -6, 6)
-      expect(d.SetFrameLevel.calls[#d.SetFrameLevel.calls][1]).toBeGreaterThan(WorldMapFrame:GetFrameLevel())
+      expect(d.SetFrameLevel.calls[#d.SetFrameLevel.calls][1]).toBeGreaterThan(WorldMapFrame:GetFrameLevel() + 100)
+    end)
+
+    it("moves when the map moves or resizes", function()
+      WorldMapFrame.GetRight = function() return 700 end
+      UIParent.GetRight = function() return 1920 end
+      ctx.ns.map.guideButton:Trigger("OnClick")
+      local d = dockPanel()
+      d.SetPoint.calls = {}
+      WorldMapFrame.GetRight = function() return 1900 end      -- maximized
+      ctx.ns.guideBrowser.placeDock()
+      expect(d.SetPoint).toHaveBeenCalledWith("TOPRIGHT", WorldMapFrame, "TOPRIGHT", -6, -66)
+      expect(WorldMapFrame.HookScript).toHaveBeenCalledWith("OnShow", ctx.ns.guideBrowser.placeDock)
     end)
 
     it("shows the same chapter cards and progress as the dialog", function()
