@@ -7,6 +7,7 @@ ns.compass = C
 local deg = math.deg
 local TRACK_HEIGHT = 28
 
+local labelLayer
 local db, frame, dial, needle, targetText, detailText, captionPlate, captionTrim, combatBar
 local lastRotation, lastCombat, dragged
 local chrome = {}
@@ -61,7 +62,10 @@ function C.Apply()
   db.width = ns.geometry.clamp(tonumber(db.width) or 600, 500, 800)
   db.fov = ns.geometry.clamp(tonumber(db.fov) or 140, 90, 180)
   db.opacity = ns.geometry.clamp(tonumber(db.opacity) or opacity.default, opacity.min, opacity.max)
+  local dialOpacity = ns.compassStyle.dialOpacity
+  db.dialOpacity = ns.geometry.clamp(tonumber(db.dialOpacity) or dialOpacity.default, dialOpacity.min, dialOpacity.max)
   for _, texture in ipairs(chrome) do texture:SetAlpha(db.opacity) end
+  dial.face:SetAlpha(db.dialOpacity)
   frame:SetSize(db.width, TRACK_HEIGHT)
   frame:ClearAllPoints()
   frame:SetPoint(db.point or "TOP", UIParent, db.relPoint or db.point or "TOP", db.x or 0, db.y or -72)
@@ -180,17 +184,12 @@ local function build()
   combatBar:SetPoint("BOTTOMRIGHT")
   combatBar:Hide()
 
-  -- Heading reference: a thin notch through the band.
-  local notch = frame:CreateTexture(nil, "OVERLAY")
-  notch:SetColorTexture(unpack(c.notch))
-  notch:SetSize(2, TRACK_HEIGHT)
-  notch:SetPoint("CENTER")
-
   -- The compass: a dial under the bar with a needle that always points to due north.
   -- Hovering it shows the coordinates; dragging it moves the bar.
   dial = CreateFrame("Button", nil, frame)
   dial:SetSize(style.dial.size, style.dial.size)
-  dial:SetPoint("TOP", frame, "BOTTOM", 0, -style.dial.gap)
+  dial:SetPoint("CENTER", frame, "CENTER", 0, 0)
+  dial:SetFrameLevel(frame:GetFrameLevel() + 1)   -- over the ticks; the labels (+2) and markers (+3 and up) pass over it
   dial:RegisterForDrag("LeftButton")
   dial.face = dial:CreateTexture(nil, "ARTWORK")
   dial.face:SetAllPoints()
@@ -217,7 +216,7 @@ local function build()
   local cap = style.caption
   captionPlate = frame:CreateTexture(nil, "BACKGROUND")
   captionPlate:SetColorTexture(unpack(c.captionPlate))
-  captionPlate:SetPoint("BOTTOM", frame, "TOP", 0, cap.gap)
+  captionPlate:SetPoint("BOTTOM", frame, "TOP", 0, cap.gap + math.max(0, (style.dial.size - TRACK_HEIGHT) / 2))
   captionPlate:SetSize(cap.minWidth, 20)
   captionPlate:Hide()
   captionTrim = frame:CreateTexture(nil, "BORDER")
@@ -241,6 +240,13 @@ local function build()
     captionPlate = captionPlate, ticks = ticks, labels = labels, markers = markers, combatBar = combatBar,
     capLeft = capLeft, capRight = capRight }
 
+  -- The direction labels live on their own frame above the dial so N, E, S, W and the ordinals pass over it. It takes
+  -- no mouse input, so clicks and drags reach the dial and the ribbon underneath.
+  labelLayer = CreateFrame("Frame", nil, frame)
+  labelLayer:SetAllPoints(frame)
+  labelLayer:SetFrameLevel(frame:GetFrameLevel() + 2)
+  C.parts.labelLayer = labelLayer
+
   for i = 1, layout.TICK_COUNT do
     local t = frame:CreateTexture(nil, "ARTWORK")
     t:SetColorTexture(unpack(c.cream))
@@ -248,7 +254,7 @@ local function build()
   end
   for h, name in pairs(layout.NAMES) do
     -- Outline and shadow make the directions stand out against the band and the scenery behind it.
-    local fs = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+    local fs = labelLayer:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
     styleText(fs, style.labelSize)
     fs:SetText(name)
     fs:SetTextColor(unpack(h == 0 and c.north or c.cream))
@@ -267,9 +273,10 @@ end
 
 local function applyScale(heading)
   local tickDefs, labelDefs = layout.scale(heading, db.fov, db.width)
+  local clear = ns.compassStyle.dial.size / 2   -- ticks under the dial stay hidden, whatever its opacity
   for i, t in pairs(ticks) do
     local def = tickDefs[i]
-    if def then
+    if def and math.abs(def.x) >= clear then
       t:SetSize(1, def.height)
       t:SetAlpha(def.alpha)
       t:ClearAllPoints()
@@ -373,10 +380,11 @@ ns.commands.compass = function(args)
   elseif sub == "width" and tonumber(value) then db.width = tonumber(value)
   elseif sub == "fov" and tonumber(value) then db.fov = tonumber(value)
   elseif sub == "opacity" and tonumber(value) then db.opacity = tonumber(value) / 100   -- given as a percentage
+  elseif sub == "dial" and tonumber(value) then db.dialOpacity = tonumber(value) / 100
   elseif sub == "reset" then
     for k, v in pairs(ns.defaults.compass) do db[k] = v end
   else
-    ns:Print("usage: /ribbon compass [show|hide|toggle|lock|unlock|reset|width <500-800>|fov <90-180>|opacity <20-100>]")
+    ns:Print("usage: /ribbon compass [show|hide|toggle|lock|unlock|reset|width <500-800>|fov <90-180>|opacity <20-100>|dial <20-100>]")
     return
   end
   C.Apply()
@@ -385,6 +393,9 @@ end
 ns:On("INIT", function()
   layout = ns.compassLayout
   db = ns.db.compass
+  -- One-time move from the old ribbon default to the new one, for players who never changed it.
+  if db.opacity == ns.compassStyle.oldOpacityDefault and not db.opacityMigrated then db.opacity = ns.compassStyle.opacity.default end
+  db.opacityMigrated = true
   build()
   C.Apply()
   ns:Every(0.033, C.Update)

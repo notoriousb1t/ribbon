@@ -16,10 +16,10 @@ Built for the Forever beta client.
 
 ## Features
 
-- **Compass ribbon:** a heading bar with a marker for each waypoint, and a compass dial under it whose needle always points to due north (hover the dial to see your coordinates, zone and heading). Above the bar, on a dark plate that stays readable over any scenery, you see the name and distance of the nearest (or focused) waypoint and a short description of what to do there.
+- **Compass ribbon:** a heading bar with a marker for each waypoint, and a compass dial in the middle of it whose needle always points to due north (hover the dial to see your coordinates, zone and heading; click it to open the guide). The direction letters and the markers pass over the dial, the degree ticks stay under it. Above the bar, on a dark plate that stays readable over any scenery, you see the name and distance of the nearest (or focused) waypoint and a short description of what to do there.
 - **Distance at a glance:** markers shrink as they get farther and grow as you close in. A waypoint close by is drawn taller than the ribbon itself, a distant one is small (never smaller than 18 px). A waypoint outside your field of view is held inside the end of the bar with an arrow pointing the way to turn. The direction labels (N, NE, ...) are outlined and shadowed so they stand out.
 - **Map and minimap pins:** your waypoints drawn on the world map and minimap.
-- **Tracked quest:** the quest you track in the game shows on the compass: a skull for a kill objective, a bag for an item objective, a quest icon for a turn-in or anything else, and the pick-up icon for a quest you can accept.
+- **Tracked quest:** the quest you track in the game shows on the compass: a sword for a kill objective, a bag for an item objective, a quest icon for a turn-in or anything else, and the pick-up icon for a quest you can accept.
 - **RestedXP:** the waypoint RXPGuides is pointing its arrow at shows on the compass as RXP's navigation arrow. Under the bar you see what the step says to do ("Kill Sharptusk Thornmantle (0/1)") rather than the step number, and it updates as you progress.
 - **TomTom:** waypoints set through TomTom, including `/way`, show on the compass using the map dot from your TomTom theme.
 
@@ -44,9 +44,10 @@ Ribbon works on its own: it bundles HereBeDragons for map pins (a newer copy fro
 | `/ribbon remove <number>` | Remove one waypoint (the number is shown in `list`). |
 | `/ribbon compass [show\|hide\|toggle\|lock\|unlock\|reset]` | Show, hide, lock or reset the compass. |
 | `/ribbon compass width <500-800>` | Set the bar width. |
-| `/ribbon compass opacity <20-100>` | How see-through the ribbon is, as a percentage (default 75). Text, markers, the dial and the caption stay solid. |
+| `/ribbon compass opacity <20-100>` | How see-through the ribbon is, as a percentage (default 60). Text, markers and the caption stay solid. |
+| `/ribbon compass dial <20-100>` | How see-through the compass dial is, as a percentage (default 70). Its needle stays solid. |
 | `/ribbon compass fov <90-180>` | Set how wide an angle the bar covers. |
-| `/ribbon guides` | With a guide installed, open the chapter list: each chapter shows its levels and a progress bar, with the whole guide on top. Also opened by clicking the compass dial under the ribbon or the Ribbon icon on the world map. |
+| `/ribbon guides` | With a guide installed, open the chapter list: each chapter shows its levels and a progress bar, with the whole guide on top. Also opened by clicking the compass dial in the middle of the ribbon or the Ribbon icon on the world map. |
 
 - Drag the compass to move it. `/ribbon compass lock` stops the compass moving.
 - Left-click a marker on the compass to focus it: it grows and its name and distance show under the bar. Click it again to go back to the nearest waypoint.

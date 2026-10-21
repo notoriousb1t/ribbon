@@ -26,8 +26,10 @@ S.textureFiles = { "ribbon-cap-left", "ribbon-cap-right", "compass-dial", "compa
 -- bar; the right cap's box mirrors it, so it starts `rightEdge` pixels left of the bar's right edge.
 S.cap = { width = 32, height = 40, leftEdge = 18, rightEdge = 14 }
 
--- The dial hangs under the bar, `gap` pixels below its bottom edge; the caption sits above the bar.
-S.dial = { size = 36, gap = 1 }
+-- The dial sits centred on the bar and is taller than it, so it stands out above and below. It covers the tick marks
+-- (the individual degrees); the direction labels and the waypoint markers are drawn over it. The caption above the bar
+-- is lifted by the dial's overhang so the two never touch.
+S.dial = { size = 46 }
 S.band = { highlight = 2, shadow = 2 }
 
 -- Waypoint markers grow as you get close and shrink with distance (pixels). At `nearYd` yards or
@@ -55,7 +57,14 @@ S.combat = { height = 3 }
 S.labelSize = 12
 
 -- How see-through the ribbon is (1 = solid). The default is also in core/Core.lua's saved defaults.
-S.opacity = { default = 0.75, min = 0.2, max = 1 }
+S.opacity = { default = 0.6, min = 0.2, max = 1 }
+
+-- The same for the compass dial's face (its needle stays solid). The degree ticks under the dial are hidden, so a
+-- see-through dial does not show them.
+S.dialOpacity = { default = 0.7, min = 0.2, max = 1 }
+
+-- Players who never changed the old ribbon default (0.75) get the new one once.
+S.oldOpacityDefault = 0.75
 
 -- The caption above the bar: a headline (name and distance) and a short description, on a dark plate
 -- so they stay readable over any scenery. Sizes are font pixels; pad is plate padding.

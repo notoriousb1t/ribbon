@@ -42,6 +42,39 @@ describe("Compass dial", function()
     end)
   end)
 
+  describe("stacking", function()
+    local ctx = H.use({ boot = true })
+
+    it("centres the dial on the bar and makes it larger than the bar", function()
+      local parts = ctx.ns.compass.parts
+      expect(parts.dial.SetPoint).toHaveBeenCalledWith("CENTER", parts.frame, "CENTER", 0, 0)
+      expect(parts.dial.SetSize).toHaveBeenCalledWith(46, 46)
+    end)
+
+    it("draws the direction labels on a frame above the dial and the markers above both", function()
+      local parts = ctx.ns.compass.parts
+      ctx.world:placePlayer(1453, 50, 50, 0)
+      ctx.ns:AddWaypoint(1453, 50, 40)
+      ctx.world:update(0.04)
+      local function level(o) local c = o.SetFrameLevel.calls return c[#c][1] end
+      expect(level(parts.labelLayer)).toBeGreaterThan(level(parts.dial))
+      expect(level(parts.markers[1])).toBeGreaterThan(level(parts.labelLayer))
+      expect(parts.labels[0]:GetParent()).toBe(parts.labelLayer)
+    end)
+
+    it("keeps the ticks on the ribbon frame, under the dial", function()
+      local parts = ctx.ns.compass.parts
+      expect(parts.ticks[1]:GetParent()).toBe(parts.frame)
+    end)
+
+    it("lifts the caption by the dial's overhang", function()
+      local parts = ctx.ns.compass.parts
+      local style = ctx.ns.compassStyle
+      local overhang = (style.dial.size - 28) / 2
+      expect(parts.captionPlate.SetPoint).toHaveBeenCalledWith("BOTTOM", parts.frame, "TOP", 0, style.caption.gap + overhang)
+    end)
+  end)
+
   describe("view", function()
     local ctx = H.use({ boot = true })
     local parts
