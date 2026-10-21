@@ -11,7 +11,7 @@ describe("Caption above the bar, dial centred on it", function()
 
   it("anchors the caption plate's bottom to the bar's top, with a gap that clears the dial", function()
     local overhang = (S.dial.size - 28) / 2
-    expect(parts.captionPlate.SetPoint).toHaveBeenCalledWith("BOTTOM", parts.frame, "TOP", 0, S.caption.gap + overhang)
+    expect(parts.captionPlate.SetPoint).toHaveBeenCalledWith("BOTTOM", parts.frame, "TOP", 0, S.caption.gap + overhang + S.distance.height)
   end)
 
   it("keeps the headline at the top of the plate and the description under it", function()
@@ -38,10 +38,11 @@ describe("Caption above the bar, dial centred on it", function()
     expect(GameTooltip.SetOwner).toHaveBeenCalledWith(parts.dial, "ANCHOR_BOTTOM")
   end)
 
-  it("starts low enough on the screen for the two-line caption to fit above the bar", function()
-    local cap = S.caption
-    local tallest = cap.gap + cap.padY * 2 + cap.headSize * 1.4 + cap.lineGap + 2 * cap.detailSize * 1.4
-    expect(-ctx.ns.defaults.compass.y).toBeGreaterThan(tallest)
+  it("starts above the bottom action bars, anchored to the bottom of the screen", function()
+    local d = ctx.ns.defaults.compass
+    expect(d.point).toBe("BOTTOM")
+    expect(d.relPoint).toBe("BOTTOM")
+    expect(d.y).toBeGreaterThan(100)
   end)
 
   it("uses that position by default and again after a reset", function()

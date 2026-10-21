@@ -67,10 +67,10 @@ describe("The count beside the search box", function()
     expect(shown(d)).toContain("1/4")
   end)
 
-  it("leaves the search box room: the box is narrower by the count's width", function()
+  it("leaves the search box room: the box is narrower by the count and the cog", function()
     local d = open()
     local width = 300 + 2 * ctx.ns.compassStyle.bezel.band + 12
-    local expected = width - 2 * (ctx.ns.compassStyle.bezel.band + 8) - 30 - 84 - 6
+    local expected = width - 2 * (ctx.ns.compassStyle.bezel.band + 8) - 30 - 84 - 6 - 24
     expect(d.search.SetSize).toHaveBeenCalledWith(expected, 20)
   end)
 end)

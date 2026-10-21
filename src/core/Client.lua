@@ -78,6 +78,13 @@ function client.inCombat()
   return ok and v and true or false
 end
 
+-- Whether the player is dead or a ghost.
+function client.isDead()
+  if type(UnitIsDeadOrGhost) ~= "function" then return false end
+  local ok, v = pcall(UnitIsDeadOrGhost, "player")
+  return ok and v and true or false
+end
+
 -- Quest tracking -------------------------------------------------------------------
 
 -- Call tbl[name](...) when both exist; returns ok and the first result.

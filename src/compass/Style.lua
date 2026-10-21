@@ -101,6 +101,10 @@ S.marker = {
   smooth = { tau = 0.06, step = 0.033, hold = 0.9, jump = 80 },
 }
 
+-- The distance under each marker's place above the bar, like Skyrim's compass: a number of yards in a row above the dial's
+-- top, `size` font pixels, `gap` above the dial's overhang; the caption is lifted by `height` to leave the row free.
+S.distance = { size = 11, gap = 2, height = 14 }
+
 -- The focused marker gets a ring `pad` pixels larger than the marker itself.
 S.focusRing = { pad = 8, color = { 0.25, 0.65, 1.0 } }   -- bright blue, so the selection stands out from the gold badges
 
@@ -166,18 +170,20 @@ S.oldOpacityDefault = 0.75
 
 -- The caption above the bar: a headline (name and distance) and a short description, on a dark plate
 -- so they stay readable over any scenery. Sizes are font pixels; pad is plate padding.
-S.caption = { headSize = 13, detailSize = 11, padX = 10, padY = 4, gap = 4, lineGap = 1, minWidth = 120 }
+S.caption = { edge = { 0.914, 0.725, 0.286, 0.45 }, headSize = 13, detailSize = 11, padX = 16, padY = 7, gap = 6, lineGap = 3, minWidth = 140, maxWidth = 260, iconSize = 24, iconGap = 8 }
 
 -- r, g, b, a
 S.colors = {
-  captionPlate = { 0.051, 0.212, 0.275, 0.88 },   -- the logo's dark teal
-  detail = { 0.953, 0.918, 0.824, 1 },            -- description text: cream
+  captionPlate = { 0.07, 0.055, 0.04, 0.92 },     -- dark and warm, like the quest log and the guide panel
+  detail = { 0.902, 0.878, 0.812, 1 },            -- description text: the log's objective cream
   band = { 0.122, 0.478, 0.600, 0.92 },       -- #1f7a99
   highlight = { 0.165, 0.576, 0.710, 1 },     -- #2a93b5
   shadow = { 0.051, 0.212, 0.275, 1 },        -- #0d3646
   gold = { 0.914, 0.725, 0.286, 1 },          -- #e9b949
   cream = { 0.953, 0.918, 0.824, 1 },         -- #f3ead2
   north = { 0.886, 0.341, 0.298, 1 },         -- #e2574c
-  combat = { 0.86, 0.12, 0.12, 1 },
+  dead = { 1, 1, 1, 1 },                      -- the dial's ring when the player is dead
+  combat = { 0.886, 0.341, 0.298, 1 },        -- the soft red of the needle's north half (#e2574c)
   notch = { 0.953, 0.918, 0.824, 0.9 },
+  heading = { 1.0, 0.824, 0.29, 1 },          -- the caption's headline: the guide panel's current-step gold
 }

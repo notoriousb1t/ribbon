@@ -23,7 +23,7 @@ describe("Compass view", function()
       expect(parts.frame).toBe(RibbonCompass)
       expect(parts.frame:IsShown()).toBe(true)
       expect(parts.frame.SetSize).toHaveBeenCalledWith(600, 28)
-      expect(lastPoint(parts.frame)).toEqual({ "TOP", UIParent, "TOP", 0, -72 })
+      expect(lastPoint(parts.frame)).toEqual({ "BOTTOM", UIParent, "BOTTOM", 0, 138 })
     end)
 
     it("builds a tick for every 5 degrees and a label for each of the eight bearings", function()
@@ -104,7 +104,19 @@ describe("Compass view", function()
       expect(m.SetAlpha).toHaveBeenCalledWith(cfg.edgeAlpha)
     end)
 
-    it("shows the red combat bar only while in combat", function()
+    it("shows the ring on the dial white when dead, even in combat", function()
+      ctx.world.inCombat = true
+      ctx.world.dead = true
+      frameTick()
+      expect(parts.combatBar:IsShown()).toBe(true)
+      expect(parts.combatBar.SetVertexColor).toHaveBeenCalledWith(unpack(ctx.ns.compassStyle.colors.dead))
+      ctx.world.dead = false
+      ctx.world.inCombat = false
+      frameTick()
+      expect(parts.combatBar:IsShown()).toBe(false)
+    end)
+
+    it("shows the red ring on the dial only while in combat", function()
       frameTick()
       expect(parts.combatBar:IsShown()).toBe(false)
       ctx.world.inCombat = true
@@ -224,7 +236,7 @@ describe("Compass view", function()
       expect(parts.frame.StartMoving).toHaveBeenCalled()
       parts.frame:Trigger("OnDragStop")
       expect(parts.frame.StopMovingOrSizing).toHaveBeenCalled()
-      expect(RibbonDB.compass.point).toBe("TOP")
+      expect(RibbonDB.compass.point).toBe("BOTTOM")
     end)
 
     it("does not move while locked", function()

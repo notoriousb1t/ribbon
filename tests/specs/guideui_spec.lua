@@ -88,9 +88,9 @@ describe("Guide progress", function()
 
     it("writes just the levels on the second line: the percentage is on hover", function()
       local B = ctx.ns.guideBrowser
-      expect(B.subtitle({ levels = { 12, 14 }, fraction = 0.48 })).toContain("Lv 12-14")
+      expect(B.subtitle({ levels = { 12, 14 }, fraction = 0.48 })).toContain("Level 12-14")
       expect(B.subtitle({ levels = { 12, 14 }, fraction = 0.48 })).never.toContain("%")
-      expect(B.subtitle({ levels = { 5, 5 }, fraction = 1 })).toContain("Lv 5")
+      expect(B.subtitle({ levels = { 5, 5 }, fraction = 1 })).toContain("Level 5")
       expect(B.subtitle({ fraction = 0 })).toBe("")
     end)
 
@@ -101,11 +101,12 @@ describe("Guide progress", function()
       local card = frame.leftRows.items[2]
       expect(card.label.SetText).toHaveBeenCalled()
       local text = card.label.SetText.calls[#card.label.SetText.calls][1]
-      expect(text).toContain("11-12 Sentinel Hill (Westfall)")
+      expect(text).toContain("2. Sentinel Hill (Westfall)")
       expect(text).never.toContain("Report to Gryan")
-      expect(frame.leftRows.items[1].sub.SetText.calls[#frame.leftRows.items[1].sub.SetText.calls][1]).toContain("Lv 1-5")
-      expect(frame.leftRows.items[1].bar.fill:IsShown()).toBe(true)
-      expect(frame.leftRows.items[2].bar.fill:IsShown()).toBe(false)
+      expect(frame.leftRows.items[1].sub.SetText.calls[#frame.leftRows.items[1].sub.SetText.calls][1]).toContain("Level 1-5")
+      expect(frame.leftRows.items[1].percent:IsShown()).toBe(false)   -- done: no percentage
+      expect(frame.leftRows.items[2].percent:IsShown()).toBe(true)   -- in progress
+      expect(frame.leftRows.items[2].chevron:IsShown()).toBe(true)
     end)
 
     it("drops the browsed chapter when the step changes and shows the active chapter again", function()
@@ -305,12 +306,37 @@ describe("Guide progress", function()
 
     local function dockPanel() return ctx.ns.guideBrowser.dock() end
 
-    it("is a child of the world map and sits just outside its right edge when the screen has room", function()
+    it("stays on screen when the map closes: anchored to the side of the screen", function()
+      ctx.ns.map.guideButton:Trigger("OnClick")
+      local d = dockPanel()
+      WorldMapFrame:Hide()
+      d.SetPoint.calls = {}
+      ctx.ns.guideBrowser.placeDock()
+      expect(d:GetParent()).toBe(UIParent)
+      expect(d.SetPoint).toHaveBeenCalledWith("TOPLEFT", UIParent, "TOPLEFT", 16, -116)
+      expect(d.SetHeight).toHaveBeenCalled()
+      WorldMapFrame:Show()
+    end)
+
+    it("anchors beside the gossip window when it is open, over the map", function()
+      _G.GossipFrame = _G.GossipFrame or ctx.world:newObject("Frame")
+      GossipFrame.GetRight = function() return 400 end
+      UIParent.GetRight = function() return 1920 end
+      GossipFrame:Show()
+      ctx.ns.map.guideButton:Trigger("OnClick")
+      local d = dockPanel()
+      d.SetPoint.calls = {}
+      ctx.ns.guideBrowser.placeDock()
+      expect(d.SetPoint).toHaveBeenCalledWith("TOPLEFT", GossipFrame, "TOPRIGHT", 4, 0)
+      GossipFrame:Hide()
+    end)
+
+    it("sits just outside the map's right edge when the screen has room", function()
       WorldMapFrame.GetRight = function() return 700 end
       UIParent.GetRight = function() return 1920 end
       ctx.ns.map.guideButton:Trigger("OnClick")
       local d = dockPanel()
-      expect(d:GetParent()).toBe(WorldMapFrame)
+      expect(d:GetParent()).toBe(UIParent)
       expect(d.SetPoint).toHaveBeenCalledWith("TOPLEFT", WorldMapFrame, "TOPRIGHT", 4, 0)
       expect(d.SetPoint).toHaveBeenCalledWith("BOTTOMLEFT", WorldMapFrame, "BOTTOMRIGHT", 4, 0)
     end)
@@ -353,7 +379,7 @@ describe("Guide progress", function()
       ctx.ns.guidePlayer.jump(2, 1)
       ctx.ns.map.guideButton:Trigger("OnClick")
       local d = dockPanel()
-      expect(d.leftRows.items[1].sub.SetText.calls[#d.leftRows.items[1].sub.SetText.calls][1]).toContain("Lv 1-5")
+      expect(d.leftRows.items[1].sub.SetText.calls[#d.leftRows.items[1].sub.SetText.calls][1]).toContain("Level 1-5")
     end)
 
     it("remembers whether it was open, and Close hides it", function()

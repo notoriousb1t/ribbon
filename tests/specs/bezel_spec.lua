@@ -85,9 +85,9 @@ describe("Guide panel bezel and map button", function()
       expect(d.progress).toBeNil()           -- no "Step n of x"
     end)
 
-    it("has no X on the frame: the map button closes the panel", function()
+    it("has an X at the top right of the frame", function()
       local d = open()
-      expect(d.close:IsShown()).toBe(false)
+      expect(d.close:IsShown()).toBe(true)
     end)
 
     it("still closes through its (hidden) close button's script", function()

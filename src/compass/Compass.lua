@@ -7,7 +7,7 @@ ns.compass = C
 local deg = math.deg
 local TRACK_HEIGHT = 28
 
-local db, frame, dial, needle, targetText, detailText, captionPlate, captionTrim, combatBar
+local db, frame, dial, needle, targetText, detailText, captionPlate, captionTrim, captionIcon, combatBar
 local lastRotation, lastCombat, dragged
 local chrome = {}
 local ticks, labels, markers = {}, {}, {}
@@ -25,16 +25,34 @@ local function setCaption(wp)
   detailText:SetText(details)
   if head == "" then
     captionPlate:Hide()
-    captionTrim:Hide()
+    captionTrim.Hide()
+    captionIcon:Hide()
     return
   end
   local cap = ns.compassStyle.caption
-  local width = math.max(targetText:GetStringWidth() or 0, details ~= "" and (detailText:GetStringWidth() or 0) or 0)
+  -- Lines are kept to about the length of the guide panel's (cap.maxWidth): a longer one wraps, and the plate is as wide
+  -- as the widest line that results.
+  local headWidth = math.min(targetText:GetStringWidth() or 0, cap.maxWidth)
+  local detailWidth = details ~= "" and math.min(detailText:GetStringWidth() or 0, cap.maxWidth) or 0
+  targetText:SetWidth(headWidth + 2)
+  detailText:SetWidth(math.max(detailWidth, 1) + 2)
+  local width = math.max(headWidth, detailWidth)
   local height = (targetText:GetStringHeight() or cap.headSize) + cap.padY * 2
   if details ~= "" then height = height + cap.lineGap + (detailText:GetStringHeight() or cap.detailSize) end
-  captionPlate:SetSize(math.max(width + cap.padX * 2, cap.minWidth), height)
+  -- The step's badge at the left, the text shifted over to make room for it.
+  local lead = 0
+  if wp and wp.icon then
+    lead = cap.iconSize + cap.iconGap
+    ns.badge.draw(captionIcon, wp.icon, cap.iconSize)
+    captionIcon:Show()
+  else
+    captionIcon:Hide()
+  end
+  targetText:ClearAllPoints()
+  targetText:SetPoint("TOP", captionPlate, "TOP", lead / 2, -cap.padY)
+  captionPlate:SetSize(math.max(width + lead + cap.padX * 2, cap.minWidth), height)
   captionPlate:Show()
-  captionTrim:Show()
+  captionTrim.Show()
 end
 
 -- Opens the guide panel when a guide is installed; a click on the ribbon without one does nothing.
@@ -58,7 +76,7 @@ function C.Apply()
   dial.face:SetAlpha(db.dialOpacity)
   frame:SetSize(db.width, TRACK_HEIGHT)
   frame:ClearAllPoints()
-  frame:SetPoint(db.point or "TOP", UIParent, db.relPoint or db.point or "TOP", db.x or 0, db.y or -72)
+  frame:SetPoint(db.point or "BOTTOM", UIParent, db.relPoint or db.point or "BOTTOM", db.x or 0, db.y or 138)
   frame:SetShown(db.shown and true or false)
 end
 
@@ -102,6 +120,11 @@ local function marker(i)
   m.arrow:SetTexture(ns.compassStyle.textures.edgeArrow)
   m.arrow:SetSize(arrowSize, arrowSize)
   m.arrow:Hide()
+  -- The distance, in a row above the bar (placed with the marker in Update).
+  m.dist = m:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+  styleText(m.dist, ns.compassStyle.distance.size)
+  m.dist:SetTextColor(unpack(ns.compassStyle.colors.cream))
+  m.dist:Hide()
   -- Ring for the focused marker, behind the icon.
   m.ring = m:CreateTexture(nil, "BACKGROUND")
   m.ring:SetTexture(ns.compassStyle.textures.focusRing)
@@ -122,6 +145,25 @@ local function marker(i)
   end)
   markers[i] = m
   return m
+end
+
+-- The caption's edge, like the guide panel's section headers in the quest log: a fine gold line along the top and the
+-- bottom of the plate. Returns an object with Show and Hide.
+local function trim(owner, region)
+  local gold = ns.compassStyle.caption.edge
+  local lines = {}
+  for _, side in ipairs({ "TOP", "BOTTOM" }) do
+    local t = owner:CreateTexture(nil, "BORDER")
+    t:SetColorTexture(unpack(gold))
+    t:SetHeight(1)
+    t:SetPoint(side .. "LEFT", region, side .. "LEFT")
+    t:SetPoint(side .. "RIGHT", region, side .. "RIGHT")
+    lines[#lines + 1] = t
+  end
+  local edge = {}
+  function edge.Show() for _, t in ipairs(lines) do t:Show() end end
+  function edge.Hide() for _, t in ipairs(lines) do t:Hide() end end
+  return edge
 end
 
 local function build()
@@ -156,13 +198,6 @@ local function build()
   -- remain easy to read.
   chrome = { bg, highlight, shadow }
 
-  -- Combat cue: a red bar along the bottom edge of the band, shown while the player is in combat.
-  combatBar = frame:CreateTexture(nil, "OVERLAY")
-  combatBar:SetColorTexture(unpack(c.combat))
-  combatBar:SetHeight(style.combat.height)
-  combatBar:SetPoint("BOTTOMLEFT")
-  combatBar:SetPoint("BOTTOMRIGHT")
-  combatBar:Hide()
 
   -- The compass: a dial under the bar with a needle that always points to due north.
   -- Hovering it shows the coordinates; dragging it moves the bar.
@@ -174,6 +209,12 @@ local function build()
   dial.face = dial:CreateTexture(nil, "ARTWORK")
   dial.face:SetAllPoints()
   dial.face:SetTexture(style.textures.dial)
+  -- Combat cue: a red ring laid over the dial's gold one while the player is in combat.
+  combatBar = dial:CreateTexture(nil, "ARTWORK", nil, 1)
+  combatBar:SetAllPoints()
+  combatBar:SetTexture(style.textures.markerRim)
+  combatBar:SetVertexColor(unpack(c.combat))
+  combatBar:Hide()
   needle = dial:CreateTexture(nil, "OVERLAY")
   needle:SetAllPoints()
   needle:SetTexture(style.textures.needle)
@@ -192,24 +233,25 @@ local function build()
     if not wasDrag then C.OpenGuide() end
   end)
 
-  -- Caption above the bar: a dark plate with a gold trim, the headline (name and distance) and the description.
+  -- Caption above the bar: a dark warm plate like the quest log's, fine gold lines top and bottom, the headline (name and distance) and the description.
   local cap = style.caption
   captionPlate = frame:CreateTexture(nil, "BACKGROUND")
   captionPlate:SetColorTexture(unpack(c.captionPlate))
-  captionPlate:SetPoint("BOTTOM", frame, "TOP", 0, cap.gap + math.max(0, (style.dial.size - TRACK_HEIGHT) / 2))
+  captionPlate:SetPoint("BOTTOM", frame, "TOP", 0, cap.gap + math.max(0, (style.dial.size - TRACK_HEIGHT) / 2) + style.distance.height)
   captionPlate:SetSize(cap.minWidth, 20)
   captionPlate:Hide()
-  captionTrim = frame:CreateTexture(nil, "BORDER")
-  captionTrim:SetColorTexture(unpack(c.gold))
-  captionTrim:SetHeight(1)
-  captionTrim:SetPoint("TOPLEFT", captionPlate, "TOPLEFT")
-  captionTrim:SetPoint("TOPRIGHT", captionPlate, "TOPRIGHT")
-  captionTrim:Hide()
+  captionIcon = CreateFrame("Frame", nil, frame)
+  captionIcon:SetSize(cap.iconSize, cap.iconSize)
+  ns.badge.build(captionIcon)
+  captionIcon:SetPoint("LEFT", captionPlate, "LEFT", cap.padX, 0)
+  captionIcon:Hide()
+  captionTrim = trim(frame, captionPlate)
+  captionTrim.Hide()
 
   targetText = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
   styleText(targetText, cap.headSize)
   targetText:SetPoint("TOP", captionPlate, "TOP", 0, -cap.padY)
-  targetText:SetTextColor(unpack(c.cream))
+  targetText:SetTextColor(unpack(c.heading))
 
   detailText = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
   styleText(detailText, cap.detailSize)
@@ -217,7 +259,7 @@ local function build()
   detailText:SetTextColor(unpack(c.detail))
 
   C.parts = { frame = frame, dial = dial, needle = needle, targetText = targetText, detailText = detailText,
-    captionPlate = captionPlate, ticks = ticks, labels = labels, markers = markers, combatBar = combatBar,
+    captionPlate = captionPlate, captionIcon = captionIcon, ticks = ticks, labels = labels, markers = markers, combatBar = combatBar,
   }
 
   for i = 1, layout.TICK_COUNT do
@@ -283,10 +325,13 @@ end
 
 function C.Update()
   if not frame:IsShown() then return end
-  local combat = ns.client.inCombat()
-  if combat ~= lastCombat then
-    lastCombat = combat
-    combatBar:SetShown(combat)
+  -- The ring on the dial: white when dead, soft red in combat, off otherwise.
+  local alert = ns.client.isDead() and "dead" or (ns.client.inCombat() and "combat" or false)
+  if alert ~= lastCombat then
+    lastCombat = alert
+    local c = ns.compassStyle.colors
+    combatBar:SetVertexColor(unpack(alert == "dead" and c.dead or c.combat))
+    combatBar:SetShown(alert ~= false)
   end
   local facing = ns.client.facing()
   pointNeedle(facing)
@@ -332,6 +377,16 @@ function C.Update()
     end
     -- Closer waypoints are drawn larger (up to taller than the ribbon), far ones small.
     m:SetSize(p.size, p.size)
+    local dist = p.wp.dist
+    if type(dist) == "number" then
+      local d = ns.compassStyle.distance
+      m.dist:ClearAllPoints()
+      m.dist:SetPoint("BOTTOM", frame, "TOP", p.x, d.gap + math.max(0, (ns.compassStyle.dial.size - TRACK_HEIGHT) / 2))
+      m.dist:SetText(string.format("%d yd", dist))
+      m.dist:Show()
+    else
+      m.dist:Hide()
+    end
     m:SetFrameLevel(frame:GetFrameLevel() + 2 + p.level)
     if p.focused then
       local ring = ns.compassStyle.focusRing.pad

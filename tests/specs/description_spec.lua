@@ -115,7 +115,7 @@ describe("Descriptions", function()
 
     it("sizes the plate from the text it measures", function()
       -- the fake client has no real font metrics, so give the strings a measured width and height
-      parts.targetText.GetStringWidth = function() return 300 end
+      parts.targetText.GetStringWidth = function() return 240 end
       parts.targetText.GetStringHeight = function() return 14 end
       parts.detailText.GetStringWidth = function() return 180 end
       parts.detailText.GetStringHeight = function() return 12 end
@@ -123,8 +123,40 @@ describe("Descriptions", function()
       frameTick()
       local calls = parts.captionPlate.SetSize.calls
       local style = ctx.ns.compassStyle.caption
-      expect(calls[#calls][1]).toBe(300 + style.padX * 2)
+      expect(calls[#calls][1]).toBe(240 + style.iconSize + style.iconGap + style.padX * 2)
       expect(calls[#calls][2]).toBe(14 + style.padY * 2 + style.lineGap + 12)
+    end)
+
+    it("wraps a long line at the guide panel's line length", function()
+      parts.targetText.GetStringWidth = function() return 500 end
+      parts.targetText.GetStringHeight = function() return 28 end
+      parts.detailText.GetStringWidth = function() return 100 end
+      parts.detailText.GetStringHeight = function() return 12 end
+      ctx.ns:AddWaypoint(1453, 61.99, 70.58 - 50 / YD_PER_Y, { title = "T", description = "d" })
+      frameTick()
+      local style = ctx.ns.compassStyle.caption
+      local calls = parts.captionPlate.SetSize.calls
+      expect(calls[#calls][1]).toBe(style.maxWidth + style.iconSize + style.iconGap + style.padX * 2)
+      expect(parts.targetText.SetWidth).toHaveBeenCalledWith(style.maxWidth + 2)
+    end)
+
+    it("shows the step's badge (in its circle) at the left of the plate", function()
+      ctx.ns:AddWaypoint(1453, 61.99, 70.58 - 50 / YD_PER_Y, { title = "T", icon = "accept" })
+      frameTick()
+      local style = ctx.ns.compassStyle
+      expect(parts.captionIcon:IsShown()).toBe(true)
+      expect(parts.captionIcon.questRing:IsShown()).toBe(true)
+      expect(parts.captionIcon.glyphTex.SetTexture).toHaveBeenCalledWith(style.textures.questExclaim)
+    end)
+
+    it("shows the distance above the bar over each marker", function()
+      ctx.ns:AddWaypoint(1453, 61.99, 70.58 - 50 / YD_PER_Y, { title = "T" })
+      frameTick()
+      local m = parts.markers[1]
+      expect(m.dist:IsShown()).toBe(true)
+      expect(lastText(m.dist)).toContain("yd")
+      expect(m.dist.SetPoint.calls[#m.dist.SetPoint.calls][2]).toBe(parts.frame)
+      expect(m.dist.SetPoint.calls[#m.dist.SetPoint.calls][3]).toBe("TOP")
     end)
 
     it("shows the description in the tooltip too", function()

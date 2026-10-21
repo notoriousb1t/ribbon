@@ -42,4 +42,5 @@ return {
   "quest_rows",
   "counter",
   "backbutton",
+  "settings",
 }

@@ -253,6 +253,7 @@ function Fake.install()
   _G.UnitFactionGroup = function() return c.faction, c.faction end
   _G.UnitLevel = function() return c.level end
   _G.UnitAffectingCombat = function() return world.inCombat == true end
+  _G.UnitIsDeadOrGhost = function() return world.dead == true end
 
   -- Chat, slash commands, libraries
   _G.SlashCmdList = {}

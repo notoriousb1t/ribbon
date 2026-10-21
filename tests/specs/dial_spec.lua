@@ -80,7 +80,7 @@ describe("Compass dial", function()
       local parts = ctx.ns.compass.parts
       local style = ctx.ns.compassStyle
       local overhang = (style.dial.size - 28) / 2
-      expect(parts.captionPlate.SetPoint).toHaveBeenCalledWith("BOTTOM", parts.frame, "TOP", 0, style.caption.gap + overhang)
+      expect(parts.captionPlate.SetPoint).toHaveBeenCalledWith("BOTTOM", parts.frame, "TOP", 0, style.caption.gap + overhang + style.distance.height)
     end)
   end)
 

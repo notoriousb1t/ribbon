@@ -39,7 +39,8 @@ ns.ICONS = {
 ns.DEFAULT_ICON = "poi"
 
 ns.defaults = {
-  compass = { shown = true, width = 600, fov = 140, opacity = 0.6, dialOpacity = 0.7, locked = false, point = "TOP", relPoint = "TOP", x = 0, y = -72 },
+  guideSettings = { autoAdvance = true, autoQuest = true },
+  compass = { shown = true, width = 600, fov = 140, opacity = 0.6, dialOpacity = 0.7, locked = false, point = "BOTTOM", relPoint = "BOTTOM", x = 0, y = 138 },
 }
 
 ns.commands = {}

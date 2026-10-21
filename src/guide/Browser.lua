@@ -128,7 +128,7 @@ function Br.rows(player, chapter, query)
 end
 
 local function colored(state, label)
-  return (COLORS[state] or COLORS.todo) .. (state == "current" and "> " or "") .. label .. "|r"
+  return (COLORS[state] or COLORS.todo) .. label .. "|r"
 end
 
 
@@ -144,48 +144,46 @@ local function pool(parent, rows, make, height)
   end
 end
 
-local BAR_H = 5
+local MARK = 20                           -- the status mark at the start of a chapter card
+local CHEVRON = 14                       -- the chevron at the end of one
 
--- A flat progress bar: a dark track and a fill whose width follows the fraction.
-local function bar(parent, width, height)
-  local track = parent:CreateTexture(nil, "BACKGROUND")
-  track:SetColorTexture(0, 0, 0, 0.45)
-  track:SetSize(width, height)
-  local fill = parent:CreateTexture(nil, "ARTWORK")
-  fill:SetPoint("TOPLEFT", track, "TOPLEFT")
-  fill:SetHeight(height)
-  local b = { track = track, fill = fill, width = width }
-  function b.set(fraction, color)
-    fraction = math.max(0, math.min(1, fraction or 0))
-    fill:SetColorTexture(color[1], color[2], color[3], 1)
-    fill:SetWidth(math.max(0.001, fraction * width))
-    fill:SetShown(fraction > 0)
-  end
-  return b
-end
-
-local BAR_COLORS = {
-  done = { 0.42, 0.62, 0.66 }, current = { 0.914, 0.725, 0.286 }, todo = { 0.953, 0.918, 0.824 },
-}
-
--- A chapter card: place on the first line, levels and percent on the second, a progress bar under both.
+-- A chapter card: place on the first line and the levels on the second, a status mark at the start and a chevron at the
+-- end (with the percentage beside it for the chapter in progress).
 local function makeCard(width)
   return function(parent, i)
     local b = CreateFrame("Button", nil, parent)
     b:SetSize(width, CARD)
     b:SetPoint("TOPLEFT", parent, "TOPLEFT", 0, -(i - 1) * CARD)
     b.label = b:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-    b.label:SetPoint("TOPLEFT", b, "TOPLEFT", 4, -4)
-    b.label:SetWidth(width - 8)
+    b.label:SetPoint("TOPLEFT", b, "TOPLEFT", 4 + MARK + 6, -4)
+    b.label:SetWidth(width - 8 - MARK - 6 - CHEVRON - 4)
     b.label:SetJustifyH("LEFT")
+    -- The chapter's status, at the start of the card and drawn like the step rows': a grey check mark once done, the
+    -- compass needle on the step's gold glow while in progress, nothing when not started.
+    b.glow = b:CreateTexture(nil, "BACKGROUND")
+    b.glow:SetTexture(ns.compassStyle.textures.markerFill)
+    b.glow:SetVertexColor(1, 0.82, 0.2, 0.35)
+    b.glow:SetSize(MARK + 8, MARK + 8)
+    b.glow:Hide()
+    b.mark = b:CreateTexture(nil, "OVERLAY")
+    b.mark:SetSize(MARK, MARK)
+    b.mark:SetPoint("LEFT", b, "LEFT", 4, 2)
+    b.glow:SetPoint("CENTER", b.mark, "CENTER")
+    b.mark:Hide()
     b.sub = b:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     b.sub:SetPoint("TOPLEFT", b.label, "BOTTOMLEFT", 0, -2)
     b.sub:SetWidth(width - 8)
     b.sub:SetJustifyH("LEFT")
-    b.bar = bar(b, width - 8, BAR_H)
-    b.bar.track:SetPoint("BOTTOMLEFT", b, "BOTTOMLEFT", 4, 4)
+    b.chevron = b:CreateTexture(nil, "OVERLAY")
+    b.chevron:SetTexture(ns.compassStyle.textures.panelCaret)
+    b.chevron:SetTexCoord(1, 0, 0, 1)   -- the caret points left; flipped it points right
+    b.chevron:SetSize(CHEVRON, CHEVRON)
+    b.chevron:SetPoint("RIGHT", b, "RIGHT", -6, 0)
+    b.percent = b:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    b.percent:SetPoint("RIGHT", b.chevron, "LEFT", -4, 0)
+    b.percent:Hide()
     b:SetHighlightTexture([[Interface\QuestFrame\UI-QuestTitleHighlight]])
-    -- The percentage is only on hover.
+    -- The steps done and the exact figure are on hover.
     b:SetScript("OnEnter", function(self)
       if not self.total then return end
       GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
@@ -422,12 +420,44 @@ local function fill(f, player)
   f.setLeft(#left)
   for i, row in ipairs(left) do
     local b = f.leftRows.items[i]
-    local place = text.chapterParts(row.label)
+    -- "1. Zephras Isle (Skyborne)" over "Level 1-13": the levels leave the name for the second line, and the chapters
+    -- are numbered 1, 2, 3 ... in the order this player sees them.
+    local place = text.chapterParts(row.label):gsub("^%d+%-%d+%s+", ""):gsub("^%d+%s+", "")
     local state = row.chapter == selected and "current" or row.state
-    b.label:SetText(colored(state, place))
+    b.label:SetText(colored(state, i .. ". " .. place))
     b.sub:SetText(Br.subtitle(row))
-    b.bar.set(row.fraction, BAR_COLORS[row.state] or BAR_COLORS.todo)
+    -- The chevron takes the title's colour; the chapter in progress also says how far along it is.
+    local hex = (COLORS[state] or COLORS.todo):match('|cff(%x%x%x%x%x%x)')
+    if hex then
+      b.chevron:SetVertexColor(tonumber(hex:sub(1, 2), 16) / 255, tonumber(hex:sub(3, 4), 16) / 255, tonumber(hex:sub(5, 6), 16) / 255)
+    end
+    if row.state == "current" then
+      b.percent:SetText(colored(state, string.format("%d%%", math.floor((row.fraction or 0) * 100 + 0.5))))
+      b.percent:Show()
+    else
+      b.percent:Hide()
+    end
     b.chapter, b.done, b.total, b.fraction = row.chapter, row.done, row.total, row.fraction
+    -- Status by the player's real progress (not by which chapter is being browsed): done fades with a check mark,
+    -- in progress gets the needle, not started gets nothing.
+    b.glow:SetShown(row.state == "current")
+    if row.state == "done" then
+      b.mark:SetTexture([[Interface\Buttons\UI-CheckBox-Check]])
+      if b.mark.SetDesaturated then b.mark:SetDesaturated(true) end
+      b.mark:SetVertexColor(TICK_GREY, TICK_GREY, TICK_GREY)
+      b.mark:Show()
+      b:SetAlpha(0.55)
+    elseif row.state == "current" then
+      b.mark:SetTexture(ns.compassStyle.textures.panelNeedle)
+      if b.mark.SetDesaturated then b.mark:SetDesaturated(false) end
+      local gold = ns.compassStyle.panel.gold
+      b.mark:SetVertexColor(gold[1], gold[2], gold[3])
+      b.mark:Show()
+      b:SetAlpha(1)
+    else
+      b.mark:Hide()
+      b:SetAlpha(1)
+    end
   end
   f.setRight(#right)
   -- The rows start at the top. (Searching, each chapter with matches has a section header row of its own.)
@@ -524,7 +554,7 @@ end
 function Br.subtitle(row)
   local lv = row.levels
   if type(lv) == "table" and lv[1] then
-    local text = lv[2] and lv[2] ~= lv[1] and string.format("Lv %d-%d", lv[1], lv[2]) or string.format("Lv %d", lv[1])
+    local text = lv[2] and lv[2] ~= lv[1] and string.format("Level %d-%d", lv[1], lv[2]) or string.format("Level %d", lv[1])
     return "|cffb8c7cc" .. text .. "|r"
   end
   return ""
@@ -659,7 +689,7 @@ local function makeSearch(parent, width)
   -- The game's search box (SearchBoxTemplate) brings its own magnifier, placeholder text and clear button, so a second
   -- hint drawn over it would double up: use its placeholder, keep its scripts and listen alongside them.
   if type(box.Instructions) == "table" and box.Instructions.SetText then
-    box.Instructions:SetText("Search chapters and steps")
+    box.Instructions:SetText("Search steps")
     box.templated = true
     function box.sync() end
     box:HookScript("OnTextChanged", function(self) Br.setQuery(self:GetText() or "", true) end)
@@ -668,7 +698,7 @@ local function makeSearch(parent, width)
 
   box.hint = box:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
   box.hint:SetPoint("LEFT", box, "LEFT", 6, 0)
-  box.hint:SetText("Search chapters and steps")
+  box.hint:SetText("Search steps")
   box.clear = CreateFrame("Button", nil, box)
   box.clear:SetSize(16, 16)
   box.clear:SetPoint("RIGHT", box, "RIGHT", -2, 0)
@@ -710,7 +740,7 @@ end
 -- bezel drawn in build() stands in, in the same colours and width.
 local function nativeFrame()
   if type(_G.ButtonFrameTemplate_HidePortrait) ~= "function" then return nil end
-  local ok, f = pcall(CreateFrame, "Frame", "RibbonGuideDock", WorldMapFrame, "ButtonFrameTemplate")
+  local ok, f = pcall(CreateFrame, "Frame", "RibbonGuideDock", UIParent, "ButtonFrameTemplate")
   if not (ok and type(f) == "table") then return nil end
   pcall(_G.ButtonFrameTemplate_HidePortrait, f)
   -- The template reserves a bar for buttons at the bottom and a band under the title; the panel needs neither, so the
@@ -726,6 +756,95 @@ local function nativeFrame()
   return f
 end
 
+-- The settings button, a cog beside the X, and the menu it drops down: one check box row per option in
+-- ns.guideSettings.OPTIONS. Plain frames, so it looks the same on every client.
+local MENU_ROW = 22
+local MENU_W = 230
+
+local function settingsMenu(f)
+  local settings = ns.guideSettings
+  if not settings then return nil end
+  local gear = CreateFrame("Button", nil, f)
+  gear:SetSize(20, 20)
+  gear:SetPoint("RIGHT", f.counter, "LEFT", -4, 0)   -- in the search row, before the count
+  gear:SetFrameLevel(f:GetFrameLevel() + 20)
+  gear.icon = gear:CreateTexture(nil, "ARTWORK")
+  -- A gear icon every client ships, cropped of its border and drawn in the title bar's button look.
+  gear.bg = gear:CreateTexture(nil, "BACKGROUND")
+  gear.bg:SetTexture(ns.compassStyle.textures.bezelButton)
+  gear.bg:SetAllPoints()
+  gear.icon = gear:CreateTexture(nil, "ARTWORK")
+  gear.icon:SetTexture([[Interface\Icons\INV_Misc_Gear_01]])
+  gear.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+  gear.icon:SetPoint("CENTER")
+  gear.icon:SetSize(16, 16)
+  gear:SetHighlightTexture(ns.compassStyle.textures.bezelButton, "ADD")
+
+  local menu = CreateFrame("Frame", nil, f)
+  menu:SetSize(MENU_W, #settings.OPTIONS * MENU_ROW + 12)
+  menu:SetPoint("BOTTOMLEFT", gear, "TOPRIGHT", 2, 2)
+  menu:SetFrameStrata("FULLSCREEN_DIALOG")   -- under the tooltips, which are at TOOLTIP
+  menu:EnableMouse(true)
+  menu.bg = menu:CreateTexture(nil, "BACKGROUND")
+  menu.bg:SetAllPoints()
+  menu.bg:SetColorTexture(0.06, 0.05, 0.04, 0.96)
+  local gold = ns.compassStyle.panel.gold
+  menu.edges = {}
+  for n, edge in ipairs({ "TOP", "BOTTOM" }) do
+    local line = menu:CreateTexture(nil, "BORDER")
+    line:SetColorTexture(gold[1], gold[2], gold[3], 0.7)
+    line:SetHeight(1)
+    line:SetPoint(edge .. "LEFT")
+    line:SetPoint(edge .. "RIGHT")
+    menu.edges[n] = line
+  end
+  menu.rows = {}
+  for i, option in ipairs(settings.OPTIONS) do
+    local row = CreateFrame("Button", nil, menu)
+    row:SetSize(MENU_W - 12, MENU_ROW)
+    row:SetPoint("TOPLEFT", menu, "TOPLEFT", 6, -6 - (i - 1) * MENU_ROW)
+    row.box = row:CreateTexture(nil, "ARTWORK")
+    row.box:SetTexture([[Interface\Buttons\UI-CheckBox-Up]])
+    row.box:SetSize(22, 22)
+    row.box:SetPoint("LEFT", row, "LEFT", 0, 0)
+    row.check = row:CreateTexture(nil, "OVERLAY")
+    row.check:SetTexture([[Interface\Buttons\UI-CheckBox-Check]])
+    row.check:SetSize(22, 22)
+    row.check:SetPoint("CENTER", row.box, "CENTER")
+    row.label = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    row.label:SetPoint("LEFT", row.box, "RIGHT", 4, 0)
+    row.label:SetText(option.label)
+    row:SetHighlightTexture([[Interface\QuestFrame\UI-QuestTitleHighlight]])
+    row.key = option.key
+    row.sync = function() row.check:SetShown(settings.get(option.key)) end
+    row:SetScript("OnClick", function()
+      settings.set(option.key, not settings.get(option.key))
+      row.sync()
+    end)
+    row:SetScript("OnEnter", function(self)
+      GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+      GameTooltip:SetText(option.label)
+      GameTooltip:AddLine(option.tip, 1, 1, 1, true)
+      GameTooltip:Show()
+    end)
+    row:SetScript("OnLeave", function() GameTooltip:Hide() end)
+    menu.rows[i] = row
+  end
+  menu.sync = function() for _, row in ipairs(menu.rows) do row.sync() end end
+  menu:SetScript("OnShow", menu.sync)
+  menu:Hide()
+  gear:SetScript("OnClick", function() menu:SetShown(not menu:IsShown()) end)
+  gear:SetScript("OnEnter", function(self)
+    GameTooltip:SetOwner(self, "ANCHOR_BOTTOM")
+    GameTooltip:SetText("Settings")
+    GameTooltip:Show()
+  end)
+  gear:SetScript("OnLeave", function() GameTooltip:Hide() end)
+  -- The menu goes away with the panel.
+  f:HookScript("OnHide", function() menu:Hide() end)
+  return gear, menu
+end
+
 -- Builds the panel as a child of the world map, so it shows and hides with the map.
 local function build()
   local style = ns.compassStyle
@@ -733,8 +852,10 @@ local function build()
   local width = COLUMN_W + 2 * B + 12
   local f = nativeFrame()
   local native = f ~= nil
-  if not native then f = CreateFrame("Frame", "RibbonGuideDock", WorldMapFrame) end
+  if not native then f = CreateFrame("Frame", "RibbonGuideDock", UIParent) end
   f.native = native
+  if f.SetFrameStrata then f:SetFrameStrata("DIALOG") end   -- not a child of the map any more: stay over it
+  if f.SetClampedToScreen then f:SetClampedToScreen(true) end
   f:SetWidth(width)
   f:EnableMouse(true)
   local content, anchor   -- the frame the content hangs from, and how the lists attach to it
@@ -757,7 +878,7 @@ local function build()
       f.close:SetPoint("TOPRIGHT", f, "TOPRIGHT", -4, -4)
     end
     f.close:SetScript("OnClick", function() Br.setDock(false) end)
-    f.close:Hide()   -- the map button closes the panel, so the frame needs no X
+    f.close:Show()
   else
     content = f
     local p = style.panel
@@ -804,7 +925,7 @@ local function build()
     end
     f.close:SetHighlightTexture(style.textures.bezelButton, "ADD")
     f.close:SetScript("OnClick", function() Br.setDock(false) end)
-    f.close:Hide()   -- the map button closes the panel, so the frame needs no X
+    f.close:Show()
   end
   -- The back arrow, on the child page: a button with the caret pointing left. The same in both looks, and drawn from
   -- Ribbon's own textures, so it is always there.
@@ -836,7 +957,7 @@ local function build()
   f.back:Hide()
 
   -- The search box, under the title bar.
-  f.search = makeSearch(f, width - 2 * (B + 8) - 30 - COUNTER_W - 6 - (native and 8 or 0))
+  f.search = makeSearch(f, width - 2 * (B + 8) - 30 - COUNTER_W - 6 - 24 - (native and 8 or 0))
   if native then
     f.search:SetPoint("TOPLEFT", content, "TOPLEFT", 38, -8)
   else
@@ -865,6 +986,7 @@ local function build()
   end
   f.counter.text = f.counter:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
   f.counter.text:SetPoint("CENTER")
+  f.gear, f.menu = settingsMenu(f)
 
 
   -- Shown over the lists when a search finds nothing.
@@ -922,41 +1044,155 @@ end
 -- Where the panel goes. The map and its quest log are one frame, and the quest log panel draws over anything put
 -- inside the frame's right side, so the panel sits just outside the frame's right edge when the screen has room for
 -- it, and only falls back to overlapping the frame (above the quest log) when the map fills the screen.
-function Br.placeDock()
-  if not (dock and WorldMapFrame) then return end
-  local right, screen = WorldMapFrame:GetRight(), UIParent:GetRight()
-  local width = dock:GetWidth() or 0
-  -- The map has a scale of its own (it changes when the map is maximized), so both edges are measured in the map's units.
+--
+-- The panel is not a child of the map, so it stays when the map closes. While open it anchors to, in order:
+--   1. a quest or gossip window, beside it (the right side, or the left when the screen has no room);
+--   2. the open map (as above);
+--   3. the side of the screen.
+local NPC_FRAMES = { "QuestFrame", "GossipFrame" }
+
+local function shownFrame(name)
+  local fr = _G[name]
+  if type(fr) == "table" and fr.IsShown and fr:IsShown() then return fr end
+end
+
+local function mapHeight()
+  if not (WorldMapFrame and WorldMapFrame.GetHeight) then return nil end
+  local height = WorldMapFrame:GetHeight()
   local mapScale = WorldMapFrame.GetEffectiveScale and WorldMapFrame:GetEffectiveScale()
   local uiScale = UIParent.GetEffectiveScale and UIParent:GetEffectiveScale()
-  if type(mapScale) == "number" and mapScale > 0 and type(uiScale) == "number" and type(screen) == "number" then
-    screen = screen * uiScale / mapScale
+  if type(height) ~= "number" or height <= 0 then return nil end
+  if type(mapScale) == "number" and mapScale > 0 and type(uiScale) == "number" and uiScale > 0 then
+    height = height * mapScale / uiScale
   end
+  return height
+end
+
+function Br.placeDock()
+  if not dock then return end
+  local width = dock:GetWidth() or 0
+  local uiScale = UIParent.GetEffectiveScale and UIParent:GetEffectiveScale()
+  -- A frame's scale is its own (the map's changes when it is maximized), so edges are measured in its units.
+  local function room(fr)
+    local right, screen = fr:GetRight(), UIParent:GetRight()
+    local scale = fr.GetEffectiveScale and fr:GetEffectiveScale()
+    if type(scale) == "number" and scale > 0 and type(uiScale) == "number" and type(screen) == "number" then
+      screen = screen * uiScale / scale
+    end
+    return type(right) == "number" and type(screen) == "number" and screen - right >= width + 8
+  end
+  local npc
+  for _, name in ipairs(NPC_FRAMES) do npc = npc or shownFrame(name) end
+  local map = WorldMapFrame and WorldMapFrame.IsShown and WorldMapFrame:IsShown() and WorldMapFrame or nil
   dock:ClearAllPoints()
-  if type(right) == "number" and type(screen) == "number" and screen - right >= width + 8 then
-    dock:SetPoint("TOPLEFT", WorldMapFrame, "TOPRIGHT", 4, 0)
-    dock:SetPoint("BOTTOMLEFT", WorldMapFrame, "BOTTOMRIGHT", 4, 0)
+  if npc then
+    if room(npc) then
+      dock:SetPoint("TOPLEFT", npc, "TOPRIGHT", 4, 0)
+      dock:SetPoint("BOTTOMLEFT", npc, "BOTTOMRIGHT", 4, 0)
+    else
+      dock:SetPoint("TOPRIGHT", npc, "TOPLEFT", -4, 0)
+      dock:SetPoint("BOTTOMRIGHT", npc, "BOTTOMLEFT", -4, 0)
+    end
+  elseif map then
+    local h = mapHeight()
+    if h and ns.db and not (map.IsMaximized and map:IsMaximized()) then ns.db.guideDockHeight = h end
+    if room(map) then
+      dock:SetPoint("TOPLEFT", map, "TOPRIGHT", 4, 0)
+      dock:SetPoint("BOTTOMLEFT", map, "BOTTOMRIGHT", 4, 0)
+    else
+      dock:SetPoint("TOPRIGHT", map, "TOPRIGHT", -6, -66)
+      dock:SetPoint("BOTTOMRIGHT", map, "BOTTOMRIGHT", -6, 6)
+    end
   else
-    dock:SetPoint("TOPRIGHT", WorldMapFrame, "TOPRIGHT", -6, -66)
-    dock:SetPoint("BOTTOMRIGHT", WorldMapFrame, "BOTTOMRIGHT", -6, 6)
+    -- The left side of the screen, as tall as the map frame (measured in screen units, clamped to the screen).
+    -- Right after a reload the map has no real size or scale yet, so the height is the one measured last time the
+    -- map was open (kept in the saved variables).
+    local height = ns.db and ns.db.guideDockHeight
+    if type(height) ~= "number" or height <= 0 then height = mapHeight() or 500 end
+    local screenH = UIParent.GetHeight and UIParent:GetHeight()
+    if type(screenH) == "number" and screenH > 0 then height = math.min(height, screenH) end
+    -- Where the game puts its left-hand windows (the gossip and quest windows): 16 from the left, 116 from the top.
+    dock:SetPoint("TOPLEFT", UIParent, "TOPLEFT", 16, -116)
+    dock:SetHeight(height)
   end
-  dock:SetFrameLevel(WorldMapFrame:GetFrameLevel() + 200)
+  local base = (npc or map or UIParent):GetFrameLevel() or 0
+  dock:SetFrameLevel(base + 200)
   -- The back arrow is raised with it, so it stays over the title bar's art whatever level the panel ends up at.
   if dock.back then dock.back:SetFrameLevel(dock:GetFrameLevel() + 20) end
+  if dock.gear then dock.gear:SetFrameLevel(dock:GetFrameLevel() + 20) end
+  if dock.menu then dock.menu:SetFrameLevel(dock:GetFrameLevel() + 40) end
   if dock.layoutBezel then dock.layoutBezel() end
+end
+
+-- Any other game panel (character, spellbook, talents, ...) hides the guide panel while it is open and the panel comes
+-- back when the last one closes. The windows Ribbon places itself around (map, quest, gossip) do not count. The saved
+-- "open" choice is untouched; only the frame is hidden.
+local HANDLED = { WorldMapFrame = true, QuestFrame = true, GossipFrame = true, LootFrame = true, RibbonGuideDock = true }
+local suppressed = false
+
+local function otherPanelShown()
+  local windows = _G.UIPanelWindows
+  if type(windows) ~= "table" then return false end
+  for name in pairs(windows) do
+    if not HANDLED[name] then
+      local fr = _G[name]
+      if type(fr) == "table" and fr.IsShown and fr:IsShown() then return true end
+    end
+  end
+  return false
+end
+
+function Br.syncSuppressed()
+  if not dock then return end
+  if otherPanelShown() then
+    if dock:IsShown() and ns.db and ns.db.guideDock then
+      suppressed = true
+      dock:Hide()
+      ns:Fire("GUIDE_DOCK_CHANGED", false)
+    end
+  elseif suppressed then
+    suppressed = false
+    if ns.db and ns.db.guideDock then
+      dock:Show()
+      ns:Fire("GUIDE_DOCK_CHANGED", true)
+    end
+  end
+end
+
+local function hookOtherPanels()
+  local windows = _G.UIPanelWindows
+  if type(windows) == "table" then
+    for name in pairs(windows) do
+      local fr = _G[name]
+      if not HANDLED[name] and type(fr) == "table" and fr.HookScript then
+        pcall(fr.HookScript, fr, "OnShow", Br.syncSuppressed)
+        pcall(fr.HookScript, fr, "OnHide", Br.syncSuppressed)
+      end
+    end
+  end
+  if type(_G.hooksecurefunc) == "function" then
+    for _, fn in ipairs({ "ShowUIPanel", "HideUIPanel" }) do
+      if type(_G[fn]) == "function" then pcall(_G.hooksecurefunc, fn, Br.syncSuppressed) end
+    end
+  end
 end
 
 local function buildDock()
   dock = build()
+  hookOtherPanels()
   Br.placeDock()
-  -- The map moves and resizes (maximize, drag): follow it.
-  pcall(function()
-    WorldMapFrame:HookScript("OnShow", Br.placeDock)
-    WorldMapFrame:HookScript("OnSizeChanged", Br.placeDock)
-  end)
+  -- The map moves and resizes (maximize, drag), opens and closes; so do the quest and gossip windows: follow them.
+  local function later() if C_Timer and C_Timer.After then C_Timer.After(0.1, Br.placeDock) end end
+  local function follow(fr, scripts)
+    if type(fr) ~= "table" or not fr.HookScript then return end
+    for _, script in ipairs(scripts) do
+      pcall(fr.HookScript, fr, script, Br.placeDock)
+    end
+  end
+  follow(WorldMapFrame, { "OnShow", "OnHide", "OnSizeChanged" })
+  for _, name in ipairs(NPC_FRAMES) do follow(_G[name], { "OnShow", "OnHide" }) end
   dock:SetScript("OnShow", Br.placeDock)
   -- The map settles its size and scale a moment after it is maximized: place the panel again then.
-  local function later() if C_Timer and C_Timer.After then C_Timer.After(0.1, Br.placeDock) end end
   pcall(function()
     WorldMapFrame:HookScript("OnShow", later)
     WorldMapFrame:HookScript("OnSizeChanged", later)
@@ -1042,7 +1278,20 @@ function Br.setQuery(q, fromBox)
 end
 
 -- Show or hide the panel, and remember the choice for the next session.
-function Br.setDock(shown)
+-- The quest log's own sounds, played when the panel opens and closes (not when it is restored at login).
+local function playLogSound(opening)
+  local kit = _G.SOUNDKIT
+  -- The retail names are IG_QUEST_LOG_*; 862 and 863 are the same sounds for a client without the table.
+  local id
+  if type(kit) == "table" then
+    if opening then id = kit.IG_QUEST_LOG_OPEN or kit.IG_QUESTLOG_OPEN else id = kit.IG_QUEST_LOG_CLOSE or kit.IG_QUESTLOG_CLOSE end
+  end
+  id = id or (opening and 862 or 863)
+  if type(_G.PlaySound) == "function" then pcall(_G.PlaySound, id, "SFX") end
+end
+
+function Br.setDock(shown, silent)
+  local was = dock and dock:IsShown() and true or false
   if not ns.guidePlayer.state() then
     ns:Print("no guide installed.")
     return
@@ -1060,7 +1309,9 @@ function Br.setDock(shown)
   if not dock then buildDock() end
   -- The map's quest log panel and this one take turns.
   if shown and ns.map and ns.map.collapseQuestLog then ns.map.collapseQuestLog() end
+  suppressed = false   -- an explicit open or close ends any temporary hiding
   dock:SetShown(shown)
+  if not silent and (shown and true or false) ~= was then playLogSound(shown) end
   if not shown then Br.clearPreview() end
   if ns.db then ns.db.guideDock = shown and true or false end
   if shown then
@@ -1089,10 +1340,51 @@ end
 
 -- Reopen the panel at login if it was open when the player last left.
 ns:On("GUIDE_STARTED", function()
-  if ns.db and ns.db.guideDock and WorldMapFrame then Br.setDock(true) end
+  if ns.db and ns.db.guideDock and WorldMapFrame then Br.setDock(true, true) end
 end)
 
 function Br.dock() return dock end
+
+-- The quest log key: while a guide is active it opens the panel on its own, without the map. Outside a guide the key
+-- keeps its normal job. The override is set on a hidden button; bindings cannot change in combat, so it is retried
+-- when combat ends.
+local LOG_BUTTON = "RibbonGuideLogButton"
+local binder
+
+function Br.toggleLog()
+  Br.setDock(not (dock and dock:IsShown()))
+end
+
+function Br.bindLogKey()
+  if type(_G.SetOverrideBindingClick) ~= "function" or type(_G.GetBindingKey) ~= "function" then return end
+  if _G.InCombatLockdown and _G.InCombatLockdown() then
+    binder.pending = true
+    return
+  end
+  binder.pending = false
+  if _G.ClearOverrideBindings then _G.ClearOverrideBindings(binder) end
+  if not (ns.guide and ns.guidePlayer.state()) then return end
+  local k1, k2 = _G.GetBindingKey("TOGGLEQUESTLOG")
+  for _, key in ipairs({ k1 or false, k2 or false }) do
+    if key then _G.SetOverrideBindingClick(binder, true, key, LOG_BUTTON) end
+  end
+end
+
+local function setUpLogKey()
+  if binder then return end
+  binder = CreateFrame("Frame", "RibbonGuideLogBinder", UIParent)
+  local button = CreateFrame("Button", LOG_BUTTON, UIParent)
+  button:SetScript("OnClick", function() Br.toggleLog() end)
+  for _, event in ipairs({ "UPDATE_BINDINGS", "PLAYER_REGEN_ENABLED", "PLAYER_ENTERING_WORLD" }) do
+    pcall(binder.RegisterEvent, binder, event)
+  end
+  binder:SetScript("OnEvent", function() Br.bindLogKey() end)
+end
+
+ns:On("GUIDE_STARTED", function()
+  setUpLogKey()
+  Br.bindLogKey()
+end)
 
 -- /ribbon guides and /ribbon dock open the panel.
 ns.commands.guides = function() Br.toggle() end

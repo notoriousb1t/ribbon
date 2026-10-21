@@ -203,7 +203,9 @@ function Pl.refresh()
   local who = ns.client.character()
   S.who.level = who.level or S.who.level
   local i = S.cursor
+  local advance = not ns.guideSettings or ns.guideSettings.get("autoAdvance")
   for _ = 1, 500 do
+    if not advance then break end
     local entry = S.flat[i]
     if not entry or not stepComplete(entry) then break end
     i = i + 1
