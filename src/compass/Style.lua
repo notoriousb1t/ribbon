@@ -21,17 +21,24 @@ S.textures = {
   bezelEdgeH = DIR .. "bezel-edge-h",    -- a horizontal edge and a vertical edge, which tile,
   bezelEdgeV = DIR .. "bezel-edge-v",
   bezelButton = DIR .. "bezel-button",   -- and a button in the same bevel
+  panelToggle = DIR .. "panel-toggle",   -- the map button's body (4:3, in the middle rows of its texture)
+  panelCaret = DIR .. "panel-caret",     -- its caret, pointing left (flipped to point right)
 }
 
 -- Texture file names (without extension) under src/textures; the specs check they exist.
 S.textureFiles = {
   "compass-dial", "compass-needle", "edge-arrow", "focus-ring", "marker-fill", "marker-rim",
-  "bezel-corner", "bezel-edge-h", "bezel-edge-v", "bezel-button",
+  "bezel-corner", "bezel-edge-h", "bezel-edge-v", "bezel-button", "panel-toggle", "panel-caret",
 }
 
 -- The bezel of the guide panel docked to the map, in display pixels: the band's depth, the corner pieces' size, the title
 -- bar's height, and how much of an edge texture is band (28 of its 64 rows or columns).
 S.bezel = { band = 14, corner = 32, title = 26, bandFraction = 28 / 64 }
+
+-- The map button, a blue version of the map's quest log toggle: the body, a caret on the left (pointing right while the
+-- panel is open, left while it is closed) and the middle of the compass (its needle) on the right. Sizes in pixels; the
+-- body's texture has 16 empty rows above and below its 96, so only the middle 75% is shown.
+S.toggle = { width = 44, height = 33, caret = 14, icon = 24, rows = { 0.125, 0.875 } }
 
 -- The dial sits centred on the bar and is taller than it, so it stands out above and below. It covers the tick marks
 -- (the individual degrees) and the direction names; only the waypoint markers are drawn over it. The caption above the bar

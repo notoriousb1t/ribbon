@@ -59,8 +59,9 @@ end
 local function createGuideButton()
   if M.guideButton or not WorldMapFrame or not ns.guide then return end
   local style = ns.compassStyle
+  local look = style.toggle
   local b = CreateFrame("Button", "RibbonGuideMapButton", WorldMapFrame)
-  b:SetSize(32, 32)
+  b:SetSize(look.width, look.height)
   local toggle = WorldMapFrame.SidePanelToggle
   if type(toggle) == "table" and toggle.GetObjectType then
     b:SetPoint("BOTTOM", toggle, "TOP", 0, 6)
@@ -70,20 +71,26 @@ local function createGuideButton()
   -- No strata of its own: a fixed one can put it behind the map frame. A high level keeps it over the map's art.
   b:SetFrameLevel(WorldMapFrame:GetFrameLevel() + 100)
   b.bezel = b:CreateTexture(nil, "BACKGROUND")
-  b.bezel:SetTexture(style.textures.bezelButton)
+  b.bezel:SetTexture(style.textures.panelToggle)
+  b.bezel:SetTexCoord(0, 1, look.rows[1], look.rows[2])
   b.bezel:SetAllPoints()
+  -- The caret points the way the panel will move: left to bring it out, right to put it away.
+  b.caret = b:CreateTexture(nil, "ARTWORK")
+  b.caret:SetTexture(style.textures.panelCaret)
+  b.caret:SetSize(look.caret, look.caret)
+  b.caret:SetPoint("LEFT", b, "LEFT", 6, 0)
+  -- The middle of the compass: its needle.
   b.icon = b:CreateTexture(nil, "ARTWORK")
-  b.icon:SetSize(20, 20)
-  b.icon:SetPoint("CENTER")
-  b.icon:SetTexture([[Interface\AddOns\Ribbon\icon]])
-  -- While the panel is open the button wears the bright blue of a selection.
-  b.active = b:CreateTexture(nil, "OVERLAY")
-  b.active:SetTexture(style.textures.focusRing)
-  b.active:SetVertexColor(unpack(style.focusRing.color))
-  b.active:SetPoint("CENTER")
-  b.active:SetSize(36, 36)
-  b.active:Hide()
-  b:SetHighlightTexture(style.textures.bezelButton, "ADD")
+  b.icon:SetTexture(style.textures.needle)
+  b.icon:SetSize(look.icon, look.icon)
+  b.icon:SetPoint("RIGHT", b, "RIGHT", -4, 0)
+  b.setOpen = function(open)
+    if open then b.caret:SetTexCoord(1, 0, 0, 1) else b.caret:SetTexCoord(0, 1, 0, 1) end
+  end
+  b.setOpen(false)
+  b:SetHighlightTexture(style.textures.panelToggle, "ADD")
+  local hl = b:GetHighlightTexture()
+  if hl then hl:SetTexCoord(0, 1, look.rows[1], look.rows[2]) end
   b:SetScript("OnClick", function() ns.guideBrowser.toggleDock() end)
   b:SetScript("OnEnter", function(self)
     GameTooltip:SetOwner(self, "ANCHOR_BOTTOM")
@@ -94,12 +101,56 @@ local function createGuideButton()
   b:SetScript("OnLeave", function() GameTooltip:Hide() end)
   M.guideButton = b
   local dock = ns.guideBrowser and ns.guideBrowser.dock()
-  b.active:SetShown(dock and dock:IsShown() and true or false)
+  b.setOpen(dock and dock:IsShown() and true or false)
 end
 
 ns:On("GUIDE_DOCK_CHANGED", function(shown)
-  if M.guideButton then M.guideButton.active:SetShown(shown and true or false) end
+  if M.guideButton then M.guideButton.setOpen(shown and true or false) end
 end)
+
+-- The map's own quest log panel and the guide panel take turns: opening one closes the other. The names are the
+-- retail map's (the toggle's CloseButton, QuestMapFrame); anything missing is skipped, never an error.
+local function blizzardToggle()
+  local t = WorldMapFrame and WorldMapFrame.SidePanelToggle
+  if type(t) == "table" and t.GetObjectType then return t end
+end
+
+-- Close the map's quest log panel if it is open; true when it was.
+function M.collapseQuestLog()
+  local toggle = blizzardToggle()
+  local close = toggle and toggle.CloseButton
+  local open = _G.QuestMapFrame and _G.QuestMapFrame.IsShown and _G.QuestMapFrame:IsShown()
+  if not open then return false end
+  M.collapsing = true
+  local ok = false
+  if close and close.Click then ok = pcall(close.Click, close) end
+  if not ok and WorldMapFrame.HandleUserActionToggleSidePanel then
+    ok = pcall(WorldMapFrame.HandleUserActionToggleSidePanel, WorldMapFrame)
+  end
+  M.collapsing = false
+  return ok
+end
+
+-- When the map's quest log panel opens, put the guide panel away.
+local function questLogOpened()
+  if M.collapsing then return end
+  local dock = ns.guideBrowser and ns.guideBrowser.dock()
+  if dock and dock:IsShown() then ns.guideBrowser.setDock(false) end
+end
+
+function M.linkQuestLog()
+  local qmf = _G.QuestMapFrame
+  if type(qmf) == "table" and qmf.HookScript and not qmf.ribbonLinked then
+    qmf.ribbonLinked = true
+    pcall(qmf.HookScript, qmf, "OnShow", questLogOpened)
+  end
+  local toggle = blizzardToggle()
+  local open = toggle and toggle.OpenButton
+  if type(open) == "table" and open.HookScript and not open.ribbonLinked then
+    open.ribbonLinked = true
+    pcall(open.HookScript, open, "OnClick", questLogOpened)
+  end
+end
 
 M.createGuideButton = createGuideButton
 
@@ -107,6 +158,7 @@ M.createGuideButton = createGuideButton
 local function createButtons()
   createClearButton()
   createGuideButton()
+  M.linkQuestLog()
 end
 
 ns:On("INIT", function()

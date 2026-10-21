@@ -151,6 +151,30 @@ const textures = {
     return [13, 54, 70, 0.95];
   }, 64),
 
+  // The map button's body: a landscape rounded rectangle (128 x 96, centred in the 128 x 128 canvas) in the bezel's
+  // bevel around a dark face, like the map's own quest log toggle. The view crops the empty rows with its texture
+  // coordinates, so the button is 4:3 and nothing is stretched.
+  "panel-toggle": render((x, y) => {
+    const top = 16, h = 96, r = 18;
+    const px = x - 63.5, py = y - (top + (h - 1) / 2);
+    const qx = Math.abs(px) - (63.5 - r), qy = Math.abs(py) - ((h - 1) / 2 - r);
+    const sdf = Math.hypot(Math.max(qx, 0), Math.max(qy, 0)) + Math.min(Math.max(qx, qy), 0) - r;
+    const depth = -sdf;
+    if (depth < 0) return null;
+    if (depth < 12) return [...bandColor((depth * BAND) / 12), 1];
+    return [10, 40, 54, 0.96];
+  }),
+
+  // A caret pointing left; the view flips it for the other way. Bright blue with a dark outline.
+  "panel-caret": render((x, y) => {
+    // Triangle with its tip at the left, inset from the edges so the outline fits.
+    const tri = [[12, 32], [50, 8], [50, 56]];
+    const inner = [[19, 32], [43, 15], [43, 49]];
+    if (inside(inner, x, y)) return [120, 205, 232, 1];
+    if (inside(tri, x, y)) return [6, 20, 28, 1];
+    return null;
+  }, 64),
+
   // A thin ring drawn around the focused marker; white so the view can colour it (bright blue).
   "focus-ring": render((x, y) => {
     const d = dist(x, y);

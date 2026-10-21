@@ -96,15 +96,30 @@ describe("Guide panel bezel and map button", function()
   end)
 
   describe("map button", function()
-    it("is a blue bezel button stacked above the map's own quest log toggle", function()
+    it("is a blue version of the map's quest log toggle, stacked above it", function()
       ctx.ns.map.guideButton = nil
       RibbonGuideMapButton = nil
       WorldMapFrame.SidePanelToggle = { GetObjectType = function() return "Frame" end }
       ctx.ns.map.createGuideButton()
       local b = ctx.ns.map.guideButton
-      expect(b.bezel.SetTexture).toHaveBeenCalledWith(S.textures.bezelButton)
+      expect(b.bezel.SetTexture).toHaveBeenCalledWith(S.textures.panelToggle)
+      expect(b.bezel.SetTexCoord).toHaveBeenCalledWith(0, 1, S.toggle.rows[1], S.toggle.rows[2])
+      expect(b.SetSize).toHaveBeenCalledWith(S.toggle.width, S.toggle.height)
       expect(b.SetPoint).toHaveBeenCalledWith("BOTTOM", WorldMapFrame.SidePanelToggle, "TOP", 0, 6)
       WorldMapFrame.SidePanelToggle = nil
+    end)
+
+    it("is 4:3 like the map's toggle and the cropped texture is not stretched", function()
+      expect(S.toggle.width / S.toggle.height).toBeCloseTo(4 / 3, 1)
+      expect((S.toggle.rows[2] - S.toggle.rows[1]) * 128).toBe(96)       -- 128 wide, 96 tall in the file
+    end)
+
+    it("has a caret on the left and the middle of the compass on the right", function()
+      local b = ctx.ns.map.guideButton
+      expect(b.caret.SetTexture).toHaveBeenCalledWith(S.textures.panelCaret)
+      expect(b.caret.SetPoint).toHaveBeenCalledWith("LEFT", b, "LEFT", 6, 0)
+      expect(b.icon.SetTexture).toHaveBeenCalledWith(S.textures.needle)
+      expect(b.icon.SetPoint).toHaveBeenCalledWith("RIGHT", b, "RIGHT", -4, 0)
     end)
 
     it("falls back to the map's bottom right corner without that toggle", function()
@@ -112,15 +127,112 @@ describe("Guide panel bezel and map button", function()
       expect(b.SetPoint).toHaveBeenCalledWith("BOTTOMRIGHT", WorldMapFrame, "BOTTOMRIGHT", -10, 40)
     end)
 
-    it("wears the bright blue ring while the panel is open", function()
+    it("points its caret left while the panel is closed and right while it is open", function()
       local b = ctx.ns.map.guideButton
-      expect(b.active:IsShown()).toBe(false)
+      local function last() local c = b.caret.SetTexCoord.calls return { unpack(c[#c], 1, 4) } end
+      expect(last()).toEqual({ 0, 1, 0, 1 })
       b:Trigger("OnClick")
-      expect(b.active:IsShown()).toBe(true)
-      local c = S.focusRing.color
-      expect(b.active.SetVertexColor).toHaveBeenCalledWith(c[1], c[2], c[3])
+      expect(last()).toEqual({ 1, 0, 0, 1 })
       b:Trigger("OnClick")
-      expect(b.active:IsShown()).toBe(false)
+      expect(last()).toEqual({ 0, 1, 0, 1 })
+    end)
+  end)
+
+  describe("taking turns with the map's quest log", function()
+    local function fakeQuestLog()
+      local clicks, hooks = 0, {}
+      local shown = true
+      local qmf = {
+        IsShown = function() return shown end,
+        HookScript = function(self, name, fn) hooks[name] = fn end,
+      }
+      WorldMapFrame.SidePanelToggle = {
+        GetObjectType = function() return "Frame" end,
+        CloseButton = { Click = function() clicks = clicks + 1; shown = false end },
+        OpenButton = { HookScript = function(self, name, fn) hooks.openClick = fn end },
+      }
+      _G.QuestMapFrame = qmf
+      ctx.ns.map.linkQuestLog()
+      return {
+        clicks = function() return clicks end, hooks = hooks,
+        open = function() shown = true end,
+      }
+    end
+    local function cleanup() WorldMapFrame.SidePanelToggle = nil _G.QuestMapFrame = nil end
+
+    it("closes the map's quest log when the guide panel opens", function()
+      local q = fakeQuestLog()
+      ctx.ns.guideBrowser.toggleDock()
+      expect(dock():IsShown()).toBe(true)
+      expect(q.clicks()).toBe(1)
+      cleanup()
+    end)
+
+    it("does not touch the quest log when it is already closed", function()
+      local q = fakeQuestLog()
+      _G.QuestMapFrame.IsShown = function() return false end
+      ctx.ns.guideBrowser.toggleDock()
+      expect(q.clicks()).toBe(0)
+      cleanup()
+    end)
+
+    it("closes the guide panel when the map's quest log opens, by showing or by its open button", function()
+      local q = fakeQuestLog()
+      ctx.ns.guideBrowser.toggleDock()
+      expect(dock():IsShown()).toBe(true)
+      q.open()
+      q.hooks.OnShow()
+      expect(dock():IsShown()).toBe(false)
+      ctx.ns.guideBrowser.toggleDock()
+      q.open()
+      q.hooks.openClick()
+      expect(dock():IsShown()).toBe(false)
+      cleanup()
+    end)
+
+    it("does not close itself while it is the one closing the quest log", function()
+      local q = fakeQuestLog()
+      WorldMapFrame.SidePanelToggle.CloseButton.Click = function() q.hooks.OnShow() end   -- a close that re-fires the hook
+      ctx.ns.guideBrowser.toggleDock()
+      expect(dock():IsShown()).toBe(true)
+      cleanup()
+    end)
+
+    it("links the hooks only once however often it is asked", function()
+      local q = fakeQuestLog()
+      local count = 0
+      _G.QuestMapFrame.HookScript = function() count = count + 1 end
+      ctx.ns.map.linkQuestLog()
+      ctx.ns.map.linkQuestLog()
+      expect(count).toBe(0)       -- already linked by fakeQuestLog
+      cleanup()
+    end)
+  end)
+
+  describe("opening at the step", function()
+    it("scrolls the chapter list and the step list to the player's place when the panel opens", function()
+      Ribbon.Guide("g2", { schema = 1 })     -- (the one guide is already registered; this is refused and ignored)
+      ctx.ns.guidePlayer.jump(1, 2)
+      local d = open()
+      expect(d.rightScroll.SetVerticalScroll).toHaveBeenCalled()
+      expect(d.leftScroll.SetVerticalScroll).toHaveBeenCalled()
+    end)
+
+    it("centres a row in its column and never scrolls above the top", function()
+      local d = open()
+      d.rightScroll.GetHeight = function() return 200 end
+      d.rightScroll.GetVerticalScrollRange = function() return 1000 end
+      d.rightScroll.SetVerticalScroll.calls = {}
+      ctx.ns.guidePlayer.jump(1, 2)                     -- step 2 of the chapter
+      local calls = d.rightScroll.SetVerticalScroll.calls
+      expect(calls[#calls][1]).toBe(0)                   -- row 2 is 20 px down: inside the first screenful
+    end)
+
+    it("follows the step as it changes", function()
+      local d = open()
+      d.rightScroll.SetVerticalScroll.calls = {}
+      ctx.ns.guidePlayer.skip()
+      expect(#d.rightScroll.SetVerticalScroll.calls).toBeGreaterThan(0)
     end)
   end)
 

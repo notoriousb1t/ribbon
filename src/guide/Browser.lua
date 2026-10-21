@@ -140,7 +140,40 @@ local function scroller(parent, name, x, width)
   local content = CreateFrame("Frame", nil, scroll)
   content:SetSize(width - 22, 1)
   scroll:SetScrollChild(content)
-  return content
+  return content, scroll
+end
+
+-- Scrolls a column so row i (rows of the given height) is in the middle of its view, or as near as the column allows.
+local function scrollTo(scroll, i, height)
+  if not (scroll and scroll.SetVerticalScroll and i) then return end
+  local view = scroll:GetHeight()
+  view = type(view) == "number" and view or 0
+  local y = math.max(0, (i - 1) * height - (view - height) / 2)
+  local range = scroll.GetVerticalScrollRange and scroll:GetVerticalScrollRange()
+  if type(range) == "number" then y = math.min(y, range) end
+  scroll:SetVerticalScroll(y)
+end
+
+-- Shows the active chapter and its current step in the middle of their columns. The columns have only just been
+-- filled, so their length is not known until the next frame: scroll again shortly after.
+function Br.scrollToCurrent()
+  if not dock then return end
+  local player = ns.guidePlayer
+  if not player.state() then return end
+  local left, right = Br.rows(player, selected)
+  local chapter, step
+  for i, row in ipairs(left) do
+    if row.chapter == selected then chapter = i end
+  end
+  for i, row in ipairs(right) do
+    if row.state == "current" then step = i end
+  end
+  local function go()
+    scrollTo(dock.leftScroll, chapter, CARD)
+    scrollTo(dock.rightScroll, step or 1, ROW)
+  end
+  go()
+  if C_Timer and C_Timer.After then C_Timer.After(0.05, go) end
 end
 
 -- Fills the panel from the player's state.
@@ -329,8 +362,9 @@ local function build()
   f.overallText:SetPoint("LEFT", f.overall.track, "RIGHT", 6, 0)
 
   f.leftRows, f.rightRows = {}, {}
-  local left = scroller(f, "RibbonGuideDockChapters", B + 6, LEFT_W)
-  local right = scroller(f, "RibbonGuideDockSteps", B + 6 + LEFT_W + 6, RIGHT_W)
+  local left, right
+  left, f.leftScroll = scroller(f, "RibbonGuideDockChapters", B + 6, LEFT_W)
+  right, f.rightScroll = scroller(f, "RibbonGuideDockSteps", B + 6 + LEFT_W + 6, RIGHT_W)
   local makeLeft, makeRight = makeCard(LEFT_W - 22), makeRow(RIGHT_W - 22)
   f.setLeft = pool(left, f.leftRows, function(parent, i)
     local b = makeLeft(parent, i)
@@ -394,6 +428,7 @@ end
 ns:On("GUIDE_STEP_CHANGED", function()
   selected = nil
   Br.refresh()
+  Br.scrollToCurrent()
 end)
 
 -- Show or hide the panel, and remember the choice for the next session.
@@ -413,11 +448,14 @@ function Br.setDock(shown)
   end
   if ns.map and ns.map.createGuideButton then ns.map.createGuideButton() end   -- make sure the map button exists too
   if not dock then buildDock() end
+  -- The map's quest log panel and this one take turns.
+  if shown and ns.map and ns.map.collapseQuestLog then ns.map.collapseQuestLog() end
   dock:SetShown(shown)
   if ns.db then ns.db.guideDock = shown and true or false end
   if shown then
     selected = nil
     Br.refresh()
+    Br.scrollToCurrent()   -- open at the step the player is on
   end
   ns:Fire("GUIDE_DOCK_CHANGED", shown and true or false)
 end
