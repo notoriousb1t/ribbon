@@ -68,24 +68,36 @@ describe("Marker badges", function()
     frameTick()
     local m = parts.markers[1]
     expect(m.questRing:IsShown()).toBe(false)
-    expect(m.glyphTex:IsShown()).toBe(false)
+    expect(m.glyphTex.SetTexture).toHaveBeenCalledWith(S.textures.glyphKill)
     expect(m.rim:IsShown()).toBe(true)
     expect(m.fill.SetVertexColor).toHaveBeenCalledWith(unpack(S.badge.fillColor))
   end)
 
-  it("puts the icon of other kinds inside the disc at the icon scale", function()
+  it("draws the other kinds with an inked symbol of their own inside the coloured rim", function()
     ctx.ns:AddWaypoint(1453, 61.99, 60, { icon = "kill" })
     frameTick()
     local m = parts.markers[1]
     local size = last(m.SetSize)[1]
     expect(m.fill:IsShown()).toBe(true)
-    expect(m.glyphTex:IsShown()).toBe(false)
-    expect(m.tex:IsShown()).toBe(true)
-    expect(m.tex.SetTexture).toHaveBeenCalledWith(ctx.ns.ICONS.kill)
-    local icon = math.floor(size * S.badge.iconScale + 0.5)
-    expect(last(m.tex.SetSize)).toEqual({ icon, icon, n = 2 })
+    expect(m.glyphTex:IsShown()).toBe(true)
+    expect(m.tex:IsShown()).toBe(false)
+    expect(m.glyphTex.SetTexture).toHaveBeenCalledWith(S.textures.glyphKill)
+    local g = math.floor(size * S.badge.glyphScale + 0.5)
+    expect(last(m.glyphTex.SetSize)).toEqual({ g, g, n = 2 })
     local c = S.badge.kinds.kill.color
     expect(m.rim.SetVertexColor).toHaveBeenCalledWith(c[1], c[2], c[3], 1)
+  end)
+
+  it("has a symbol texture, shipped in the textures folder, for every kind that has one", function()
+    local listed = {}
+    for _, name in ipairs(S.textureFiles) do listed[name] = true end
+    for kind, look in pairs(S.badge.kinds) do
+      if look.glyph then
+        local file = S.textures[look.glyph]
+        expect(file).toBeTruthy()
+        expect(listed[file:sub(select(2, file:find("textures", 1, true)) + 2)]).toBe(true)
+      end
+    end
   end)
 
   it("draws other addons' icons plain, at the full marker size, with no disc", function()

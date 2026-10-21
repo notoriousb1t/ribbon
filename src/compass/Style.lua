@@ -24,6 +24,14 @@ S.textures = {
   questRing = DIR .. "quest-ring",           -- the quest badge: a gold bevelled ring,
   questExclaim = DIR .. "quest-exclaim",   -- a gold "!" and
   questQuestion = DIR .. "quest-question", -- "?", in the style of Blizzard's quest icons
+  glyphKill = DIR .. "glyph-kill",       -- the step icons, inked in gold like the quest symbols
+  glyphGrind = DIR .. "glyph-grind",
+  glyphLoot = DIR .. "glyph-loot",
+  glyphPoi = DIR .. "glyph-poi",
+  glyphFp = DIR .. "glyph-fp",
+  glyphHearth = DIR .. "glyph-hearth",
+  glyphTrain = DIR .. "glyph-train",
+  glyphDing = DIR .. "glyph-ding",
   panelToggle = DIR .. "panel-toggle",   -- the map button's body (4:3, in the middle rows of its texture)
   panelCaret = DIR .. "panel-caret",     -- its caret, pointing left (flipped to point right)
   panelNeedle = DIR .. "panel-needle",   -- and the middle of the compass: a bold star
@@ -34,6 +42,7 @@ S.textureFiles = {
   "compass-dial", "compass-needle", "edge-arrow", "focus-ring", "marker-fill", "marker-rim",
   "bezel-corner", "bezel-edge-h", "bezel-edge-v", "bezel-button", "panel-toggle", "panel-caret", "panel-needle",
   "quest-ring", "quest-exclaim", "quest-question",
+  "glyph-kill", "glyph-grind", "glyph-loot", "glyph-poi", "glyph-fp", "glyph-hearth", "glyph-train", "glyph-ding",
 }
 
 -- The bezel of the guide panel docked to the map, in display pixels: the band's depth (about the width of the map's
@@ -120,17 +129,19 @@ S.badge = {
   -- and a gold symbol with a dark outline, all drawn from textures so they are as crisp as the game's own.
   questFill = { 0.10, 0.08, 0.04, 0.96 },
   questGlyphScale = 0.74,   -- the symbol's size, as a fraction of the marker
+  glyphScale = 0.7,         -- the step icons' symbols, as a fraction of the marker
   kinds = {
     accept = { quest = "questExclaim" },
     turnin = { quest = "questQuestion" },
-    ding = { color = { 0.98, 0.82, 0.30 } },
-    kill = { color = { 0.90, 0.30, 0.28 } },
-    grind = { color = { 0.95, 0.55, 0.20 } },
-    loot = { color = { 0.85, 0.65, 0.40 } },
-    poi = { color = { 0.62, 0.82, 0.88 } },
-    fp = { color = { 0.30, 0.85, 0.35 } },   -- flight master green, like the taxi map's available flight points
-    hearth = { color = { 0.95, 0.75, 0.40 } },
-    train = { color = { 0.60, 0.85, 0.50 } },
+    -- The others keep a coloured rim and take an inked gold symbol of their own (`glyph`).
+    ding = { color = { 0.98, 0.82, 0.30 }, glyph = "glyphDing" },
+    kill = { color = { 0.90, 0.30, 0.28 }, glyph = "glyphKill" },
+    grind = { color = { 0.95, 0.55, 0.20 }, glyph = "glyphGrind" },
+    loot = { color = { 0.85, 0.65, 0.40 }, glyph = "glyphLoot" },
+    poi = { color = { 0.62, 0.82, 0.88 }, glyph = "glyphPoi" },
+    fp = { color = { 0.30, 0.85, 0.35 }, glyph = "glyphFp" },   -- flight master green, like the taxi map's available flight points
+    hearth = { color = { 0.95, 0.75, 0.40 }, glyph = "glyphHearth" },
+    train = { color = { 0.60, 0.85, 0.50 }, glyph = "glyphTrain" },
   },
 }
 

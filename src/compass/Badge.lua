@@ -78,6 +78,15 @@ function Bd.draw(f, icon, size)
   f.rim:Show()
   f.questRing:Hide()
   f.glyphTex:Hide()
+  if kind.glyph then
+    -- An inked symbol of our own, like the quest kinds'.
+    local g = math.floor(size * badge.glyphScale + 0.5)
+    f.glyphTex:SetTexture(style.textures[kind.glyph])
+    f.glyphTex:SetSize(g, g)
+    f.glyphTex:Show()
+    f.tex:Hide()
+    return
+  end
   local icon_ = math.floor(size * badge.iconScale + 0.5)
   f.tex:SetPoint("CENTER", f, "CENTER", 0, 0)
   f.tex:SetSize(icon_, icon_)

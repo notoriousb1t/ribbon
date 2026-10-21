@@ -63,13 +63,13 @@ describe("Step icons, preview and the hover arrow", function()
       expect(r[2].label).never.toContain("2. ")
     end)
 
-    it("draws each row with its badge: the quest symbol for an accept, the icon inside the disc for a kill", function()
+    it("draws each row with its badge: the quest symbol for an accept, an inked symbol in the disc for a kill", function()
       local d = open()
       local accept, kill = d.rightRows.items[1], d.rightRows.items[2]
       expect(accept.icon.glyphTex.SetTexture).toHaveBeenCalledWith(ctx.ns.compassStyle.textures.questExclaim)
       expect(accept.icon.glyphTex:IsShown()).toBe(true)
-      expect(kill.icon.tex.SetTexture).toHaveBeenCalledWith(ctx.ns.ICONS.kill)
-      expect(kill.icon.tex:IsShown()).toBe(true)
+      expect(kill.icon.glyphTex.SetTexture).toHaveBeenCalledWith(ctx.ns.compassStyle.textures.glyphKill)
+      expect(kill.icon.glyphTex:IsShown()).toBe(true)
     end)
 
     it("keeps the text clear of the icon", function()

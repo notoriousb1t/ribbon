@@ -84,6 +84,13 @@ function lineDist(px, py, pts) {
   for (let i = 0; i + 1 < pts.length; i++) d = Math.min(d, segDist(px, py, pts[i][0], pts[i][1], pts[i + 1][0], pts[i + 1][1]));
   return d;
 }
+// Signed distance to a polygon (negative inside), and the union of shapes' signed distances.
+function polySdf(poly, x, y) {
+  let d = Infinity;
+  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) d = Math.min(d, segDist(x, y, poly[i][0], poly[i][1], poly[j][0], poly[j][1]));
+  return inside(poly, x, y) ? -d : d;
+}
+const unionSdf = (...d) => Math.min(...d);
 // Points along an arc (angles in degrees, y pointing down).
 function arc(cx, cy, r, from, to, n = 40) {
   const out = [];
@@ -274,6 +281,42 @@ const textures = {
     sdf = Math.min(sdf, Math.hypot(x - 63.5, y - 104) - 11);
     return glyphShade(sdf, y);
   }),
+
+  // The step icons, inked like the quest symbols: gold with a dark outline.
+  "glyph-kill": render((x, y) => glyphShade(unionSdf(
+    polySdf([[63.5, 12], [73, 26], [73, 80], [54, 80], [54, 26]], x, y),
+    segDist(x, y, 36, 86, 91, 86) - 6.5,
+    segDist(x, y, 63.5, 90, 63.5, 104) - 5.5,
+    Math.hypot(x - 63.5, y - 110) - 8), y)),
+
+  "glyph-grind": render((x, y) => glyphShade(unionSdf(
+    segDist(x, y, 26, 24, 96, 94) - 7, segDist(x, y, 101, 24, 31, 94) - 7,
+    segDist(x, y, 20, 72, 52, 104) - 5, segDist(x, y, 107, 72, 75, 104) - 5,
+    Math.hypot(x - 100, y - 100) - 9, Math.hypot(x - 27, y - 100) - 9), y)),
+
+  "glyph-loot": render((x, y) => {
+    const body = (Math.hypot((x - 63.5) / 36, (y - 78) / 31) - 1) * 31;
+    const neck = segDist(x, y, 52, 46, 75, 46) - 11;
+    const tie = segDist(x, y, 44, 58, 83, 58) - 3;
+    return glyphShade(Math.max(unionSdf(body, neck, tie), -(segDist(x, y, 63.5, 78, 63.5, 84) - 7)), y);
+  }),
+
+  "glyph-poi": render((x, y) => glyphShade(Math.max(unionSdf(
+    Math.hypot(x - 63.5, y - 50) - 31,
+    polySdf([[36, 66], [63.5, 114], [91, 66]], x, y)), -(Math.hypot(x - 63.5, y - 50) - 12)), y)),
+
+  "glyph-fp": render((x, y) => glyphShade(polySdf([[14, 62], [114, 16], [80, 112], [60, 76]], x, y), y)),
+
+  "glyph-hearth": render((x, y) => glyphShade(Math.max(unionSdf(
+    polySdf([[12, 66], [63.5, 16], [115, 66]], x, y),
+    polySdf([[28, 60], [99, 60], [99, 112], [28, 112]], x, y)),
+    -polySdf([[53, 112], [53, 82], [74, 82], [74, 112]], x, y)), y)),
+
+  "glyph-train": render((x, y) => glyphShade(unionSdf(
+    polySdf([[14, 34], [60, 48], [60, 108], [14, 94]], x, y),
+    polySdf([[113, 34], [67, 48], [67, 108], [113, 94]], x, y)), y)),
+
+  "glyph-ding": render((x, y) => glyphShade(polySdf([[63.5, 12], [112, 62], [84, 62], [84, 112], [43, 112], [43, 62], [15, 62]], x, y), y)),
 
   // A thin ring drawn around the focused marker; white so the view can colour it (bright blue).
   "focus-ring": render((x, y) => {
