@@ -2,7 +2,7 @@
 ## Title: Ribbon
 ## Notes: Compass Ribbon, Map/Minimap Pins & Waypoint Navigation HUD
 ## Author: notoriousb1t
-## Version: 1.0.0
+## Version: 1.1.0
 ## IconTexture: Interface\AddOns\Ribbon\icon
 ## SavedVariables: RibbonDB
 
