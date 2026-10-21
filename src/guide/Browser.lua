@@ -511,6 +511,7 @@ function Br.refresh()
     end
     error(err, 0)
   end
+  Br.updateProgress()
 end
 
 -- The second line of a chapter card: "Lv 12-14 - 48%".
@@ -564,6 +565,19 @@ function Br.progress()
     end
   end
   return overall.fraction, fraction, name
+end
+
+-- Fills the loader bar along the bottom of the panel to the guide's progress.
+function Br.updateProgress()
+  local f = dock
+  if not (f and f.fill) then return end
+  local look = ns.compassStyle.toggle
+  local overall = Br.progress()
+  local width = f.barParent and f.barParent:GetWidth()
+  width = (type(width) == "number" and width > 0 and width or f:GetWidth() or 0) - 2 * f.barInset
+  f.barFraction = overall
+  f.fill:SetWidth(overall > 0 and math.max(look.loader.min, overall * width) or 0.001)
+  f.fill:SetShown(overall > 0)
 end
 
 -- The blue bezel: four corners (one texture flipped), four edges that tile, drawn in the style of the map's own frame.
@@ -714,7 +728,7 @@ local function build()
   if native then
     -- (A real frame has these as frames; anything else is not one.)
     content = type(f.Inset) == "table" and f.Inset.SetPoint and f.Inset or f
-    anchor = { frame = content, x = 8, top = 8 + SEARCH_H + 4, bottom = 8 }
+    anchor = { frame = content, x = 8, top = 8 + SEARCH_H + 4, bottom = 8 + style.toggle.loader.height + 4 }
     -- The title goes through the template's own title text.
     f.title = {
       SetText = function(_, t)
@@ -849,6 +863,22 @@ local function build()
   f.leftRows, f.rightRows = {}, {}
   f.page = "steps"
   local left, right
+  -- The guide's progress: a thin loader bar along the bottom of the panel that fills as the player goes through the
+  -- guide. The lists end above it.
+  local loader = style.toggle.loader
+  local barParent, barX, barY = f, B + 8, BOTTOM - 4
+  if native then barParent, barX, barY = content, loader.inset + 4, 8 end
+  f.track = f:CreateTexture(nil, "OVERLAY")
+  f.track:SetColorTexture(0.42, 0.33, 0.14, 0.95)   -- a dull bronze groove, so an empty bar shows too
+  f.track:SetPoint("BOTTOMLEFT", barParent, "BOTTOMLEFT", barX, barY)
+  f.track:SetPoint("BOTTOMRIGHT", barParent, "BOTTOMRIGHT", -barX, barY)
+  f.track:SetHeight(loader.height)
+  f.fill = f:CreateTexture(nil, "OVERLAY")
+  f.fill:SetColorTexture(0.914, 0.725, 0.286, 1)
+  f.fill:SetPoint("BOTTOMLEFT", barParent, "BOTTOMLEFT", barX, barY)
+  f.fill:SetHeight(loader.height)
+  f.barInset, f.barParent = barX, barParent
+  if not native then anchor = { frame = f, x = B + 6, top = TOP, bottom = BOTTOM + loader.height + 2 } end
   left, f.leftScroll = scroller(f, "RibbonGuideDockChapters", B + 6, COLUMN_W, anchor)
   right, f.rightScroll = scroller(f, "RibbonGuideDockSteps", B + 6, COLUMN_W, anchor)
   f.rightContent = right

@@ -119,7 +119,7 @@ describe("Guide panel bezel and map button", function()
 
     it("lets the columns run down to the bezel now that there are no buttons", function()
       local d = open()
-      expect(d.leftScroll.SetPoint).toHaveBeenCalledWith("BOTTOMLEFT", d, "BOTTOMLEFT", S.bezel.band + 6, S.bezel.band + 8)
+      expect(d.leftScroll.SetPoint).toHaveBeenCalledWith("BOTTOMLEFT", d, "BOTTOMLEFT", S.bezel.band + 6, S.bezel.band + 8 + S.toggle.loader.height + 2)
     end)
   end)
 
@@ -307,7 +307,7 @@ describe("Guide panel bezel and map button", function()
       _G.ButtonFrameTemplate_HidePortrait = function() end
       local d = open()
       expect(d.leftScroll.SetPoint).toHaveBeenCalledWith("TOPLEFT", d, "TOPLEFT", 8, -(8 + 26 + 4))
-      expect(d.leftScroll.SetPoint).toHaveBeenCalledWith("BOTTOMLEFT", d, "BOTTOMLEFT", 8, 8)
+      expect(d.leftScroll.SetPoint).toHaveBeenCalledWith("BOTTOMLEFT", d, "BOTTOMLEFT", 8, 8 + S.toggle.loader.height + 4)
       d.close:Trigger("OnClick")
       expect(d:IsShown()).toBe(false)
       cleanup()

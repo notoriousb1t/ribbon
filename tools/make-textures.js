@@ -218,11 +218,26 @@ const textures = {
     return [26, 19, 10, 0.97];
   }),
 
+  // The map button's compass icon: a bold four-pointed star that fills its box and is the same each way up (north
+  // red, the rest cream), so its middle is also where it looks centred.
+  "panel-needle": render((x, y) => {
+    const s = 60, px = x - C, py = y - C;
+    const kite = (tipX, tipY, w) => {
+      const len = Math.hypot(tipX, tipY), nx = -tipY / len, ny = tipX / len;
+      return [[tipX * s, tipY * s], [nx * w * s, ny * w * s], [-nx * w * s, -ny * w * s]];
+    };
+    // a thin dark edge round the whole star, so it reads on the dark face
+    const arms = [[0, -1, RED], [0, 1, CREAM], [1, 0, CREAM], [-1, 0, CREAM]];
+    for (const [tx, ty, color] of arms) if (inside(kite(tx, ty, 0.27), px, py)) return [...color, 1];
+    return null;
+  }),
+
   // A caret pointing left; the view flips it for the other way. Bright gold with a dark outline, like the map toggle's.
+  // It fills its box, so what you see is centred where the box is.
   "panel-caret": render((x, y) => {
     // Triangle with its tip at the left, inset from the edges so the outline fits.
-    const tri = [[12, 32], [50, 8], [50, 56]];
-    const inner = [[19, 32], [43, 15], [43, 49]];
+    const tri = [[4, 32], [58, 3], [58, 61]];
+    const inner = [[13, 32], [48, 13], [48, 51]];
     if (inside(inner, x, y)) return [255, 214, 88, 1];
     if (inside(tri, x, y)) return [40, 24, 4, 1];
     return null;

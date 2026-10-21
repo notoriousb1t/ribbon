@@ -75,11 +75,6 @@ local function createGuideButton()
   b.setOpen = function(open)
     if open then b.caret:SetTexCoord(0, 1, 0, 1) else b.caret:SetTexCoord(1, 0, 0, 1) end
   end
-  -- The guide's progress, a thin bar along the bottom edge that fills as the player goes through it, like a loader.
-  b.track = b:CreateTexture(nil, "OVERLAY")
-  b.track:SetColorTexture(0.42, 0.33, 0.14, 0.95)   -- a dull bronze groove, so an empty bar shows too
-  b.fill = b:CreateTexture(nil, "OVERLAY")
-  b.fill:SetColorTexture(0.914, 0.725, 0.286, 1)
   b.setOpen(false)
   b:SetHighlightTexture(style.textures.panelToggle, "ADD")
   b:SetScript("OnClick", function() ns.guideBrowser.toggleDock() end)
@@ -138,28 +133,11 @@ function M.alignGuideButton()
   b.icon:SetSize(icon, icon)
   b.icon:ClearAllPoints()
   b.icon:SetPoint("CENTER", b, "LEFT", start + caretSeen + between + iconSeen / 2, 0)
-  -- The loader bar along the bottom, inside the border.
-  local loader = look.loader
-  for _, part in ipairs({ b.track, b.fill }) do
-    part:ClearAllPoints()
-    part:SetPoint("BOTTOMLEFT", b, "BOTTOMLEFT", loader.inset, loader.inset)
-    part:SetHeight(loader.height)
-  end
-  b.track:SetPoint("BOTTOMRIGHT", b, "BOTTOMRIGHT", -loader.inset, loader.inset)
-  M.updateProgress()
 end
 
--- Fills the loader bar to the guide's progress.
+-- The guide's progress is a loader bar along the bottom of the guide panel; keep it up to date.
 function M.updateProgress()
-  local b = M.guideButton
-  if not (b and b.fill and ns.guideBrowser) then return end
-  local overall = ns.guideBrowser.progress()
-  local look = ns.compassStyle.toggle
-  local width = b:GetWidth()
-  width = (type(width) == "number" and width > 0 and width or look.width) - 2 * look.loader.inset
-  b.progress = overall
-  b.fill:SetWidth(overall > 0 and math.max(look.loader.min, overall * width) or 0.001)
-  b.fill:SetShown(overall > 0)
+  if ns.guideBrowser then ns.guideBrowser.updateProgress() end
 end
 
 ns:On("GUIDE_STEP_CHANGED", function() M.updateProgress() end)

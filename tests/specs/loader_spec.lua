@@ -28,48 +28,44 @@ describe("Progress on the map button, and the section header", function()
     build(Ribbon.Guide("g", { title = "Test Guide", schema = 1 }))
   end)
 
-  describe("the loader bar on the map button", function()
-    it("sits along the bottom edge of the button, inside the border", function()
-      local b = ctx.ns.map.guideButton
+  describe("the loader bar along the bottom of the panel", function()
+    it("sits along the bottom of the steps panel, not on the map button", function()
+      local d = open()
       local l = S.toggle.loader
-      expect(b.fill.SetPoint).toHaveBeenCalledWith("BOTTOMLEFT", b, "BOTTOMLEFT", l.inset, l.inset)
-      expect(b.track.SetPoint).toHaveBeenCalledWith("BOTTOMRIGHT", b, "BOTTOMRIGHT", -l.inset, l.inset)
-      expect(b.fill.SetHeight).toHaveBeenCalledWith(l.height)
+      expect(d.fill.SetHeight).toHaveBeenCalledWith(l.height)
+      expect(d.track.SetHeight).toHaveBeenCalledWith(l.height)
+      expect(d.fill.SetPoint.calls[1][1]).toBe("BOTTOMLEFT")
+      expect(d.track.SetPoint.calls[2][1]).toBe("BOTTOMRIGHT")
+      expect(ctx.ns.map.guideButton.fill).toBeNil()
+      expect(ctx.ns.map.guideButton.track).toBeNil()
     end)
 
     it("is empty at the start and fills as the player goes through the guide", function()
-      local b = ctx.ns.map.guideButton
-      expect(b.fill:IsShown()).toBe(false)
+      local d = open()
+      expect(d.fill:IsShown()).toBe(false)
+      d.barParent.GetWidth = function() return 300 end
       ctx.ns.guidePlayer.jump(2, 1)                          -- 3 of 5 steps done
-      local inner = S.toggle.width - 2 * S.toggle.loader.inset
-      expect(lastCall(b.fill.SetWidth)[1]).toBeCloseTo(0.6 * inner, 4)
-      expect(b.fill:IsShown()).toBe(true)
+      local inner = 300 - 2 * d.barInset
+      expect(lastCall(d.fill.SetWidth)[1]).toBeCloseTo(0.6 * inner, 4)
+      expect(d.fill:IsShown()).toBe(true)
       ctx.ns.guidePlayer.jump(2, 2)
-      expect(lastCall(b.fill.SetWidth)[1]).toBeCloseTo(0.8 * inner, 4)
+      expect(lastCall(d.fill.SetWidth)[1]).toBeCloseTo(0.8 * inner, 4)
     end)
 
     it("is gold on a bronze groove that shows even when the bar is empty", function()
-      local b = ctx.ns.map.guideButton
-      local c = b.fill.SetColorTexture.calls[1]
+      local d = open()
+      local c = d.fill.SetColorTexture.calls[1]
       expect(c[1]).toBeGreaterThan(c[3] + 0.4)
-      local g = b.track.SetColorTexture.calls[1]
+      local g = d.track.SetColorTexture.calls[1]
       expect(g[1] + g[2] + g[3]).toBeGreaterThan(0.6)            -- not black on the dark face
-      expect(b.track:IsShown()).toBe(true)
+      expect(d.track:IsShown()).toBe(true)
     end)
 
     it("is at least a few pixels long once any progress is made, so the start of the guide shows", function()
-      local b = ctx.ns.map.guideButton
+      local d = open()
       ctx.ns.guidePlayer.jump(1, 2)                              -- 1 of 5 steps
-      expect(lastCall(b.fill.SetWidth)[1]).toBeGreaterThan(S.toggle.loader.min - 0.001)
-      local ctx2 = ctx
+      expect(lastCall(d.fill.SetWidth)[1]).toBeGreaterThan(S.toggle.loader.min - 0.001)
       expect(S.toggle.loader.height).toBeGreaterThan(3)
-    end)
-
-    it("follows the button's size", function()
-      local b = ctx.ns.map.guideButton
-      b.GetWidth = function() return 40 end
-      ctx.ns.guidePlayer.jump(2, 1)
-      expect(lastCall(b.fill.SetWidth)[1]).toBeCloseTo(0.6 * (40 - 2 * S.toggle.loader.inset), 4)
     end)
 
     it("reports the guide's and the chapter's progress for its tooltip", function()
