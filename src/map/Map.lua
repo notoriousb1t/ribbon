@@ -19,7 +19,7 @@ local function showTooltip(self)
   GameTooltip:Show()
 end
 
-local SIZES = { world = 24, mini = 18 }
+local SIZES = { world = 20, mini = 15 }   -- a little under the map's own quest icons
 
 -- Pin factory: a button drawn as the waypoint's badge (the same icons as the compass), Configure(uid, texture, icon) and
 -- Hide().
