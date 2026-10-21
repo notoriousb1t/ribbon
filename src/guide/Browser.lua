@@ -29,9 +29,10 @@ local COLORS = {
   done = "|cff808080", current = "|cffe9b949", todo = "|cfff3ead2",
 }
 -- A step's title is gold like a quest's name in the quest log, grey once done; its objectives are plain cream.
-local TITLE_COLORS = { done = "|cff808080", current = "|cffffd24a", todo = "|cffe9b949" }
-local OBJECTIVE_COLOR = "|cffe6e0cf"
-local DONE_OBJECTIVE_COLOR = "|cff808080"
+-- Steps still to come are dimmed until the mouse is over them.
+local TITLE_COLORS = { done = "|cff808080", current = "|cffffd24a", todo = "|cffe9b949", dim = "|cff8a6d2c" }
+local OBJECTIVE_COLORS = { done = "|cff808080", current = "|cffe6e0cf", todo = "|cffe6e0cf", dim = "|cff7a766b" }
+local TICK_GREY = 0.5   -- the check mark takes the colour of a done step's text (|cff808080)
 
 local dock, selected   -- the docked panel; selected: guide chapter index being browsed (nil: the active chapter)
 local query = ""       -- what the search box holds, trimmed
@@ -197,8 +198,6 @@ local function makeCard(width)
 end
 
 local ICON = 24                           -- the icon a step is drawn with
-local GO = 22                            -- the hover button that moves the player's place to the step
-local CHECK = 18                         -- the check mark on a step that is done
 
 -- Is the mouse over a frame? (Frame:IsMouseOver is the retail call; MouseIsOver the older one.)
 local function mouseOver(frame)
@@ -255,6 +254,25 @@ local function setHeaderLook(b, shown, label, isFolded)
   if shown then b.headText:SetText(label) end
 end
 
+-- Colours and shows a step row for its state and whether the mouse is over it (b.hover): the title and the objectives in
+-- their colours (steps still to come dimmed until hovered); a done step shows a check mark in place of its icon until
+-- hovered; hovering gives any step the current step's glow, and its icon is the button that makes it the current step.
+function Br.paintRow(b)
+  local row = b.row
+  if not row or b.isHeader then return end
+  local hover = b.hover == true
+  local state = row.state
+  local shade = (state == "todo" and not hover) and "dim" or state
+  b.label:SetText((TITLE_COLORS[shade] or TITLE_COLORS.todo) .. row.title .. "|r")
+  local lines = {}
+  for _, line in ipairs(row.objectives) do lines[#lines + 1] = (OBJECTIVE_COLORS[shade] or OBJECTIVE_COLORS.todo) .. "- " .. line .. "|r" end
+  b.objectives:SetText(table.concat(lines, "\n"))
+  local ticked = state == "done" and not hover
+  b.tick:SetShown(ticked)
+  b.icon:SetShown(not ticked)
+  b.glow:SetShown(state == "current" or hover)
+end
+
 -- A step row, laid out like a quest in the quest log: its icon (with a gold glow when it is the player's step), a gold
 -- title over up to two lines, its objectives under the title in plain text, and a check mark at the right once it is
 -- done; a blue wash when it is the one being previewed. While the mouse is over the row an arrow takes the check's
@@ -272,19 +290,28 @@ local function makeRow(width)
     b.sel:Hide()
     addHeaderLook(b, width)
 
-    -- A step: the glow behind the icon, the icon, the title, the objectives and the check.
+    -- A step: a glow behind the icon, the icon, the title and the objectives. A step that is done shows a check mark
+    -- where its icon would be. The icon is also a button: while the mouse is over the row it takes the current step's
+    -- look (the glow) and clicking it makes this the player's current step.
     b.glow = b:CreateTexture(nil, "BACKGROUND")
     b.glow:SetTexture(style.textures.markerFill)
     b.glow:SetVertexColor(1, 0.82, 0.2, 0.35)
     b.glow:SetSize(ICON + 12, ICON + 12)
     b.glow:Hide()
-    b.icon = CreateFrame("Frame", nil, b)
+    b.icon = CreateFrame("Button", nil, b)
     b.icon:SetSize(ICON, ICON)
     b.icon:SetPoint("TOPLEFT", b, "TOPLEFT", 6, -5)
     b.glow:SetPoint("CENTER", b.icon, "CENTER")
     ns.badge.build(b.icon)
+    b.tick = b:CreateTexture(nil, "OVERLAY")
+    b.tick:SetTexture([[Interface\Buttons\UI-CheckBox-Check]])
+    if b.tick.SetDesaturated then b.tick:SetDesaturated(true) end
+    b.tick:SetVertexColor(TICK_GREY, TICK_GREY, TICK_GREY)
+    b.tick:SetSize(ICON, ICON)
+    b.tick:SetPoint("TOPLEFT", b, "TOPLEFT", 6, -5)
+    b.tick:Hide()
     local left = 6 + ICON + 8
-    local textWidth = width - left - GO - 10
+    local textWidth = width - left - 10
     b.label = b:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     b.label:SetPoint("TOPLEFT", b, "TOPLEFT", left, -5)
     b.label:SetWidth(textWidth)
@@ -294,53 +321,34 @@ local function makeRow(width)
     b.objectives:SetPoint("TOPLEFT", b.label, "BOTTOMLEFT", 6, -2)
     b.objectives:SetWidth(textWidth - 6)
     b.objectives:SetJustifyH("LEFT")
-    b.check = b:CreateTexture(nil, "OVERLAY")
-    b.check:SetTexture([[Interface\Buttons\UI-CheckBox-Check]])
-    b.check:SetVertexColor(1, 0.82, 0.2)
-    b.check:SetSize(CHECK, CHECK)
-    b.check:SetPoint("TOPRIGHT", b, "TOPRIGHT", -6, -6)
-    b.check:Hide()
     b:SetHighlightTexture("Interface\\QuestFrame\\UI-QuestTitleHighlight")
 
-    b.go = CreateFrame("Button", nil, b)
-    b.go:SetSize(GO, GO)
-    b.go:SetPoint("TOPRIGHT", b, "TOPRIGHT", -4, -4)
-    b.go.bg = b.go:CreateTexture(nil, "ARTWORK")
-    b.go.bg:SetTexture(style.textures.bezelButton)
-    b.go.bg:SetAllPoints()
-    b.go.caret = b.go:CreateTexture(nil, "OVERLAY")
-    b.go.caret:SetTexture(style.textures.panelCaret)
-    b.go.caret:SetTexCoord(1, 0, 0, 1)   -- pointing right: go here
-    b.go.caret:SetSize(12, 12)
-    b.go.caret:SetPoint("CENTER", b.go, "CENTER", 1, 0)
-    b.go:SetHighlightTexture(style.textures.bezelButton, "ADD")
-    b.go:Hide()
-    b.go:SetScript("OnClick", function()
+    b.icon:SetScript("OnClick", function()
       GameTooltip:Hide()
       ns.guidePlayer.jump(b.chapter, b.step)
     end)
-    b.go:SetScript("OnEnter", function(self)
+    b.icon:SetScript("OnEnter", function(self)
       GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
       GameTooltip:SetText("Make this your current step")
       GameTooltip:Show()
     end)
-    -- The check and the arrow share a place: the arrow while the mouse is over the row.
-    local function hideGo()
-      b.go:Hide()
-      b.check:SetShown(b.done == true and not b.isHeader)
+    -- The icon is a child of the row, so moving onto it leaves the row: only stop hovering when the mouse is on neither.
+    local function unhover()
+      if not mouseOver(b) then
+        b.hover = false
+        Br.paintRow(b)
+      end
     end
-    b.go:SetScript("OnLeave", function()
+    b.icon:SetScript("OnLeave", function()
       GameTooltip:Hide()
-      if not mouseOver(b) then hideGo() end
+      unhover()
     end)
     b:SetScript("OnEnter", function()
       if b.isHeader then return end
-      b.go:Show()
-      b.check:Hide()
+      b.hover = true
+      Br.paintRow(b)
     end)
-    b:SetScript("OnLeave", function()
-      if not mouseOver(b) then hideGo() end
-    end)
+    b:SetScript("OnLeave", unhover)
     return b
   end
 end
@@ -442,28 +450,22 @@ local function fill(f, player)
     -- A section header names a chapter; any other row is a step.
     -- (while searching, a header also says how many of the chapter's steps matched)
     setHeaderLook(b, header, header and string.format("%s  |cff9a9484(%d)|r", row.label, row.count) or "", row.folded)
-    b.icon:SetShown(not header)
     b.label:SetShown(not header)
     b.objectives:SetShown(not header)
     local h
     if header then
+      b.row = nil
+      b.hover = false
       b.sel:Hide()
-      b.go:Hide()
       b.glow:Hide()
-      b.check:Hide()
-      b.done = false
+      b.tick:Hide()
+      b.icon:Hide()
       h = SECTION_H
     else
-      local titleColor = TITLE_COLORS[row.state] or TITLE_COLORS.todo
-      b.label:SetText(titleColor .. row.title .. "|r")
-      local objectiveColor = row.state == "done" and DONE_OBJECTIVE_COLOR or OBJECTIVE_COLOR
-      local lines = {}
-      for _, line in ipairs(row.objectives) do lines[#lines + 1] = objectiveColor .. "- " .. line .. "|r" end
-      b.objectives:SetText(table.concat(lines, "\n"))
+      b.row = row
       ns.badge.draw(b.icon, row.icon, ICON)
-      b.glow:SetShown(row.state == "current")
-      b.done = row.state == "done"
-      b.check:SetShown(b.done and not (b.go:IsShown()))
+      Br.paintRow(b)
+      local lines = row.objectives
       b.sel:SetShown(preview ~= nil and preview.chapter == row.chapter and preview.step == row.step)
       -- The row is as tall as its text: the title, then the objectives under it (measured when the client can say, a
       -- line each otherwise), never shorter than its icon needs.

@@ -168,14 +168,14 @@ describe("Progress on the map button, and the section header", function()
       expect(step.icon:IsShown()).toBe(true)
     end)
 
-    it("do nothing when clicked and show no hover arrow", function()
+    it("do nothing when clicked and take no hover look", function()
       local d = open()
       type_(d, "accept")
       local head = d.rightRows.items[1]
       head:Trigger("OnClick")
       expect(d.rightRows.items[1].sel:IsShown()).toBe(false)
       head:Trigger("OnEnter")
-      expect(head.go:IsShown()).toBe(false)
+      expect(head.glow:IsShown()).toBe(false)
     end)
 
     it("are not there when nothing is searched for", function()

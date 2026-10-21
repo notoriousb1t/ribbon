@@ -192,7 +192,7 @@ describe("Guide search", function()
       type_(d, "harness")                                        -- the header, then step two
       local row = d.rightRows.items[2]
       expect(row.step).toBe(2)
-      row.go:Trigger("OnClick")
+      row.icon:Trigger("OnClick")
       expect(ctx.ns.guidePlayer.current().index).toBe(2)
     end)
 

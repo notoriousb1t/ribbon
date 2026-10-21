@@ -72,17 +72,17 @@ describe("Step icons, preview and the hover arrow", function()
       expect(kill.icon.tex:IsShown()).toBe(true)
     end)
 
-    it("keeps the text clear of the icon and of the hover arrow", function()
+    it("keeps the text clear of the icon", function()
       local d = open()
       local row = d.rightRows.items[1]
       local left = 6 + 24 + 8
       expect(row.label.SetPoint).toHaveBeenCalledWith("TOPLEFT", row, "TOPLEFT", left, -5)
       local width = 300 - 22
-      expect(row.label.SetWidth).toHaveBeenCalledWith(width - left - 22 - 10)
+      expect(row.label.SetWidth).toHaveBeenCalledWith(width - left - 10)
     end)
   end)
 
-  describe("hover arrow", function()
+  describe("the icon as the make-current button", function()
     local ctx = H.use({ boot = true })
     local function open()
       ctx.ns.guideBrowser.toggleDock()
@@ -90,37 +90,38 @@ describe("Step icons, preview and the hover arrow", function()
     end
     beforeEach(function() build(Ribbon.Guide("g", { title = "Test Guide", schema = 1 })) end)
 
-    it("is hidden until the mouse is over the row, and hidden again when it leaves", function()
+    it("takes the current step's glow while the mouse is over the row, and loses it after", function()
       local d = open()
       local row = d.rightRows.items[2]
-      expect(row.go:IsShown()).toBe(false)
+      expect(row.glow:IsShown()).toBe(false)
       row:Trigger("OnEnter")
-      expect(row.go:IsShown()).toBe(true)
+      expect(row.glow:IsShown()).toBe(true)
       row:Trigger("OnLeave")
-      expect(row.go:IsShown()).toBe(false)
+      expect(row.glow:IsShown()).toBe(false)
     end)
 
-    it("stays while the mouse moves from the row onto the arrow", function()
+    it("keeps the look while the mouse moves from the row onto the icon", function()
       local d = open()
       local row = d.rightRows.items[2]
       row:Trigger("OnEnter")
       row.IsMouseOver = function() return true end            -- the mouse is still over the row's area
       row:Trigger("OnLeave")
-      expect(row.go:IsShown()).toBe(true)
+      expect(row.glow:IsShown()).toBe(true)
     end)
 
-    it("makes the step the player's current one, and its tooltip says so", function()
+    it("makes the step the player's current one when the icon is clicked, and its tooltip says so", function()
       local d = open()
       local row = d.rightRows.items[4]
-      row.go:Trigger("OnEnter")
+      row.icon:Trigger("OnEnter")
       expect(GameTooltip.SetText).toHaveBeenCalledWith("Make this your current step")
-      row.go:Trigger("OnClick")
+      row.icon:Trigger("OnClick")
       expect(ctx.ns.guidePlayer.current().index).toBe(4)
     end)
 
-    it("points right, like go", function()
+    it("is not a separate arrow any more: nothing is drawn at the row's right", function()
       local d = open()
-      expect(d.rightRows.items[1].go.caret.SetTexCoord).toHaveBeenCalledWith(1, 0, 0, 1)
+      expect(d.rightRows.items[1].go).toBeNil()
+      expect(d.rightRows.items[1].check).toBeNil()
     end)
   end)
 

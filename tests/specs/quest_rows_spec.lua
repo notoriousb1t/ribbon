@@ -52,12 +52,14 @@ describe("Steps laid out like quests in the quest log", function()
       expect(text).never.toContain("[1/3]")
       expect(text).never.toContain("[")
       expect(text).toContain("|cffffd24a")                 -- the current step is the brightest gold
-      expect(lastText(d.rightRows.items[3].label)).toContain("|cffe9b949")    -- the others are gold
+      expect(lastText(d.rightRows.items[3].label)).toContain("|cff8a6d2c")    -- steps to come are a dimmer gold
     end)
 
     it("lists the objectives under the title with a dash, in plain text", function()
       local d = open()
-      local objectives = lastText(d.rightRows.items[2].objectives)
+      ctx.ns.guidePlayer.jump(1, 2)
+      ctx.ns.guideBrowser.refresh()
+      local objectives = lastText(d.rightRows.items[2].objectives)           -- the current step
       expect(objectives).toContain("- Kill Juvenile Vuldren (0/8)")
       expect(objectives).toContain("|cffe6e0cf")
       expect(lastText(d.rightRows.items[1].objectives)).toBe("")
@@ -69,24 +71,64 @@ describe("Steps laid out like quests in the quest log", function()
       expect(d.rightRows.items[2].glow:IsShown()).toBe(false)
     end)
 
-    it("greys a step that is done and puts a check mark at its right", function()
+    it("shows a check mark in place of the icon of a step that is done, in the colour of its text", function()
       ctx.ns.guidePlayer.jump(1, 3)
       local d = open()
-      expect(d.rightRows.items[1].check:IsShown()).toBe(true)
-      expect(d.rightRows.items[3].check:IsShown()).toBe(false)
-      expect(lastText(d.rightRows.items[1].label)).toContain("|cff808080")
+      local done, todo = d.rightRows.items[1], d.rightRows.items[3]
+      expect(done.tick:IsShown()).toBe(true)
+      expect(done.icon:IsShown()).toBe(false)
+      expect(todo.tick:IsShown()).toBe(false)
+      expect(todo.icon:IsShown()).toBe(true)
+      expect(lastText(done.label)).toContain("|cff808080")
+      local c = done.tick.SetVertexColor.calls[1]
+      expect(c[1]).toBeCloseTo(0x80 / 255, 2)                          -- the grey of the text
+      expect(done.tick.SetDesaturated).toHaveBeenCalledWith(true)
     end)
 
-    it("swaps the check for the hover arrow while the mouse is over a done step, and back", function()
+    it("shows the step's own icon with the glow again while the mouse is over a done step", function()
       ctx.ns.guidePlayer.jump(1, 3)
       local d = open()
       local row = d.rightRows.items[1]
       row:Trigger("OnEnter")
-      expect(row.go:IsShown()).toBe(true)
-      expect(row.check:IsShown()).toBe(false)
+      expect(row.tick:IsShown()).toBe(false)
+      expect(row.icon:IsShown()).toBe(true)
+      expect(row.glow:IsShown()).toBe(true)
       row:Trigger("OnLeave")
-      expect(row.go:IsShown()).toBe(false)
-      expect(row.check:IsShown()).toBe(true)
+      expect(row.tick:IsShown()).toBe(true)
+      expect(row.icon:IsShown()).toBe(false)
+      expect(row.glow:IsShown()).toBe(false)
+    end)
+
+    it("dims a step still to come until the mouse is over it", function()
+      local d = open()
+      local row = d.rightRows.items[3]                                 -- to come
+      expect(lastText(row.label)).toContain("|cff8a6d2c")
+      expect(lastText(row.objectives)).never.toContain("|cffe6e0cf")
+      row:Trigger("OnEnter")
+      expect(lastText(row.label)).toContain("|cffe9b949")              -- full colour
+      expect(lastText(row.objectives)).toBe("")                        -- (a step with no objectives)
+      row:Trigger("OnLeave")
+      expect(lastText(row.label)).toContain("|cff8a6d2c")
+    end)
+
+    it("does not dim the current step or a done one", function()
+      ctx.ns.guidePlayer.jump(1, 2)
+      local d = open()
+      expect(lastText(d.rightRows.items[2].label)).toContain("|cffffd24a")
+      expect(lastText(d.rightRows.items[1].label)).toContain("|cff808080")
+    end)
+
+    it("brightens the objectives of a step to come on hover", function()
+      Ribbon.Guide("g")                                                -- (already registered: ignored)
+      local d = open()
+      ctx.ns.guideBrowser.showSteps(2)
+      local row = d.rightRows.items[1]
+      expect(lastText(row.objectives)).toBe("")
+      ctx.ns.guideBrowser.showSteps(1)
+      local kill = d.rightRows.items[2]
+      expect(lastText(kill.objectives)).toContain("|cff7a766b")        -- dim
+      kill:Trigger("OnEnter")
+      expect(lastText(kill.objectives)).toContain("|cffe6e0cf")        -- bright
     end)
 
     it("makes a row as tall as its text, never less than its icon needs", function()
