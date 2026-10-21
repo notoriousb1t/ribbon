@@ -8,7 +8,7 @@ local deg = math.deg
 local TRACK_HEIGHT = 28
 
 local db, frame, dial, needle, targetText, detailText, captionPlate, captionTrim, combatBar
-local lastRotation, lastCombat
+local lastRotation, lastCombat, dragged
 local chrome = {}
 local ticks, labels, markers = {}, {}, {}
 local layout
@@ -44,6 +44,11 @@ local function setCaption(wp)
   captionPlate:SetSize(math.max(width + cap.padX * 2, cap.minWidth), height)
   captionPlate:Show()
   captionTrim:Show()
+end
+
+-- Opens the guide panel when a guide is installed; a click on the ribbon without one does nothing.
+function C.OpenGuide()
+  if ns.guidePlayer and ns.guideBrowser and ns.guidePlayer.state() then ns.guideBrowser.toggle() end
 end
 
 local function savePosition()
@@ -132,8 +137,17 @@ local function build()
   frame:SetClampedToScreen(true)
   frame:EnableMouse(true)
   frame:RegisterForDrag("LeftButton")
-  frame:SetScript("OnDragStart", function(self) if not db.locked then self:StartMoving() end end)
+  frame:SetScript("OnDragStart", function(self)
+    dragged = true
+    if not db.locked then self:StartMoving() end
+  end)
   frame:SetScript("OnDragStop", function(self) self:StopMovingOrSizing() savePosition() end)
+  -- A plain click on the ribbon opens the guide panel (a drag, which ends in a mouse-up too, does not).
+  frame:SetScript("OnMouseUp", function(_, button)
+    local wasDrag = dragged
+    dragged = false
+    if button == "LeftButton" and not wasDrag then C.OpenGuide() end
+  end)
 
   local style = ns.compassStyle
   local c = style.colors

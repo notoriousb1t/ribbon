@@ -94,6 +94,15 @@ function T.lines(group, names, env, state)
   return out
 end
 
+-- A chapter name split at its arrow for display: "11-12 Sentinel Hill (Westfall) -> Report to Gryan" gives the place
+-- ("11-12 Sentinel Hill (Westfall)") and the goal ("Report to Gryan"). The goal is nil when there is none.
+function T.chapterParts(name)
+  name = tostring(name or "")
+  local place, goal = name:match("^(.-)%s*\226\134\146%s*(.+)$")   -- the arrow as UTF-8 bytes (Lua 5.1 has no \x)
+  if place and place ~= "" then return place, goal end
+  return name, nil
+end
+
 -- The call kind that decides a group's map icon.
 local ICON = {
   Accept = "accept", Turnin = "turnin", Kill = "kill", Grind = "grind",

@@ -65,7 +65,7 @@ function P.view(guide, who)
         local visible = P.filterStep(step, who)
         if visible then steps[#steps + 1] = { chapter = ci, index = si, step = visible } end
       end
-      if #steps > 0 then out[#out + 1] = { index = ci, name = ch.name, steps = steps } end
+      if #steps > 0 then out[#out + 1] = { index = ci, name = ch.name, levels = opts.levels, steps = steps } end
     end
   end
   return out
@@ -111,6 +111,23 @@ function P.outline(view, flat, cursor)
     base = last
   end
   return { chapters = chapters, steps = steps }
+end
+
+-- Position-based progress: the steps before the cursor count as done. Returns
+--   { done =, total =, fraction =, chapters = { [chapter index] = { done =, total =, fraction = } } }
+-- `cursor` is the flat index of the current step (#flat + 1 once finished; nil counts as finished).
+function P.progress(view, flat, cursor)
+  local total = #flat
+  local done = cursor == nil and total or math.max(0, math.min(total, cursor - 1))
+  local out = { done = done, total = total, fraction = total > 0 and done / total or 0, chapters = {} }
+  local base = 0
+  for _, ch in ipairs(view) do
+    local n = #ch.steps
+    local d = math.max(0, math.min(n, done - base))
+    out.chapters[ch.index] = { done = d, total = n, fraction = n > 0 and d / n or 0 }
+    base = base + n
+  end
+  return out
 end
 
 -- Flat index of the first step of a chapter (guide chapter index), or nil.

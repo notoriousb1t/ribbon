@@ -54,6 +54,52 @@ local function createClearButton()
   M.clearButton = b
 end
 
+-- The guide button: the Ribbon icon beside Clear Pins, shown once a guide is installed.
+local function createGuideButton()
+  if M.guideButton or not WorldMapFrame or not ns.guide then return end
+  local b = CreateFrame("Button", "RibbonGuideMapButton", WorldMapFrame)
+  b:SetSize(28, 28)
+  b:SetPoint("TOPRIGHT", WorldMapFrame, "TOPRIGHT", -228, -2)
+  b:SetFrameStrata("HIGH")
+  b.icon = b:CreateTexture(nil, "ARTWORK")
+  b.icon:SetAllPoints()
+  b.icon:SetTexture([[Interface\AddOns\Ribbon\icon]])
+  b:SetHighlightTexture([[Interface\Buttons\ButtonHilight-Square]], "ADD")
+  b:SetScript("OnClick", function() ns.guideBrowser.toggle() end)
+  b:SetScript("OnEnter", function(self)
+    GameTooltip:SetOwner(self, "ANCHOR_BOTTOM")
+    GameTooltip:SetText(ns.guide and ns.guide.title or "Guide")
+    GameTooltip:AddLine("Chapters and progress", 1, 1, 1)
+    GameTooltip:Show()
+  end)
+  b:SetScript("OnLeave", function() GameTooltip:Hide() end)
+  M.guideButton = b
+end
+
+M.createGuideButton = createGuideButton
+
+-- The map header buttons. The world map is load-on-demand on some clients, so wait for it.
+local function createButtons()
+  createClearButton()
+  createGuideButton()
+end
+
+ns:On("INIT", function()
+  if WorldMapFrame then
+    createButtons()
+  else
+    local waiter = CreateFrame("Frame")
+    waiter:RegisterEvent("ADDON_LOADED")
+    waiter:SetScript("OnEvent", function(self)
+      if WorldMapFrame then
+        createButtons()
+        self:UnregisterAllEvents()
+      end
+    end)
+  end
+end)
+ns:On("GUIDE_REGISTERED", createGuideButton)
+
 ns:On("INIT", function()
   local lib = LibStub and LibStub("HereBeDragons-Pins-2.0", true)
   if not lib then
@@ -71,18 +117,4 @@ ns:On("INIT", function()
   ns:On("WAYPOINT_CHANGED", function(wp) manager:refresh(wp) end)
   ns:On("WAYPOINT_REMOVED", function(wp) manager:remove(wp) end)
   manager:resync(ns.waypoints)
-
-  if WorldMapFrame then
-    createClearButton()
-  else
-    -- World map is load-on-demand on some clients.
-    local waiter = CreateFrame("Frame")
-    waiter:RegisterEvent("ADDON_LOADED")
-    waiter:SetScript("OnEvent", function(self)
-      if WorldMapFrame then
-        createClearButton()
-        self:UnregisterAllEvents()
-      end
-    end)
-  end
 end)

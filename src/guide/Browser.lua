@@ -10,7 +10,9 @@ local planner = ns.guidePlanner
 local text = ns.guideText
 
 local ROW = 20
-local LEFT_W, RIGHT_W, HEIGHT = 210, 400, 380
+local CARD = 40                          -- height of a chapter card
+local LEFT_W, RIGHT_W, HEIGHT = 230, 400, 400
+local TOP = 56                           -- room for the title and the overall bar
 
 local COLORS = {
   done = "|cff808080", current = "|cffe9b949", todo = "|cfff3ead2",
@@ -20,14 +22,20 @@ local frame, selected   -- selected: guide chapter index being browsed
 
 -- Rows --------------------------------------------------------------------------------
 
--- Left rows: { chapter =, label =, state = }. Right rows: { chapter =, step =, label =, state = }.
+-- Left rows: { chapter =, label =, state =, levels =, done =, total =, fraction = }. Right rows:
+-- { chapter =, step =, label =, state = }. Progress is by position: steps before the current one count as done.
 function Br.rows(player, chapter)
   local S = player.state()
   local env = player.env()
   local outline = planner.outline(S.view, S.flat, S.cursor)
+  local progress = planner.progress(S.view, S.flat, S.cursor)
   local left, right = {}, {}
   for _, ch in ipairs(S.view) do
-    left[#left + 1] = { chapter = ch.index, label = ch.name, state = outline.chapters[ch.index] }
+    local p = progress.chapters[ch.index]
+    left[#left + 1] = {
+      chapter = ch.index, label = ch.name, state = outline.chapters[ch.index], levels = ch.levels,
+      done = p.done, total = p.total, fraction = p.fraction,
+    }
   end
   local base = 0
   for _, ch in ipairs(S.view) do
@@ -50,12 +58,58 @@ end
 
 -- Frame ---------------------------------------------------------------------------------
 
-local function pool(parent, rows, make)
+local function pool(parent, rows, make, height)
   rows.items = rows.items or {}
+  height = height or ROW
   return function(n)
     for i = #rows.items + 1, n do rows.items[i] = make(parent, i) end
     for i = 1, #rows.items do rows.items[i]:SetShown(i <= n) end
-    parent:SetHeight(math.max(1, n * ROW))
+    parent:SetHeight(math.max(1, n * height))
+  end
+end
+
+local BAR_H = 5
+
+-- A flat progress bar: a dark track and a fill whose width follows the fraction.
+local function bar(parent, width, height)
+  local track = parent:CreateTexture(nil, "BACKGROUND")
+  track:SetColorTexture(0, 0, 0, 0.45)
+  track:SetSize(width, height)
+  local fill = parent:CreateTexture(nil, "ARTWORK")
+  fill:SetPoint("TOPLEFT", track, "TOPLEFT")
+  fill:SetHeight(height)
+  local b = { track = track, fill = fill, width = width }
+  function b.set(fraction, color)
+    fraction = math.max(0, math.min(1, fraction or 0))
+    fill:SetColorTexture(color[1], color[2], color[3], 1)
+    fill:SetWidth(math.max(0.001, fraction * width))
+    fill:SetShown(fraction > 0)
+  end
+  return b
+end
+
+local BAR_COLORS = {
+  done = { 0.42, 0.62, 0.66 }, current = { 0.914, 0.725, 0.286 }, todo = { 0.953, 0.918, 0.824 },
+}
+
+-- A chapter card: place on the first line, levels and percent on the second, a progress bar under both.
+local function makeCard(width)
+  return function(parent, i)
+    local b = CreateFrame("Button", nil, parent)
+    b:SetSize(width, CARD)
+    b:SetPoint("TOPLEFT", parent, "TOPLEFT", 0, -(i - 1) * CARD)
+    b.label = b:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    b.label:SetPoint("TOPLEFT", b, "TOPLEFT", 4, -4)
+    b.label:SetWidth(width - 8)
+    b.label:SetJustifyH("LEFT")
+    b.sub = b:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    b.sub:SetPoint("TOPLEFT", b.label, "BOTTOMLEFT", 0, -2)
+    b.sub:SetWidth(width - 8)
+    b.sub:SetJustifyH("LEFT")
+    b.bar = bar(b, width - 8, BAR_H)
+    b.bar.track:SetPoint("BOTTOMLEFT", b, "BOTTOMLEFT", 4, 4)
+    b:SetHighlightTexture([[Interface\QuestFrame\UI-QuestTitleHighlight]])
+    return b
   end
 end
 
@@ -75,8 +129,8 @@ end
 
 local function scroller(parent, name, x, width)
   local scroll = CreateFrame("ScrollFrame", name, parent, "UIPanelScrollFrameTemplate")
-  scroll:SetPoint("TOPLEFT", parent, "TOPLEFT", x, -34)
-  scroll:SetSize(width - 22, HEIGHT - 70)
+  scroll:SetPoint("TOPLEFT", parent, "TOPLEFT", x, -TOP)
+  scroll:SetSize(width - 22, HEIGHT - TOP - 36)
   local content = CreateFrame("Frame", nil, scroll)
   content:SetSize(width - 22, 1)
   scroll:SetScrollChild(content)
@@ -96,7 +150,11 @@ function Br.refresh()
   frame.setLeft(#left)
   for i, row in ipairs(left) do
     local b = frame.leftRows.items[i]
-    b.label:SetText(colored(row.chapter == selected and "current" or row.state, row.label))
+    local place = text.chapterParts(row.label)
+    local state = row.chapter == selected and "current" or row.state
+    b.label:SetText(colored(state, place))
+    b.sub:SetText(Br.subtitle(row))
+    b.bar.set(row.fraction, BAR_COLORS[row.state] or BAR_COLORS.todo)
     b.chapter = row.chapter
   end
   frame.setRight(#right)
@@ -107,6 +165,20 @@ function Br.refresh()
   end
   local entry, cursor = player.current()
   frame.progress:SetText(entry and string.format("Step %d of %d", cursor, #S.flat) or "Guide finished")
+  local overall = planner.progress(S.view, S.flat, S.cursor)
+  frame.overall.set(overall.fraction, BAR_COLORS.current)
+  frame.overallText:SetText(string.format("%d%%", math.floor(overall.fraction * 100 + 0.5)))
+end
+
+-- The second line of a chapter card: "Lv 12-14 - 48%".
+function Br.subtitle(row)
+  local parts = {}
+  local lv = row.levels
+  if type(lv) == "table" and lv[1] then
+    parts[#parts + 1] = lv[2] and lv[2] ~= lv[1] and string.format("Lv %d-%d", lv[1], lv[2]) or string.format("Lv %d", lv[1])
+  end
+  parts[#parts + 1] = string.format("%d%%", math.floor((row.fraction or 0) * 100 + 0.5))
+  return "|cffb8c7cc" .. table.concat(parts, " - ") .. "|r"
 end
 
 local function build()
@@ -130,10 +202,17 @@ local function build()
   frame.progress = frame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
   frame.progress:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -12, -12)
 
+  -- Overall progress along the whole guide, under the title.
+  local width = LEFT_W + RIGHT_W + 36 - 24 - 40
+  frame.overall = bar(frame, width, 8)
+  frame.overall.track:SetPoint("TOPLEFT", frame, "TOPLEFT", 12, -32)
+  frame.overallText = frame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+  frame.overallText:SetPoint("LEFT", frame.overall.track, "RIGHT", 6, 0)
+
   frame.leftRows, frame.rightRows = {}, {}
   local left = scroller(frame, "RibbonGuideChapters", 8, LEFT_W)
   local right = scroller(frame, "RibbonGuideSteps", LEFT_W + 20, RIGHT_W)
-  local makeLeft, makeRight = makeRow(LEFT_W - 22), makeRow(RIGHT_W - 22)
+  local makeLeft, makeRight = makeCard(LEFT_W - 22), makeRow(RIGHT_W - 22)
   frame.setLeft = pool(left, frame.leftRows, function(parent, i)
     local b = makeLeft(parent, i)
     b:SetScript("OnClick", function(self)
@@ -141,7 +220,7 @@ local function build()
       Br.refresh()
     end)
     return b
-  end)
+  end, CARD)
   frame.setRight = pool(right, frame.rightRows, function(parent, i)
     local b = makeRight(parent, i)
     b:SetScript("OnClick", function(self)
@@ -189,3 +268,6 @@ function Br.toggle()
 end
 
 function Br.frame() return frame end
+
+-- /ribbon guides: the same panel as /ribbon guide.
+ns.commands.guides = function() Br.toggle() end
