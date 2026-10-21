@@ -71,16 +71,25 @@ local function createGuideButton()
   -- The middle of the compass: its needle.
   b.icon = b:CreateTexture(nil, "ARTWORK")
   b.icon:SetTexture(style.textures.needle)
+  -- Like the map's own toggle: the caret points left while the panel is out and right while it is put away.
   b.setOpen = function(open)
-    if open then b.caret:SetTexCoord(1, 0, 0, 1) else b.caret:SetTexCoord(0, 1, 0, 1) end
+    if open then b.caret:SetTexCoord(0, 1, 0, 1) else b.caret:SetTexCoord(1, 0, 0, 1) end
   end
+  -- The guide's progress, a thin bar along the bottom edge that fills as the player goes through it, like a loader.
+  b.track = b:CreateTexture(nil, "OVERLAY")
+  b.track:SetColorTexture(0, 0, 0, 0.6)
+  b.fill = b:CreateTexture(nil, "OVERLAY")
+  b.fill:SetColorTexture(0.914, 0.725, 0.286, 1)
   b.setOpen(false)
   b:SetHighlightTexture(style.textures.panelToggle, "ADD")
   b:SetScript("OnClick", function() ns.guideBrowser.toggleDock() end)
+  -- The percentages are on hover.
   b:SetScript("OnEnter", function(self)
     GameTooltip:SetOwner(self, "ANCHOR_BOTTOM")
     GameTooltip:SetText(ns.guide and ns.guide.title or "Guide")
-    GameTooltip:AddLine("Chapters and progress", 1, 1, 1)
+    local overall, chapter, name = ns.guideBrowser.progress()
+    GameTooltip:AddLine(string.format("Guide: %d%%", math.floor(overall * 100 + 0.5)), 1, 1, 1)
+    if name then GameTooltip:AddLine(string.format("%s: %d%%", name, math.floor(chapter * 100 + 0.5)), 0.72, 0.84, 0.88) end
     GameTooltip:Show()
   end)
   b:SetScript("OnLeave", function() GameTooltip:Hide() end)
@@ -125,8 +134,34 @@ function M.alignGuideButton()
   b.caret:SetPoint("LEFT", b, "LEFT", inset, 0)
   b.icon:SetSize(icon, icon)
   b.icon:ClearAllPoints()
-  b.icon:SetPoint("RIGHT", b, "RIGHT", -math.max(1, inset - 2), 0)
+  b.icon:SetPoint("RIGHT", b, "RIGHT", -math.max(0, inset - 3), 0)
+  -- The loader bar along the bottom, inside the border.
+  local loader = look.loader
+  for _, part in ipairs({ b.track, b.fill }) do
+    part:ClearAllPoints()
+    part:SetPoint("BOTTOMLEFT", b, "BOTTOMLEFT", loader.inset, loader.inset)
+    part:SetHeight(loader.height)
+  end
+  b.track:SetPoint("BOTTOMRIGHT", b, "BOTTOMRIGHT", -loader.inset, loader.inset)
+  M.updateProgress()
 end
+
+-- Fills the loader bar to the guide's progress.
+function M.updateProgress()
+  local b = M.guideButton
+  if not (b and b.fill and ns.guideBrowser) then return end
+  local overall = ns.guideBrowser.progress()
+  local look = ns.compassStyle.toggle
+  local width = b:GetWidth()
+  width = (type(width) == "number" and width > 0 and width or look.width) - 2 * look.loader.inset
+  b.progress = overall
+  b.fill:SetWidth(math.max(0.001, overall * width))
+  b.fill:SetShown(overall > 0)
+end
+
+ns:On("GUIDE_STEP_CHANGED", function() M.updateProgress() end)
+ns:On("GUIDE_STARTED", function() M.updateProgress() end)
+ns:On("GUIDE_CHAPTER_ADDED", function() M.updateProgress() end)
 
 ns:On("GUIDE_DOCK_CHANGED", function(shown)
   if M.guideButton then M.guideButton.setOpen(shown and true or false) end

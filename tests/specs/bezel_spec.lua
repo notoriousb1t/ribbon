@@ -178,14 +178,14 @@ describe("Guide panel bezel and map button", function()
       expect(b.SetPoint).toHaveBeenCalledWith("BOTTOMRIGHT", WorldMapFrame, "BOTTOMRIGHT", -10, 40)
     end)
 
-    it("points its caret left while the panel is closed and right while it is open", function()
+    it("points its caret like the map's own toggle: left while the panel is out, right while it is put away", function()
       local b = ctx.ns.map.guideButton
       local function last() local c = b.caret.SetTexCoord.calls return { unpack(c[#c], 1, 4) } end
-      expect(last()).toEqual({ 0, 1, 0, 1 })
+      expect(last()).toEqual({ 1, 0, 0, 1 })       -- closed: points right
+      b:Trigger("OnClick")
+      expect(last()).toEqual({ 0, 1, 0, 1 })       -- open: points left
       b:Trigger("OnClick")
       expect(last()).toEqual({ 1, 0, 0, 1 })
-      b:Trigger("OnClick")
-      expect(last()).toEqual({ 0, 1, 0, 1 })
     end)
   end)
 
@@ -306,7 +306,7 @@ describe("Guide panel bezel and map button", function()
     it("hangs the lists from the template's inset and closes from its own close button", function()
       _G.ButtonFrameTemplate_HidePortrait = function() end
       local d = open()
-      expect(d.leftScroll.SetPoint).toHaveBeenCalledWith("TOPLEFT", d, "TOPLEFT", 8, -(34 + 26))
+      expect(d.leftScroll.SetPoint).toHaveBeenCalledWith("TOPLEFT", d, "TOPLEFT", 8, -(8 + 26 + 24 + 4))
       expect(d.leftScroll.SetPoint).toHaveBeenCalledWith("BOTTOMLEFT", d, "BOTTOMLEFT", 8, 8)
       d.close:Trigger("OnClick")
       expect(d:IsShown()).toBe(false)
@@ -354,15 +354,6 @@ describe("Guide panel bezel and map button", function()
       expect(d.leftScroll:IsShown()).toBe(false)
       expect(d.back:IsShown()).toBe(true)
       expect(d.title.SetText).toHaveBeenCalledWith("Chapter Two")
-    end)
-
-    it("shows that chapter's own progress on the child page and the whole guide's on the list", function()
-      ctx.ns.guidePlayer.jump(1, 2)                      -- step 2 of 2 in chapter 1: 1 of 2 steps done
-      local d = open()
-      expect(d.overallText.SetText).toHaveBeenCalledWith("50%")
-      ctx.ns.guideBrowser.showChapters()
-      expect(d.overallText.SetText).toHaveBeenCalledWith("25%")   -- 1 of 4 steps in the guide
-      expect(d.title.SetText).toHaveBeenCalledWith("Test Guide")
     end)
 
     it("goes back to the chapter list with the arrow, hiding itself there", function()

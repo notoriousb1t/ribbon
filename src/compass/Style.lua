@@ -52,7 +52,8 @@ S.panel = {
 -- panel is open, left while it is closed) and the middle of the compass (its needle) on the right. It is sized to the
 -- map's own toggle and sits just above it, right edges level (`width` and `height` are used only when that toggle
 -- cannot be measured); `gap` pixels between them; the caret and the needle are fractions of the button's smaller side.
-S.toggle = { width = 30, height = 30, gap = 3, caret = 0.32, icon = 0.58, inset = 0.12 }
+-- The guide's progress is a thin bar along the button's bottom edge, `inset` pixels in from its sides, like a loader.
+S.toggle = { width = 30, height = 30, gap = 3, caret = 0.32, icon = 0.8, inset = 0.1, loader = { height = 3, inset = 4 } }
 
 -- The dial sits centred on the bar and is taller than it, so it stands out above and below. It covers the tick marks
 -- (the individual degrees) and the direction names; only the waypoint markers are drawn over it. The caption above the bar

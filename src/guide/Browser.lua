@@ -20,7 +20,8 @@ local CARD = 40                          -- height of a chapter card
 local COLUMN_W = 300                     -- the width of the list
 local BEZEL = ns.compassStyle.bezel
 local SEARCH_H = 26                          -- the search box and the gap under it
-local TOP = BEZEL.band + BEZEL.title + 28 + SEARCH_H   -- room for the bezel, the title bar, the search box and the overall bar
+local HEADER_H = 24                          -- the section header ("Steps"), like the quest log's zone header
+local TOP = BEZEL.band + BEZEL.title + 6 + SEARCH_H + HEADER_H + 10   -- room for the bezel, title bar, search box and header
 local BOTTOM = BEZEL.band + 8               -- room for the bezel
 
 local COLORS = {
@@ -159,6 +160,14 @@ local function makeCard(width)
     b.bar = bar(b, width - 8, BAR_H)
     b.bar.track:SetPoint("BOTTOMLEFT", b, "BOTTOMLEFT", 4, 4)
     b:SetHighlightTexture([[Interface\QuestFrame\UI-QuestTitleHighlight]])
+    -- The percentage is only on hover.
+    b:SetScript("OnEnter", function(self)
+      if not self.total then return end
+      GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+      GameTooltip:SetText(string.format("%d of %d steps (%d%%)", self.done or 0, self.total, math.floor((self.fraction or 0) * 100 + 0.5)))
+      GameTooltip:Show()
+    end)
+    b:SetScript("OnLeave", function() GameTooltip:Hide() end)
     return b
   end
 end
@@ -300,7 +309,7 @@ local function fill(f, player)
     b.label:SetText(colored(state, place))
     b.sub:SetText(Br.subtitle(row))
     b.bar.set(row.fraction, BAR_COLORS[row.state] or BAR_COLORS.todo)
-    b.chapter = row.chapter
+    b.chapter, b.done, b.total, b.fraction = row.chapter, row.done, row.total, row.fraction
   end
   f.setRight(#right)
   for i, row in ipairs(right) do
@@ -318,19 +327,20 @@ local function fill(f, player)
   f.leftScroll:SetShown(not onSteps)
   f.rightScroll:SetShown(onSteps)
   f.back:SetShown(onSteps)
-  local fraction = planner.progress(S.view, S.flat, S.cursor).fraction
   local title = ns.guide and ns.guide.title or "Guide"
   if onSteps then
     for _, row in ipairs(left) do
-      if row.chapter == selected then
-        fraction = row.fraction
-        title = text.chapterParts(row.label)
-      end
+      if row.chapter == selected then title = text.chapterParts(row.label) end
     end
   end
   f.title:SetText(title)
-  f.overall.set(fraction, BAR_COLORS.current)
-  f.overallText:SetText(string.format("%d%%", math.floor(fraction * 100 + 0.5)))
+  -- The section header, like the quest log's: "Steps" or "Chapters" with a button that folds the list away.
+  f.header.title:SetText(onSteps and "Steps" or "Chapters")
+  local folded = f.folded[f.page] == true
+  f.header.toggle.vertical:SetShown(folded)       -- a plus while folded, a minus while open
+  f.leftScroll:SetShown(not onSteps and not folded)
+  f.rightScroll:SetShown(onSteps and not folded)
+  f.empty:SetShown(query ~= "" and shownRows == 0 and not folded)
 end
 
 -- Refreshes the panel if it has been built.
@@ -347,13 +357,31 @@ end
 
 -- The second line of a chapter card: "Lv 12-14 - 48%".
 function Br.subtitle(row)
-  local parts = {}
   local lv = row.levels
   if type(lv) == "table" and lv[1] then
-    parts[#parts + 1] = lv[2] and lv[2] ~= lv[1] and string.format("Lv %d-%d", lv[1], lv[2]) or string.format("Lv %d", lv[1])
+    local text = lv[2] and lv[2] ~= lv[1] and string.format("Lv %d-%d", lv[1], lv[2]) or string.format("Lv %d", lv[1])
+    return "|cffb8c7cc" .. text .. "|r"
   end
-  parts[#parts + 1] = string.format("%d%%", math.floor((row.fraction or 0) * 100 + 0.5))
-  return "|cffb8c7cc" .. table.concat(parts, " - ") .. "|r"
+  return ""
+end
+
+-- How far through the guide the player is, for the map button: the whole guide's fraction, and the current chapter's
+-- fraction and name. All 0 and no name when there is no plan.
+function Br.progress()
+  local player = ns.guidePlayer
+  local S = player and player.state()
+  if not S then return 0, 0, nil end
+  local overall = planner.progress(S.view, S.flat, S.cursor)
+  local entry = player.current()
+  local chapter = entry and entry.chapter
+  local fraction, name = 0, nil
+  if chapter and overall.chapters[chapter] then
+    fraction = overall.chapters[chapter].fraction
+    for _, ch in ipairs(S.view) do
+      if ch.index == chapter then name = text.chapterParts(ch.name) end
+    end
+  end
+  return overall.fraction, fraction, name
 end
 
 -- The blue bezel: four corners (one texture flipped), four edges that tile, drawn in the style of the map's own frame.
@@ -504,7 +532,7 @@ local function build()
   if native then
     -- (A real frame has these as frames; anything else is not one.)
     content = type(f.Inset) == "table" and f.Inset.SetPoint and f.Inset or f
-    anchor = { frame = content, x = 8, top = 34 + SEARCH_H, bottom = 8 }
+    anchor = { frame = content, x = 8, top = 8 + SEARCH_H + HEADER_H + 4, bottom = 8 }
     -- The title goes through the template's own title text.
     f.title = {
       SetText = function(_, t)
@@ -600,15 +628,52 @@ local function build()
     f.search:SetPoint("TOPLEFT", f, "TOPLEFT", B + 12, -(B + style.bezel.title + 6))
   end
 
-  -- Progress along the whole guide (or the chapter), under the search box.
-  f.overall = bar(f, width - 2 * (B + 8) - 40, 8)
+  -- The section header under the search box, in the style of the quest log's zone header: a dark bar with a thin gold
+  -- border, the name of the section and a button at the right that folds the list away (a minus; a plus while folded).
+  local header = CreateFrame("Button", nil, f)
+  header:SetHeight(HEADER_H)
   if native then
-    f.overall.track:SetPoint("TOPLEFT", content, "TOPLEFT", 10, -(12 + SEARCH_H))
+    header:SetPoint("TOPLEFT", content, "TOPLEFT", 10, -(8 + SEARCH_H + 6 - 6))
+    header:SetPoint("TOPRIGHT", content, "TOPRIGHT", -10, -(8 + SEARCH_H + 6 - 6))
   else
-    f.overall.track:SetPoint("TOPLEFT", f, "TOPLEFT", B + 8, -(B + style.bezel.title + 10 + SEARCH_H))
+    header:SetPoint("TOPLEFT", f, "TOPLEFT", B + 8, -(B + style.bezel.title + 6 + SEARCH_H))
+    header:SetPoint("TOPRIGHT", f, "TOPRIGHT", -(B + 8), -(B + style.bezel.title + 6 + SEARCH_H))
   end
-  f.overallText = f:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-  f.overallText:SetPoint("LEFT", f.overall.track, "RIGHT", 6, 0)
+  header.bg = header:CreateTexture(nil, "BACKGROUND")
+  header.bg:SetAllPoints()
+  header.bg:SetColorTexture(0.10, 0.08, 0.05, 1)
+  local gold = style.panel.gold
+  for _, edge in ipairs({ "TOP", "BOTTOM" }) do
+    local line = header:CreateTexture(nil, "BORDER")
+    line:SetColorTexture(gold[1], gold[2], gold[3], 0.45)
+    line:SetHeight(1)
+    line:SetPoint(edge .. "LEFT")
+    line:SetPoint(edge .. "RIGHT")
+  end
+  header.title = header:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
+  header.title:SetPoint("LEFT", header, "LEFT", 8, 0)
+  header.title:SetTextColor(0.82, 0.78, 0.68)
+  -- The fold button: a gold bar, with a second one across it for a plus.
+  header.toggle = CreateFrame("Button", nil, header)
+  header.toggle:SetSize(18, 18)
+  header.toggle:SetPoint("RIGHT", header, "RIGHT", -4, 0)
+  header.toggle.horizontal = header.toggle:CreateTexture(nil, "OVERLAY")
+  header.toggle.horizontal:SetColorTexture(gold[1], gold[2], gold[3], 1)
+  header.toggle.horizontal:SetSize(10, 3)
+  header.toggle.horizontal:SetPoint("CENTER")
+  header.toggle.vertical = header.toggle:CreateTexture(nil, "OVERLAY")
+  header.toggle.vertical:SetColorTexture(gold[1], gold[2], gold[3], 1)
+  header.toggle.vertical:SetSize(3, 10)
+  header.toggle.vertical:SetPoint("CENTER")
+  header.toggle.vertical:Hide()
+  local function fold()
+    f.folded[f.page] = not f.folded[f.page]
+    Br.refresh()
+  end
+  header.toggle:SetScript("OnClick", fold)
+  header:SetScript("OnClick", fold)
+  f.header = header
+  f.folded = {}
 
   -- Shown over the lists when a search finds nothing.
   f.empty = f:CreateFontString(nil, "OVERLAY", "GameFontDisable")
