@@ -107,10 +107,11 @@ describe("Guide progress", function()
       expect(frame.leftRows.items[2].bar.fill:IsShown()).toBe(false)
     end)
 
-    it("shows the overall percent of the whole guide", function()
+    it("shows the overall percent of the whole guide on the chapter list", function()
       ctx.ns.guidePlayer.jump(2, 1)               -- 3 of 5 steps done
       ctx.ns.guideBrowser.toggle()
       local frame = ctx.ns.guideBrowser.dock()
+      ctx.ns.guideBrowser.showChapters()
       expect(frame.overallText.SetText).toHaveBeenCalledWith("60%")
     end)
 
@@ -348,6 +349,7 @@ describe("Guide progress", function()
       ctx.ns.map.guideButton:Trigger("OnClick")
       local d = dockPanel()
       expect(d.leftRows.items[1].sub.SetText.calls[#d.leftRows.items[1].sub.SetText.calls][1]).toContain("100%")
+      ctx.ns.guideBrowser.showChapters()
       expect(d.overallText.SetText).toHaveBeenCalledWith("60%")
     end)
 

@@ -1,7 +1,8 @@
--- Guide browser: chapter cards with progress bars on the left and the selected chapter's steps on the right, in a
--- panel with a blue bezel docked beside the world map. Click a step to jump to it, or "Start chapter" to begin at the
--- chapter's first step. The map button, the compass dial and /ribbon guides all open this one panel (opening the map if
--- need be). It is built on first use, so a player without a guide never has the frames. Rows are built from
+-- Guide browser: a panel with a blue bezel docked beside the world map. The chapters are the parent list (cards with
+-- progress bars) and a chapter's steps are its child page, shown one at a time: click a chapter to go into it, the back
+-- arrow in the title bar to return to the list, a step to jump to it. The panel always opens on the child page, at the
+-- step the player is on. The map button, the compass dial and /ribbon guides all open this one panel (opening the map
+-- if need be). It is built on first use, so a player without a guide never has the frames. Rows are built from
 -- guide/Planner's outline; this file is the view.
 local ADDON, ns = ...
 
@@ -11,9 +12,9 @@ ns.guideBrowser = Br
 local planner = ns.guidePlanner
 local text = ns.guideText
 
-local ROW = 20
+local ROW = 34                           -- height of a step row (two lines of text)
 local CARD = 40                          -- height of a chapter card
-local LEFT_W, RIGHT_W = 190, 230        -- the two columns of the panel
+local COLUMN_W = 300                     -- the width of the list
 local TOP = 66                           -- room for the bezel, the title bar and the overall bar
 local BOTTOM = 22                        -- room for the bezel
 
@@ -21,7 +22,7 @@ local COLORS = {
   done = "|cff808080", current = "|cffe9b949", todo = "|cfff3ead2",
 }
 
-local dock, selected   -- the docked panel; selected: guide chapter index being browsed
+local dock, selected   -- the docked panel; selected: guide chapter index being browsed (nil: the active chapter)
 
 -- Rows --------------------------------------------------------------------------------
 
@@ -125,7 +126,7 @@ local function makeRow(width)
     b.label:SetPoint("LEFT", b, "LEFT", 4, 0)
     b.label:SetWidth(width - 8)
     b.label:SetJustifyH("LEFT")
-    b.label:SetWordWrap(false)   -- one line per step: a long summary is cut, it does not run into the next row
+    b.label:SetMaxLines(2)       -- two lines per step: a longer summary is cut, it does not run into the next row
     b:SetHighlightTexture("Interface\\QuestFrame\\UI-QuestTitleHighlight")
     return b
   end
@@ -154,8 +155,9 @@ local function scrollTo(scroll, i, height)
   scroll:SetVerticalScroll(y)
 end
 
--- Shows the active chapter and its current step in the middle of their columns. The columns have only just been
--- filled, so their length is not known until the next frame: scroll again shortly after.
+-- Brings the visible page to the player's place: the chapter list to the browsed chapter's card, the step list to the
+-- current step (when the chapter shown is the active one). The columns have only just been filled, so their length is
+-- not known until the next frame: scroll again shortly after.
 function Br.scrollToCurrent()
   if not dock then return end
   local player = ns.guidePlayer
@@ -169,8 +171,11 @@ function Br.scrollToCurrent()
     if row.state == "current" then step = i end
   end
   local function go()
-    scrollTo(dock.leftScroll, chapter, CARD)
-    scrollTo(dock.rightScroll, step or 1, ROW)
+    if dock.page == "chapters" then
+      scrollTo(dock.leftScroll, chapter, CARD)
+    else
+      scrollTo(dock.rightScroll, step or 1, ROW)
+    end
   end
   go()
   if C_Timer and C_Timer.After then C_Timer.After(0.05, go) end
@@ -197,9 +202,25 @@ local function fill(f, player)
     b.label:SetText(colored(row.state, row.label))
     b.chapter, b.step = row.chapter, row.step
   end
-  local overall = planner.progress(S.view, S.flat, S.cursor)
-  f.overall.set(overall.fraction, BAR_COLORS.current)
-  f.overallText:SetText(string.format("%d%%", math.floor(overall.fraction * 100 + 0.5)))
+  -- The page: the chapter list shows the whole guide's progress and the guide's title; a chapter's steps show that
+  -- chapter's progress and its name, with the back arrow.
+  local onSteps = f.page == "steps"
+  f.leftScroll:SetShown(not onSteps)
+  f.rightScroll:SetShown(onSteps)
+  f.back:SetShown(onSteps)
+  local fraction = planner.progress(S.view, S.flat, S.cursor).fraction
+  local title = ns.guide and ns.guide.title or "Guide"
+  if onSteps then
+    for _, row in ipairs(left) do
+      if row.chapter == selected then
+        fraction = row.fraction
+        title = text.chapterParts(row.label)
+      end
+    end
+  end
+  f.title:SetText(title)
+  f.overall.set(fraction, BAR_COLORS.current)
+  f.overallText:SetText(string.format("%d%%", math.floor(fraction * 100 + 0.5)))
 end
 
 -- Refreshes the panel if it has been built.
@@ -281,7 +302,7 @@ local function build()
   local style = ns.compassStyle
   local B = style.bezel.band
   local f = CreateFrame("Frame", "RibbonGuideDock", WorldMapFrame)
-  local width = LEFT_W + RIGHT_W + 2 * B + 18
+  local width = COLUMN_W + 2 * B + 12
   f:SetWidth(width)
   f:EnableMouse(true)
   local bg = f:CreateTexture(nil, "BACKGROUND")
@@ -304,8 +325,25 @@ local function build()
 
   f.title = f:CreateFontString(nil, "OVERLAY", "GameFontNormal")
   f.title:SetPoint("CENTER", strip, "CENTER", 0, 0)
+  f.title:SetWidth(width - 2 * B - 64)     -- clear of the back arrow and the close button
+  f.title:SetWordWrap(false)
   f.title:SetText(ns.guide and ns.guide.title or "Guide")
   f.title:SetTextColor(0.85, 0.95, 1)
+
+  -- The back arrow, on the child page: a bezel button with the caret pointing left.
+  f.back = CreateFrame("Button", nil, f)
+  f.back:SetSize(22, 22)
+  f.back:SetPoint("LEFT", strip, "LEFT", 2, 0)
+  f.back.bg = f.back:CreateTexture(nil, "ARTWORK")
+  f.back.bg:SetTexture(style.textures.bezelButton)
+  f.back.bg:SetAllPoints()
+  f.back.caret = f.back:CreateTexture(nil, "OVERLAY")
+  f.back.caret:SetTexture(style.textures.panelCaret)
+  f.back.caret:SetSize(14, 14)
+  f.back.caret:SetPoint("CENTER", f.back, "CENTER", -1, 0)
+  f.back:SetHighlightTexture(style.textures.bezelButton, "ADD")
+  f.back:SetScript("OnClick", function() Br.showChapters() end)
+  f.back:Hide()
 
   f.close = CreateFrame("Button", nil, f)
   f.close:SetSize(22, 22)
@@ -332,16 +370,17 @@ local function build()
   f.overallText = f:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
   f.overallText:SetPoint("LEFT", f.overall.track, "RIGHT", 6, 0)
 
+  -- Two lists in the same place, one per page: the chapters (left rows) and a chapter's steps (right rows).
   f.leftRows, f.rightRows = {}, {}
+  f.page = "steps"
   local left, right
-  left, f.leftScroll = scroller(f, "RibbonGuideDockChapters", B + 6, LEFT_W)
-  right, f.rightScroll = scroller(f, "RibbonGuideDockSteps", B + 6 + LEFT_W + 6, RIGHT_W)
-  local makeLeft, makeRight = makeCard(LEFT_W - 22), makeRow(RIGHT_W - 22)
+  left, f.leftScroll = scroller(f, "RibbonGuideDockChapters", B + 6, COLUMN_W)
+  right, f.rightScroll = scroller(f, "RibbonGuideDockSteps", B + 6, COLUMN_W)
+  local makeLeft, makeRight = makeCard(COLUMN_W - 22), makeRow(COLUMN_W - 22)
   f.setLeft = pool(left, f.leftRows, function(parent, i)
     local b = makeLeft(parent, i)
     b:SetScript("OnClick", function(self)
-      selected = self.chapter
-      Br.refresh()
+      Br.showSteps(self.chapter)
     end)
     return b
   end, CARD)
@@ -351,7 +390,7 @@ local function build()
       ns.guidePlayer.jump(self.chapter, self.step)
     end)
     return b
-  end)
+  end, ROW)
 
   return f
 end
@@ -394,6 +433,23 @@ ns:On("GUIDE_STEP_CHANGED", function()
   Br.scrollToCurrent()
 end)
 
+-- The child page: a chapter's steps (the browsed chapter when none is given).
+function Br.showSteps(chapter)
+  if not dock then return end
+  if chapter then selected = chapter end
+  dock.page = "steps"
+  Br.refresh()
+  Br.scrollToCurrent()
+end
+
+-- The parent page: the chapters.
+function Br.showChapters()
+  if not dock then return end
+  dock.page = "chapters"
+  Br.refresh()
+  Br.scrollToCurrent()
+end
+
 -- Show or hide the panel, and remember the choice for the next session.
 function Br.setDock(shown)
   if not ns.guidePlayer.state() then
@@ -417,8 +473,7 @@ function Br.setDock(shown)
   if ns.db then ns.db.guideDock = shown and true or false end
   if shown then
     selected = nil
-    Br.refresh()
-    Br.scrollToCurrent()   -- open at the step the player is on
+    Br.showSteps()   -- always open on the child page, at the step the player is on
   end
   ns:Fire("GUIDE_DOCK_CHANGED", shown and true or false)
 end
