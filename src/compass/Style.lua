@@ -35,9 +35,10 @@ S.textureFiles = {
   "quest-ring", "quest-exclaim", "quest-question",
 }
 
--- The bezel of the guide panel docked to the map, in display pixels: the band's depth, the corner pieces' size, the title
--- bar's height, and how much of an edge texture is band (28 of its 64 rows or columns).
-S.bezel = { band = 14, corner = 32, title = 26, bandFraction = 28 / 64 }
+-- The bezel of the guide panel docked to the map, in display pixels: the band's depth (about the width of the map's
+-- own frame), the corner pieces' size, the title bar's height, and how much of an edge texture is band (18 of its 64
+-- rows or columns). The border is the logo's gold.
+S.bezel = { band = 9, corner = 32, title = 24, bandFraction = 18 / 64 }
 
 -- The map button, a blue version of the map's quest log toggle: the body, a caret on the left (pointing right while the
 -- panel is open, left while it is closed) and the middle of the compass (its needle) on the right. Sizes in pixels; the

@@ -63,10 +63,17 @@ describe("Guide panel bezel and map button", function()
       expect(d:GetScript("OnSizeChanged")).toBe(d.layoutBezel)
     end)
 
-    it("uses blue tones", function()
+    it("has a dark title bar and a gold title and rule, like the map", function()
       local d = open()
       local c = d.strip.SetColorTexture.calls[1]
-      expect(c[3]).toBeGreaterThan(c[1])   -- blue over red in the title bar
+      expect(c[1] + c[2] + c[3]).toBeLessThan(0.5)
+      local t = d.title.SetTextColor.calls[1]
+      expect(t[1]).toBeGreaterThan(t[3] + 0.4)        -- gold: much more red than blue
+    end)
+
+    it("is about as thin as the map's own frame", function()
+      expect(S.bezel.band).toBeLessThan(11)
+      expect(S.bezel.band).toBeGreaterThan(6)
     end)
   end)
 
@@ -107,7 +114,7 @@ describe("Guide panel bezel and map button", function()
 
     it("lets the columns run down to the bezel now that there are no buttons", function()
       local d = open()
-      expect(d.leftScroll.SetPoint).toHaveBeenCalledWith("BOTTOMLEFT", d, "BOTTOMLEFT", S.bezel.band + 6, 22)
+      expect(d.leftScroll.SetPoint).toHaveBeenCalledWith("BOTTOMLEFT", d, "BOTTOMLEFT", S.bezel.band + 6, S.bezel.band + 8)
     end)
   end)
 

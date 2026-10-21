@@ -17,8 +17,9 @@ local text = ns.guideText
 local ROW = 34                           -- height of a step row (two lines of text)
 local CARD = 40                          -- height of a chapter card
 local COLUMN_W = 300                     -- the width of the list
-local TOP = 66                           -- room for the bezel, the title bar and the overall bar
-local BOTTOM = 22                        -- room for the bezel
+local BEZEL = ns.compassStyle.bezel
+local TOP = BEZEL.band + BEZEL.title + 28    -- room for the bezel, the title bar and the overall bar
+local BOTTOM = BEZEL.band + 8               -- room for the bezel
 
 local COLORS = {
   done = "|cff808080", current = "|cffe9b949", todo = "|cfff3ead2",
@@ -368,18 +369,18 @@ local function build()
   f:EnableMouse(true)
   local bg = f:CreateTexture(nil, "BACKGROUND")
   bg:SetAllPoints()
-  bg:SetColorTexture(0.051, 0.212, 0.275, 0.96)   -- the logo's dark teal
+  bg:SetColorTexture(0.04, 0.14, 0.18, 0.97)   -- the logo's dark teal, a little deeper so the gold border stands out
   addBezel(f)
 
   -- The title bar, like the map's: the title in the middle and a close button on the right.
   local strip = f:CreateTexture(nil, "ARTWORK")
-  strip:SetColorTexture(0.06, 0.25, 0.33, 1)
+  strip:SetColorTexture(0.03, 0.10, 0.14, 1)   -- like the map's dark title bar
   strip:SetPoint("TOPLEFT", f, "TOPLEFT", B, -B)
   strip:SetPoint("TOPRIGHT", f, "TOPRIGHT", -B, -B)
   strip:SetHeight(style.bezel.title)
   f.strip = strip
   local rule = f:CreateTexture(nil, "ARTWORK")
-  rule:SetColorTexture(0.16, 0.58, 0.71, 1)
+  rule:SetColorTexture(0.914, 0.725, 0.286, 0.7)   -- a fine gold line under it
   rule:SetHeight(1)
   rule:SetPoint("TOPLEFT", strip, "BOTTOMLEFT")
   rule:SetPoint("TOPRIGHT", strip, "BOTTOMRIGHT")
@@ -389,7 +390,7 @@ local function build()
   f.title:SetWidth(width - 2 * B - 64)     -- clear of the back arrow and the close button
   f.title:SetWordWrap(false)
   f.title:SetText(ns.guide and ns.guide.title or "Guide")
-  f.title:SetTextColor(0.85, 0.95, 1)
+  f.title:SetTextColor(0.914, 0.725, 0.286)   -- gold, like "Map & Quest Log"
 
   -- The back arrow, on the child page: a bezel button with the caret pointing left.
   f.back = CreateFrame("Button", nil, f)

@@ -1,6 +1,7 @@
 // Regenerates the shaped textures in src/textures: the compass dial and needle, the marker fill and rim, the focus
-// ring, the blue bezel of the map panel (corner, two edges and a button), and the quest badge in the style of
-// Blizzard's quest icons (a gold bevelled ring and a gold "!" and "?"). Everything else in that folder is an
+// ring, the gold bezel of the map panel (corner, two edges and a button, in the shape and width of the map's own frame),
+// the blue toggle for the map, and the quest badge in the style of Blizzard's quest icons (a gold bevelled ring and a
+// gold "!" and "?"). Everything else in that folder is an
 // ordinary image file; edit or replace those directly.
 //
 //   node tools/make-textures.js
@@ -119,6 +120,19 @@ function bandColor(d) {
 }
 const BAND = 28;
 
+// The gold bezel, as thin as the map's own frame: a band 18 px deep (shown at 9), dark on both edges, a bright lit
+// edge, a face that darkens from the logo's gold to bronze, and a fine highlight near the inside.
+const LOGO_GOLD = [233, 185, 73];
+function goldBand(d) {
+  if (d < 1.2) return [30, 18, 4];
+  if (d < 3.2) return lerp([255, 228, 140], LOGO_GOLD, (d - 1.2) / 2);
+  if (d < 12) return lerp(LOGO_GOLD, [150, 100, 25], (d - 3.2) / 8.8);
+  if (d < 15) return lerp([150, 100, 25], [88, 56, 10], (d - 12) / 3);
+  if (d < 16.2) return [190, 140, 40];
+  return [30, 18, 4];
+}
+const GOLD_BAND = 18;
+
 // A rounded stud for the corners: light blue ball with a dark rim and a highlight.
 function stud(x, y, cx, cy, r) {
   const d = Math.hypot(x - cx, y - cy);
@@ -161,29 +175,35 @@ const textures = {
   }),
 
   // The bezel's top-left corner (the view flips it for the others): the band along the top and left edges, mitred,
-  // with a stud where they meet.
+  // with a rounded outer corner.
   "bezel-corner": render((x, y) => {
-    const st = stud(x, y, 14, 14, 9);
-    if (st) return st;
-    if (x >= BAND && y >= BAND) return null;
-    return [...bandColor(Math.min(x, y)), 1];
+    const ro = 16;                                 // the outer corner is rounded, like the map frame's
+    let depth = Math.min(x, y);
+    if (x < ro && y < ro) {
+      const d = Math.hypot(x - ro, y - ro);
+      if (d > ro) return null;
+      depth = ro - d;
+    }
+    if (x >= GOLD_BAND && y >= GOLD_BAND) return null;
+    if (depth >= GOLD_BAND) return null;
+    return [...goldBand(depth), 1];
   }, 64),
 
-  // A horizontal edge: the band in the top 28 rows, the same all along so it tiles.
-  "bezel-edge-h": render((x, y) => (y < BAND ? [...bandColor(y), 1] : null), 64),
+  // A horizontal edge: the band in the top 18 rows, the same all along so it tiles.
+  "bezel-edge-h": render((x, y) => (y < GOLD_BAND ? [...goldBand(y), 1] : null), 64),
 
-  // A vertical edge: the band in the left 28 columns.
-  "bezel-edge-v": render((x, y) => (x < BAND ? [...bandColor(x), 1] : null), 64),
+  // A vertical edge: the band in the left 18 columns.
+  "bezel-edge-v": render((x, y) => (x < GOLD_BAND ? [...goldBand(x), 1] : null), 64),
 
-  // A small square button with the same bevel around a dark teal face.
+  // A small square button with the same gold bevel around a dark face.
   "bezel-button": render((x, y) => {
     const r = 14, half = 31.5;
     const qx = Math.abs(x - half) - (half - r), qy = Math.abs(y - half) - (half - r);
     const sdf = Math.hypot(Math.max(qx, 0), Math.max(qy, 0)) + Math.min(Math.max(qx, qy), 0) - r;
     const depth = -sdf;
     if (depth < 0) return null;
-    if (depth < 9) return [...bandColor((depth * BAND) / 9), 1];
-    return [13, 54, 70, 0.95];
+    if (depth < 9) return [...goldBand((depth * GOLD_BAND) / 9), 1];
+    return [13, 36, 46, 0.95];
   }, 64),
 
   // The map button's body: a landscape rounded rectangle (128 x 96, centred in the 128 x 128 canvas) in the bezel's
