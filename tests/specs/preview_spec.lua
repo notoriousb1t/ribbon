@@ -301,7 +301,9 @@ describe("Pins around the current step on the map", function()
     local w = ctx.ns.compassStyle.context.last.color
     expect(pin.glyphTex.SetVertexColor).toHaveBeenCalledWith(w[1], w[2], w[3], 1)
     local small = lib.AddWorldMapIconMap.calls[n][2]
-    expect(small.SetSize.calls[#small.SetSize.calls][1]).toBe(19)
+    local S = ctx.ns.compassStyle
+    expect(small.SetSize.calls[#small.SetSize.calls][1]).toBe(math.floor(S.pins.world * S.context.next.scale + 0.5))
+    expect(small.SetSize.calls[#small.SetSize.calls][1]).toBeLessThan(S.pins.world)
   end)
 
   it("draws the step the mouse is over opaque, with the steps either side of it fainter", function()

@@ -77,3 +77,19 @@ describe("Map wiring", function()
     end)
   end)
 end)
+
+describe("Map pin size", function()
+  local ctx = H.use({ boot = true })
+
+  it("draws world map and minimap pins at the player arrow's size, with the thin map ring while tracked", function()
+    local S = ctx.ns.compassStyle
+    local uid = ctx.ns:AddWaypoint(1453, 50, 50, { title = "A" })
+    ctx.ns:SetFocus(uid)
+    local world = ctx.world.pins.AddWorldMapIconMap.calls[#ctx.world.pins.AddWorldMapIconMap.calls][2]
+    local mini = ctx.world.pins.AddMinimapIconMap.calls[#ctx.world.pins.AddMinimapIconMap.calls][2]
+    expect(world.SetSize).toHaveBeenCalledWith(S.pins.world, S.pins.world)
+    expect(mini.SetSize).toHaveBeenCalledWith(S.pins.mini, S.pins.mini)
+    local ring = world.fill.SetSize.calls[#world.fill.SetSize.calls]
+    expect(ring[1]).toBe(S.pins.world + S.pins.ringPad)
+  end)
+end)

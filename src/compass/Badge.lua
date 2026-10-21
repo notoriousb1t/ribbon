@@ -54,8 +54,8 @@ function Bd.build(f)
 end
 
 -- Draws the icon for an icon name (a key of ns.ICONS) at a size in pixels (the frame's own size is the caller's), with the
--- tracked ring around it when `tracked` is true.
-function Bd.draw(f, icon, size, tracked)
+-- tracked ring around it when `tracked` is true; the ring is `pad` pixels larger than the icon (default Style.focusRing.pad).
+function Bd.draw(f, icon, size, tracked, pad)
   local style = ns.compassStyle
   local kind = style.badge.kinds[icon]
   if kind and (kind.quest or kind.glyph) then
@@ -72,7 +72,7 @@ function Bd.draw(f, icon, size, tracked)
     f.tex:SetAllPoints(f)
     f.tex:Show()
   end
-  local ring = size + style.focusRing.pad
+  local ring = size + (pad or style.focusRing.pad)
   f.fill:SetSize(ring, ring)
   f.rim:SetSize(ring, ring)
   f.questRing:SetSize(ring, ring)

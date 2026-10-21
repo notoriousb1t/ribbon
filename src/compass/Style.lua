@@ -108,9 +108,13 @@ S.distance = { size = 11, gap = 2, height = 14 }
 -- The focused marker gets a ring `pad` pixels larger than the marker itself.
 S.focusRing = { pad = 8, color = { 0.25, 0.65, 1.0 } }   -- bright blue, so the selection stands out from the gold badges
 
+-- Map and minimap pins: about the size of the player's arrow on each, with a thinner ring than the compass's while tracked
+-- (`ringPad`), so a step's pin never covers the player.
+S.pins = { world = 14, mini = 10, ringPad = 4 }
+
 -- Previewing a guide step puts a badge of this size on the world map and zooms the map to `zoom` of the way from its
 -- smallest to its largest scale, with the step's point in the middle.
-S.preview = { size = 32, zoom = 0.5 }
+S.preview = { size = 18, zoom = 0.5 }
 
 -- Pins of the steps around the current one, drawn on the map smaller than the current step's pins: the step just done
 -- in the text colour (white), the next two (and a step the mouse is over in the panel) smaller and fainter.

@@ -19,7 +19,8 @@ local function showTooltip(self)
   GameTooltip:Show()
 end
 
-local SIZES = { world = 20, mini = 15 }   -- a little under the map's own quest icons
+-- Pin sizes and the tracked ring's pad: about the player's arrow (Style.pins).
+local function sizes() return ns.compassStyle.pins end
 
 -- Every pin made, so the tracked ring follows the focus.
 local allPins = {}
@@ -27,7 +28,7 @@ local allPins = {}
 ns:On("FOCUS_CHANGED", function(uid)
   for _, pin in ipairs(allPins) do
     if pin.uid and pin.icon and pin:IsShown() then
-      ns.badge.draw(pin, pin.icon, pin:GetWidth() or 20, pin.uid == uid)
+      ns.badge.draw(pin, pin.icon, pin:GetWidth() or sizes().world, pin.uid == uid, sizes().ringPad)
     end
   end
 end)
@@ -36,13 +37,13 @@ end)
 -- Hide().
 local function createPin(kind)
   local f = CreateFrame("Button", nil, UIParent)
-  f:SetSize(SIZES[kind], SIZES[kind])
+  f:SetSize(sizes()[kind], sizes()[kind])
   f:RegisterForClicks("LeftButtonUp", "RightButtonUp")
   ns.badge.build(f)
   f.Configure = function(self, uid, texture, icon)
     self.uid = uid
     self.icon = icon
-    ns.badge.draw(self, icon, SIZES[kind], ns.focus == uid)
+    ns.badge.draw(self, icon, sizes()[kind], ns.focus == uid, sizes().ringPad)
   end
   allPins[#allPins + 1] = f
   f:SetScript("OnEnter", showTooltip)
@@ -298,7 +299,7 @@ function M.preview(map, x, y, icon, target)
     end
     previewPin.target = target
     previewPin:SetSize(size, size)
-    ns.badge.draw(previewPin, icon, size, true)   -- the step being looked at is the tracked one
+    ns.badge.draw(previewPin, icon, size, true, sizes().ringPad)   -- the step being looked at is the tracked one
     M.lib:AddWorldMapIconMap(previewOwner, previewPin, map, x / 100, y / 100, _G.HBD_PINS_WORLDMAP_SHOW_CONTINENT)
   end
   centreOn(x, y)
@@ -315,7 +316,7 @@ local contextOwner = {}
 local function contextPin(slot, item)
   local style = ns.compassStyle.context
   local look = style[item.mode]
-  local size = math.floor(SIZES.world * look.scale + 0.5)
+  local size = math.floor(sizes().world * look.scale + 0.5)
   local pin = contextPins[slot]
   if not pin then
     pin = CreateFrame("Frame", nil, UIParent)

@@ -86,7 +86,8 @@ describe("Compass style", function()
     end)
 
     it("uses even sizes for the dial and the markers, so everything centres on whole pixels on the 28 px band", function()
-      for _, v in ipairs({ S.dial.size, S.marker.min, S.marker.max, S.marker.focusBoost, S.focusRing.pad }) do
+      for _, v in ipairs({ S.dial.size, S.marker.min, S.marker.max, S.marker.focusBoost, S.focusRing.pad,
+          S.pins.world, S.pins.mini, S.pins.ringPad, S.preview.size }) do
         expect(v % 2).toBe(0)
       end
     end)
