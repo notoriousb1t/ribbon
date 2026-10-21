@@ -170,12 +170,12 @@ describe("Guide planner and text", function()
 
     it("shows quest log progress on objectives", function()
       expect(T.line(call("Kill", { creature = 2955, count = 7, quest = 747, index = 1 }), names, env)).toBe("Kill Plainstrider (3/7)")
-      expect(T.line(call("Loot", { item = 4739, count = 7, quest = 747, index = 2 }), names, env)).toBe("Collect Plainstrider Meat (7)")
+      expect(T.line(call("Loot", { item = 4739, count = 7, quest = 747, index = 2 }), names, env)).toBe("Collect Plainstrider Meat (0/7)")
     end)
 
-    it("shows the required count before the quest is accepted", function()
+    it("shows 0 of the required count before the quest is accepted, like the quest tracker", function()
       local none = { quest = function() return "none" end, objective = function() end }
-      expect(T.line(call("Kill", { creature = 2955, count = 7, quest = 747, index = 1 }), names, none)).toBe("Kill Plainstrider (7)")
+      expect(T.line(call("Kill", { creature = 2955, count = 7, quest = 747, index = 1 }), names, none)).toBe("Kill Plainstrider (0/7)")
     end)
 
     it("falls back to the id when a name is missing", function()

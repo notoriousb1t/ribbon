@@ -26,12 +26,13 @@ S.textures = {
   questQuestion = DIR .. "quest-question", -- "?", in the style of Blizzard's quest icons
   panelToggle = DIR .. "panel-toggle",   -- the map button's body (4:3, in the middle rows of its texture)
   panelCaret = DIR .. "panel-caret",     -- its caret, pointing left (flipped to point right)
+  panelNeedle = DIR .. "panel-needle",   -- and the middle of the compass: a bold star
 }
 
 -- Texture file names (without extension) under src/textures; the specs check they exist.
 S.textureFiles = {
   "compass-dial", "compass-needle", "edge-arrow", "focus-ring", "marker-fill", "marker-rim",
-  "bezel-corner", "bezel-edge-h", "bezel-edge-v", "bezel-button", "panel-toggle", "panel-caret",
+  "bezel-corner", "bezel-edge-h", "bezel-edge-v", "bezel-button", "panel-toggle", "panel-caret", "panel-needle",
   "quest-ring", "quest-exclaim", "quest-question",
 }
 
@@ -52,8 +53,16 @@ S.panel = {
 -- panel is open, left while it is closed) and the middle of the compass (its needle) on the right. It is sized to the
 -- map's own toggle and sits just above it, right edges level (`width` and `height` are used only when that toggle
 -- cannot be measured); `gap` pixels between them; the caret and the needle are fractions of the button's smaller side.
--- The guide's progress is a thin bar along the button's bottom edge, `inset` pixels in from its sides, like a loader.
-S.toggle = { width = 30, height = 30, gap = 3, caret = 0.32, icon = 0.8, inset = 0.1, loader = { height = 3, inset = 4 } }
+-- The guide's progress is a bar along the button's bottom edge, `inset` pixels in from its sides, like a loader; at
+-- least `min` pixels long once any progress is made, so the start of the guide shows.
+S.toggle = {
+  width = 30, height = 30, gap = 3,
+  caret = 0.24, icon = 0.62, between = 0.05,    -- sizes and the space between them, as fractions of the smaller side
+  -- How much of each texture's box the drawn shape fills across (the caret is a triangle in its box, the star runs
+  -- nearly edge to edge): the pair is centred by what you see of it, not by the boxes.
+  caretFill = 54 / 64, iconFill = 120 / 128,
+  loader = { height = 4, inset = 4, min = 3 },
+}
 
 -- The dial sits centred on the bar and is taller than it, so it stands out above and below. It covers the tick marks
 -- (the individual degrees) and the direction names; only the waypoint markers are drawn over it. The caption above the bar

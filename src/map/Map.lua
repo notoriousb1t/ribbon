@@ -70,14 +70,14 @@ local function createGuideButton()
   b.caret:SetTexture(style.textures.panelCaret)
   -- The middle of the compass: its needle.
   b.icon = b:CreateTexture(nil, "ARTWORK")
-  b.icon:SetTexture(style.textures.needle)
+  b.icon:SetTexture(style.textures.panelNeedle)
   -- Like the map's own toggle: the caret points left while the panel is out and right while it is put away.
   b.setOpen = function(open)
     if open then b.caret:SetTexCoord(0, 1, 0, 1) else b.caret:SetTexCoord(1, 0, 0, 1) end
   end
   -- The guide's progress, a thin bar along the bottom edge that fills as the player goes through it, like a loader.
   b.track = b:CreateTexture(nil, "OVERLAY")
-  b.track:SetColorTexture(0, 0, 0, 0.6)
+  b.track:SetColorTexture(0.42, 0.33, 0.14, 0.95)   -- a dull bronze groove, so an empty bar shows too
   b.fill = b:CreateTexture(nil, "OVERLAY")
   b.fill:SetColorTexture(0.914, 0.725, 0.286, 1)
   b.setOpen(false)
@@ -125,16 +125,19 @@ function M.alignGuideButton()
   else
     b:SetPoint("BOTTOMRIGHT", WorldMapFrame, "BOTTOMRIGHT", -10, 40)
   end
-  -- The caret and the needle side by side, sized to the button.
+  -- The caret and the needle side by side, sized to the button and centred as a pair by what you see of each (the
+  -- shapes do not fill their boxes the same way), not by the boxes.
   local side = math.min(w, h)
   local caret, icon = math.floor(side * look.caret + 0.5), math.floor(side * look.icon + 0.5)
-  local inset = math.floor(side * look.inset + 0.5)
+  local between = side * look.between
+  local caretSeen, iconSeen = caret * look.caretFill, icon * look.iconFill
+  local start = (w - (caretSeen + between + iconSeen)) / 2
   b.caret:SetSize(caret, caret)
   b.caret:ClearAllPoints()
-  b.caret:SetPoint("LEFT", b, "LEFT", inset, 0)
+  b.caret:SetPoint("CENTER", b, "LEFT", start + caretSeen / 2, 0)
   b.icon:SetSize(icon, icon)
   b.icon:ClearAllPoints()
-  b.icon:SetPoint("RIGHT", b, "RIGHT", -math.max(0, inset - 3), 0)
+  b.icon:SetPoint("CENTER", b, "LEFT", start + caretSeen + between + iconSeen / 2, 0)
   -- The loader bar along the bottom, inside the border.
   local loader = look.loader
   for _, part in ipairs({ b.track, b.fill }) do
@@ -155,7 +158,7 @@ function M.updateProgress()
   local width = b:GetWidth()
   width = (type(width) == "number" and width > 0 and width or look.width) - 2 * look.loader.inset
   b.progress = overall
-  b.fill:SetWidth(math.max(0.001, overall * width))
+  b.fill:SetWidth(overall > 0 and math.max(look.loader.min, overall * width) or 0.001)
   b.fill:SetShown(overall > 0)
 end
 

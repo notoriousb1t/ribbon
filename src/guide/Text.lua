@@ -10,13 +10,14 @@ local function name(names, kind, id, fallback)
   return (list and list[id]) or (fallback .. " " .. tostring(id))
 end
 
--- " (3/7)" while the quest is active and the client reports progress, else the required count.
+-- " (3/7)" like the quest tracker's objectives: the client's progress while the quest is active and it reports any,
+-- else "0 of the count needed" (" (0/7)").
 local function progress(call, env)
   if call.quest and call.index and env and env.quest(call.quest) == "active" then
     local o = env.objective(call.quest, call.index)
     if o and o.need then return string.format(" (%d/%d)", o.have or 0, o.need) end
   end
-  return call.count and call.count > 1 and string.format(" (%d)", call.count) or ""
+  return call.count and string.format(" (%d/%d)", 0, call.count) or ""
 end
 
 local function list(names, kind, ids)

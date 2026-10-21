@@ -48,11 +48,21 @@ describe("Progress on the map button, and the section header", function()
       expect(lastCall(b.fill.SetWidth)[1]).toBeCloseTo(0.8 * inner, 4)
     end)
 
-    it("is gold on a dark track", function()
+    it("is gold on a bronze groove that shows even when the bar is empty", function()
       local b = ctx.ns.map.guideButton
       local c = b.fill.SetColorTexture.calls[1]
       expect(c[1]).toBeGreaterThan(c[3] + 0.4)
-      expect(b.track.SetColorTexture.calls[1][4]).toBeGreaterThan(0.3)
+      local g = b.track.SetColorTexture.calls[1]
+      expect(g[1] + g[2] + g[3]).toBeGreaterThan(0.6)            -- not black on the dark face
+      expect(b.track:IsShown()).toBe(true)
+    end)
+
+    it("is at least a few pixels long once any progress is made, so the start of the guide shows", function()
+      local b = ctx.ns.map.guideButton
+      ctx.ns.guidePlayer.jump(1, 2)                              -- 1 of 5 steps
+      expect(lastCall(b.fill.SetWidth)[1]).toBeGreaterThan(S.toggle.loader.min - 0.001)
+      local ctx2 = ctx
+      expect(S.toggle.loader.height).toBeGreaterThan(3)
     end)
 
     it("follows the button's size", function()
@@ -100,54 +110,121 @@ describe("Progress on the map button, and the section header", function()
     end)
   end)
 
-  describe("the section header", function()
-    it("is called Steps on the child page and Chapters on the list", function()
+  describe("no fixed header", function()
+    it("has no Steps or Chapters header bar above the lists", function()
       local d = open()
-      expect(d.header.title.SetText).toHaveBeenCalledWith("Steps")
-      ctx.ns.guideBrowser.showChapters()
-      expect(d.header.title.SetText).toHaveBeenCalledWith("Chapters")
+      expect(d.header).toBeNil()
+      expect(d.folded).toBeNil()
+    end)
+  end)
+
+  describe("section headers in search results", function()
+    local function type_(d, t)
+      d.search:SetText(t)
+      d.search:Trigger("OnTextChanged", true)
+    end
+
+    it("group the matching steps of every chapter under a header naming the chapter", function()
+      local d = open()
+      type_(d, "accept")                                           -- every step accepts something
+      local _, right = ctx.ns.guideBrowser.rows(ctx.ns.guidePlayer, 1, "accept")
+      local shape = {}
+      for _, r in ipairs(right) do shape[#shape + 1] = r.header and "H" or "s" end
+      expect(table.concat(shape)).toBe("HsssHss")
+      expect(right[1].label).toBe("Camp Narache")
+      expect(right[1].count).toBe(3)
+      expect(right[5].label).toBe("Second Place")
+      expect(right[5].count).toBe(2)
     end)
 
-    it("folds the list away with its button: a minus while open, a plus while folded", function()
+    it("are laid out with their own height, one under the other", function()
       local d = open()
-      expect(d.header.toggle.vertical:IsShown()).toBe(false)     -- a minus
-      expect(d.rightScroll:IsShown()).toBe(true)
-      d.header.toggle:Trigger("OnClick")
-      expect(d.rightScroll:IsShown()).toBe(false)
-      expect(d.header.toggle.vertical:IsShown()).toBe(true)       -- a plus
-      d.header.toggle:Trigger("OnClick")
-      expect(d.rightScroll:IsShown()).toBe(true)
-      expect(d.header.toggle.vertical:IsShown()).toBe(false)
+      type_(d, "accept")
+      local rows = d.rightRows.items
+      local function pt(row) local c = row.SetPoint.calls return c[#c][4], c[#c][5] end
+      local _, y1 = pt(rows[1])
+      local _, y2 = pt(rows[2])
+      local _, y5 = pt(rows[5])
+      expect(y1).toBe(0)
+      expect(y2).toBe(-24)                                         -- under a 24 px header
+      expect(y5).toBe(-(24 + 3 * 34))                              -- under the header and three 34 px steps
+      expect(rows[1].SetHeight).toHaveBeenCalledWith(24)
+      expect(rows[2].SetHeight).toHaveBeenCalledWith(34)
+      expect(d.rightContent.SetHeight.calls[#d.rightContent.SetHeight.calls][1]).toBe(24 + 3 * 34 + 24 + 2 * 34)
     end)
 
-    it("also folds when the whole bar is clicked", function()
+    it("look like the quest log's headers: a dark bar and the name with a count, no step parts", function()
       local d = open()
-      d.header:Trigger("OnClick")
-      expect(d.rightScroll:IsShown()).toBe(false)
+      type_(d, "accept")
+      local head = d.rightRows.items[1]
+      expect(head.headBg:IsShown()).toBe(true)
+      expect(head.icon:IsShown()).toBe(false)
+      expect(head.label:IsShown()).toBe(false)
+      local texts = head.headText.SetText.calls
+      expect(texts[#texts][1]).toContain("Camp Narache")
+      expect(texts[#texts][1]).toContain("(3)")
+      local step = d.rightRows.items[2]
+      expect(step.headBg:IsShown()).toBe(false)
+      expect(step.icon:IsShown()).toBe(true)
     end)
 
-    it("remembers a fold for each page on its own", function()
+    it("do nothing when clicked and show no hover arrow", function()
       local d = open()
-      d.header.toggle:Trigger("OnClick")                          -- fold the steps
-      ctx.ns.guideBrowser.showChapters()
-      expect(d.leftScroll:IsShown()).toBe(true)                   -- the chapters are not folded
-      ctx.ns.guideBrowser.showSteps()
-      expect(d.rightScroll:IsShown()).toBe(false)
+      type_(d, "accept")
+      local head = d.rightRows.items[1]
+      head:Trigger("OnClick")
+      expect(d.rightRows.items[1].sel:IsShown()).toBe(false)
+      head:Trigger("OnEnter")
+      expect(head.go:IsShown()).toBe(false)
     end)
 
-    it("is a dark bar with a gold border like the quest log's header", function()
+    it("are not there when nothing is searched for", function()
       local d = open()
-      expect(d.header.bg.SetColorTexture.calls[1][1]).toBeLessThan(0.2)
-      expect(d.header.SetHeight).toHaveBeenCalledWith(24)
+      expect(d.rightRows.items[1].isHeader).toBe(false)
+    end)
+  end)
+
+  describe("the back button", function()
+    it("is at the start of the search row, inside the panel's own content", function()
+      local d = open()
+      expect(d.back.SetPoint).toHaveBeenCalledWith("TOPLEFT", d, "TOPLEFT", S.bezel.band + 8, -(S.bezel.band + S.bezel.title + 5))
+      expect(d.search.SetPoint).toHaveBeenCalledWith("TOPLEFT", d, "TOPLEFT", S.bezel.band + 8 + 30, -(S.bezel.band + S.bezel.title + 6))
+      expect(d.back:IsShown()).toBe(true)
     end)
   end)
 
   describe("the button's icons", function()
-    it("are bigger now: the needle fills most of the button", function()
+    it("are sized to the button, with a bold star that fills its box", function()
       local b = ctx.ns.map.guideButton
       local side = math.min(S.toggle.width, S.toggle.height)
-      expect(S.toggle.icon).toBeGreaterThan(0.7)
-      expect(b.icon.SetSize).toHaveBeenCalledWith(math.floor(side * S.toggle.icon + 0.5), math.floor(side * S.toggle.icon + 0.5))
+      local icon = math.floor(side * S.toggle.icon + 0.5)
+      expect(b.icon.SetSize).toHaveBeenCalledWith(icon, icon)
+      expect(S.toggle.iconFill).toBeGreaterThan(0.9)
+      expect(icon * S.toggle.iconFill).toBeGreaterThan(16)        -- what you see of the star is at least 16 px
+    end)
+
+    it("are centred as a pair by what you see of them, not by their boxes", function()
+      local b = ctx.ns.map.guideButton
+      local side = math.min(S.toggle.width, S.toggle.height)
+      local caret, icon = math.floor(side * S.toggle.caret + 0.5), math.floor(side * S.toggle.icon + 0.5)
+      local caretSeen, iconSeen = caret * S.toggle.caretFill, icon * S.toggle.iconFill
+      local between = side * S.toggle.between
+      local start = (S.toggle.width - (caretSeen + between + iconSeen)) / 2
+      local c = b.caret.SetPoint.calls[#b.caret.SetPoint.calls]
+      local n = b.icon.SetPoint.calls[#b.icon.SetPoint.calls]
+      expect(c[1]).toBe("CENTER")
+      expect(c[4]).toBeCloseTo(start + caretSeen / 2, 4)
+      expect(n[4]).toBeCloseTo(start + caretSeen + between + iconSeen / 2, 4)
+      -- the same space is left either side of what you see
+      local leftMargin = c[4] - caretSeen / 2
+      local rightMargin = S.toggle.width - (n[4] + iconSeen / 2)
+      expect(leftMargin).toBeCloseTo(rightMargin, 4)
+    end)
+
+    it("keep the star and the caret inside the button", function()
+      local side = math.min(S.toggle.width, S.toggle.height)
+      local seen = side * S.toggle.caret * S.toggle.caretFill + side * S.toggle.between + side * S.toggle.icon * S.toggle.iconFill
+      expect(seen).toBeLessThan(S.toggle.width)
     end)
   end)
 end)

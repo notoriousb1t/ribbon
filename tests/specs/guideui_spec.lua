@@ -291,7 +291,7 @@ describe("Guide progress", function()
       build(Ribbon.Guide("g", { title = "Test Guide", schema = 1 }))
       local button = ctx.ns.map.guideButton
       expect(button).toBeTruthy()
-      expect(button.icon.SetTexture).toHaveBeenCalledWith(ctx.ns.compassStyle.textures.needle)   -- the middle of the compass
+      expect(button.icon.SetTexture).toHaveBeenCalledWith(ctx.ns.compassStyle.textures.panelNeedle)   -- the middle of the compass
       button:Trigger("OnClick")
       expect(ctx.ns.guideBrowser.dock():IsShown()).toBe(true)
       button:Trigger("OnClick")

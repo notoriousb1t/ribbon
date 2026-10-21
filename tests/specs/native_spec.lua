@@ -54,8 +54,9 @@ describe("The game's frame template and search box", function()
 
     it("hangs the search box and the lists from the inset", function()
       local d = open()
-      expect(d.search.SetPoint).toHaveBeenCalledWith("TOPLEFT", d.Inset, "TOPLEFT", 14, -8)
-      expect(d.leftScroll.SetPoint).toHaveBeenCalledWith("TOPLEFT", d.Inset, "TOPLEFT", 8, -(8 + 26 + 24 + 4))
+      expect(d.search.SetPoint).toHaveBeenCalledWith("TOPLEFT", d.Inset, "TOPLEFT", 38, -8)
+      expect(d.back.SetPoint).toHaveBeenCalledWith("TOPLEFT", d.Inset, "TOPLEFT", 8, -7)
+      expect(d.leftScroll.SetPoint).toHaveBeenCalledWith("TOPLEFT", d.Inset, "TOPLEFT", 8, -(8 + 26 + 4))
     end)
 
     it("has no X on its title bar", function()

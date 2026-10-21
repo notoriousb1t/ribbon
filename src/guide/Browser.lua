@@ -20,8 +20,8 @@ local CARD = 40                          -- height of a chapter card
 local COLUMN_W = 300                     -- the width of the list
 local BEZEL = ns.compassStyle.bezel
 local SEARCH_H = 26                          -- the search box and the gap under it
-local HEADER_H = 24                          -- the section header ("Steps"), like the quest log's zone header
-local TOP = BEZEL.band + BEZEL.title + 6 + SEARCH_H + HEADER_H + 10   -- room for the bezel, title bar, search box and header
+local SECTION_H = 24                         -- a chapter's section header in the search results, like the quest log's zone header
+local TOP = BEZEL.band + BEZEL.title + 6 + SEARCH_H + 4   -- room for the bezel, the title bar and the search row
 local BOTTOM = BEZEL.band + 8               -- room for the bezel
 
 local COLORS = {
@@ -30,6 +30,7 @@ local COLORS = {
 
 local dock, selected   -- the docked panel; selected: guide chapter index being browsed (nil: the active chapter)
 local query = ""       -- what the search box holds, trimmed
+local reportedError
 local preview          -- { chapter =, step = } of the step shown on the world map, or nil
 
 -- Search text -----------------------------------------------------------------------
@@ -84,19 +85,26 @@ function Br.rows(player, chapter, query)
     }
     end
   end
+  -- The steps of the chapter being browsed; while searching, the matching steps of every chapter, each chapter's under
+  -- a section header of its own ({ header = true, chapter =, label =, count = }), like the quest log's zones.
   local base = 0
   for _, ch in ipairs(S.view) do
-    if ch.index == chapter then
+    if filtering or ch.index == chapter then
+      local mine = {}
       for i, s in ipairs(ch.steps) do
         if not filtering or search.matches(query, stepText(s.step, S.guide.names)) then
           local map, x, y = planner.stepLocation(s.step)
-          right[#right + 1] = {
+          mine[#mine + 1] = {
             chapter = s.chapter, step = s.index, state = outline.steps[base + i],
             label = text.summary(s.step, S.guide.names, env),
             icon = text.stepIcon(s.step), map = map, x = x, y = y,
           }
         end
       end
+      if filtering and #mine > 0 then
+        right[#right + 1] = { header = true, chapter = ch.index, label = text.chapterParts(ch.name), count = #mine }
+      end
+      for _, row in ipairs(mine) do right[#right + 1] = row end
     end
     base = base + #ch.steps
   end
@@ -193,6 +201,25 @@ local function makeRow(width)
     b.sel:SetAllPoints()
     b.sel:SetColorTexture(0.25, 0.65, 1.0, 0.22)
     b.sel:Hide()
+    -- The section header look (a row of search results that names a chapter): a dark bar with a thin gold border.
+    b.headBg = b:CreateTexture(nil, "BACKGROUND")
+    b.headBg:SetAllPoints()
+    b.headBg:SetColorTexture(0.10, 0.08, 0.05, 1)
+    b.headLines = {}
+    for i, edge in ipairs({ "TOP", "BOTTOM" }) do
+      local line = b:CreateTexture(nil, "BORDER")
+      line:SetColorTexture(style.panel.gold[1], style.panel.gold[2], style.panel.gold[3], 0.45)
+      line:SetHeight(1)
+      line:SetPoint(edge .. "LEFT")
+      line:SetPoint(edge .. "RIGHT")
+      b.headLines[i] = line
+    end
+    b.headText = b:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    b.headText:SetPoint("LEFT", b, "LEFT", 8, 0)
+    b.headText:SetTextColor(0.82, 0.78, 0.68)
+    b.headBg:Hide()
+    b.headText:Hide()
+    for _, line in ipairs(b.headLines) do line:Hide() end
     b.icon = CreateFrame("Frame", nil, b)
     b.icon:SetSize(ICON, ICON)
     b.icon:SetPoint("LEFT", b, "LEFT", 4, 0)
@@ -232,7 +259,7 @@ local function makeRow(width)
       GameTooltip:Hide()
       if not mouseOver(b) then b.go:Hide() end
     end)
-    b:SetScript("OnEnter", function() b.go:Show() end)
+    b:SetScript("OnEnter", function() if not b.isHeader then b.go:Show() end end)
     b:SetScript("OnLeave", function()
       if not mouseOver(b) then b.go:Hide() end
     end)
@@ -312,13 +339,34 @@ local function fill(f, player)
     b.chapter, b.done, b.total, b.fraction = row.chapter, row.done, row.total, row.fraction
   end
   f.setRight(#right)
+  local y = 0
   for i, row in ipairs(right) do
     local b = f.rightRows.items[i]
-    b.label:SetText(colored(row.state, row.label))
-    ns.badge.draw(b.icon, row.icon, ICON)
-    b.sel:SetShown(preview ~= nil and preview.chapter == row.chapter and preview.step == row.step)
+    local header = row.header == true
+    local h = header and SECTION_H or ROW
+    b.isHeader = header
+    b:ClearAllPoints()
+    b:SetPoint("TOPLEFT", f.rightContent, "TOPLEFT", 0, -y)
+    b:SetHeight(h)
+    y = y + h
+    -- A section header names a chapter; any other row is a step.
+    b.headBg:SetShown(header)
+    b.headText:SetShown(header)
+    for _, line in ipairs(b.headLines) do line:SetShown(header) end
+    b.icon:SetShown(not header)
+    b.label:SetShown(not header)
+    if header then
+      b.headText:SetText(string.format("%s  |cff9a9484(%d)|r", row.label, row.count))
+      b.sel:Hide()
+      b.go:Hide()
+    else
+      b.label:SetText(colored(row.state, row.label))
+      ns.badge.draw(b.icon, row.icon, ICON)
+      b.sel:SetShown(preview ~= nil and preview.chapter == row.chapter and preview.step == row.step)
+    end
     b.chapter, b.step = row.chapter, row.step
   end
+  f.rightContent:SetHeight(math.max(1, y))
   -- The page: the chapter list shows the whole guide's progress and the guide's title; a chapter's steps show that
   -- chapter's progress and its name, with the back arrow.
   local onSteps = f.page == "steps"
@@ -334,13 +382,6 @@ local function fill(f, player)
     end
   end
   f.title:SetText(title)
-  -- The section header, like the quest log's: "Steps" or "Chapters" with a button that folds the list away.
-  f.header.title:SetText(onSteps and "Steps" or "Chapters")
-  local folded = f.folded[f.page] == true
-  f.header.toggle.vertical:SetShown(folded)       -- a plus while folded, a minus while open
-  f.leftScroll:SetShown(not onSteps and not folded)
-  f.rightScroll:SetShown(onSteps and not folded)
-  f.empty:SetShown(query ~= "" and shownRows == 0 and not folded)
 end
 
 -- Refreshes the panel if it has been built.
@@ -352,7 +393,15 @@ function Br.refresh()
     local entry = player.current()
     selected = entry and entry.chapter or (S.view[1] and S.view[1].index)
   end
-  fill(dock, player)
+  -- A mistake in filling the panel is said once in chat (the error pop-up may be off), then raised as before.
+  local ok, err = pcall(fill, dock, player)
+  if not ok then
+    if not reportedError then
+      reportedError = true
+      ns:Print("the guide panel hit an error: " .. tostring(err))
+    end
+    error(err, 0)
+  end
 end
 
 -- The second line of a chapter card: "Lv 12-14 - 48%".
@@ -532,7 +581,7 @@ local function build()
   if native then
     -- (A real frame has these as frames; anything else is not one.)
     content = type(f.Inset) == "table" and f.Inset.SetPoint and f.Inset or f
-    anchor = { frame = content, x = 8, top = 8 + SEARCH_H + HEADER_H + 4, bottom = 8 }
+    anchor = { frame = content, x = 8, top = 8 + SEARCH_H + 4, bottom = 8 }
     -- The title goes through the template's own title text.
     f.title = {
       SetText = function(_, t)
@@ -597,16 +646,15 @@ local function build()
     f.close:Hide()   -- the map button closes the panel, so the frame needs no X
   end
   -- The back arrow, on the child page: a button with the caret pointing left. The same in both looks, and drawn from
-  -- Ribbon's own textures, so it is always there; a high frame level keeps it over the title bar's art.
+  -- Ribbon's own textures, so it is always there.
   f.back = CreateFrame("Button", nil, f)
   f.back:SetSize(22, 22)
-  local titleBar = native and type(f.TitleContainer) == "table" and f.TitleContainer.SetPoint and f.TitleContainer or nil
-  if titleBar then
-    f.back:SetPoint("LEFT", titleBar, "LEFT", 6, 0)
-  elseif native then
-    f.back:SetPoint("TOPLEFT", f, "TOPLEFT", 10, -6)
+  -- It sits at the start of the search row, inside the panel's own content (the title bar is the template's, and
+  -- anything put there can be hidden under its art).
+  if native then
+    f.back:SetPoint("TOPLEFT", content, "TOPLEFT", 8, -7)
   else
-    f.back:SetPoint("LEFT", f.strip, "LEFT", 2, 0)
+    f.back:SetPoint("TOPLEFT", f, "TOPLEFT", B + 8, -(B + style.bezel.title + 5))
   end
   f.back:SetFrameLevel(f:GetFrameLevel() + 20)
   f.back.bg = f.back:CreateTexture(nil, "ARTWORK")
@@ -621,59 +669,13 @@ local function build()
   f.back:Hide()
 
   -- The search box, under the title bar.
-  f.search = makeSearch(f, width - 2 * (B + 12) - (native and 12 or 0))
+  f.search = makeSearch(f, width - 2 * (B + 8) - 30 - (native and 8 or 0))
   if native then
-    f.search:SetPoint("TOPLEFT", content, "TOPLEFT", 14, -8)
+    f.search:SetPoint("TOPLEFT", content, "TOPLEFT", 38, -8)
   else
-    f.search:SetPoint("TOPLEFT", f, "TOPLEFT", B + 12, -(B + style.bezel.title + 6))
+    f.search:SetPoint("TOPLEFT", f, "TOPLEFT", B + 8 + 30, -(B + style.bezel.title + 6))
   end
 
-  -- The section header under the search box, in the style of the quest log's zone header: a dark bar with a thin gold
-  -- border, the name of the section and a button at the right that folds the list away (a minus; a plus while folded).
-  local header = CreateFrame("Button", nil, f)
-  header:SetHeight(HEADER_H)
-  if native then
-    header:SetPoint("TOPLEFT", content, "TOPLEFT", 10, -(8 + SEARCH_H + 6 - 6))
-    header:SetPoint("TOPRIGHT", content, "TOPRIGHT", -10, -(8 + SEARCH_H + 6 - 6))
-  else
-    header:SetPoint("TOPLEFT", f, "TOPLEFT", B + 8, -(B + style.bezel.title + 6 + SEARCH_H))
-    header:SetPoint("TOPRIGHT", f, "TOPRIGHT", -(B + 8), -(B + style.bezel.title + 6 + SEARCH_H))
-  end
-  header.bg = header:CreateTexture(nil, "BACKGROUND")
-  header.bg:SetAllPoints()
-  header.bg:SetColorTexture(0.10, 0.08, 0.05, 1)
-  local gold = style.panel.gold
-  for _, edge in ipairs({ "TOP", "BOTTOM" }) do
-    local line = header:CreateTexture(nil, "BORDER")
-    line:SetColorTexture(gold[1], gold[2], gold[3], 0.45)
-    line:SetHeight(1)
-    line:SetPoint(edge .. "LEFT")
-    line:SetPoint(edge .. "RIGHT")
-  end
-  header.title = header:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
-  header.title:SetPoint("LEFT", header, "LEFT", 8, 0)
-  header.title:SetTextColor(0.82, 0.78, 0.68)
-  -- The fold button: a gold bar, with a second one across it for a plus.
-  header.toggle = CreateFrame("Button", nil, header)
-  header.toggle:SetSize(18, 18)
-  header.toggle:SetPoint("RIGHT", header, "RIGHT", -4, 0)
-  header.toggle.horizontal = header.toggle:CreateTexture(nil, "OVERLAY")
-  header.toggle.horizontal:SetColorTexture(gold[1], gold[2], gold[3], 1)
-  header.toggle.horizontal:SetSize(10, 3)
-  header.toggle.horizontal:SetPoint("CENTER")
-  header.toggle.vertical = header.toggle:CreateTexture(nil, "OVERLAY")
-  header.toggle.vertical:SetColorTexture(gold[1], gold[2], gold[3], 1)
-  header.toggle.vertical:SetSize(3, 10)
-  header.toggle.vertical:SetPoint("CENTER")
-  header.toggle.vertical:Hide()
-  local function fold()
-    f.folded[f.page] = not f.folded[f.page]
-    Br.refresh()
-  end
-  header.toggle:SetScript("OnClick", fold)
-  header:SetScript("OnClick", fold)
-  f.header = header
-  f.folded = {}
 
   -- Shown over the lists when a search finds nothing.
   f.empty = f:CreateFontString(nil, "OVERLAY", "GameFontDisable")
@@ -687,6 +689,7 @@ local function build()
   local left, right
   left, f.leftScroll = scroller(f, "RibbonGuideDockChapters", B + 6, COLUMN_W, anchor)
   right, f.rightScroll = scroller(f, "RibbonGuideDockSteps", B + 6, COLUMN_W, anchor)
+  f.rightContent = right
   local makeLeft, makeRight = makeCard(COLUMN_W - 22), makeRow(COLUMN_W - 22)
   f.setLeft = pool(left, f.leftRows, function(parent, i)
     local b = makeLeft(parent, i)
@@ -698,6 +701,7 @@ local function build()
   f.setRight = pool(right, f.rightRows, function(parent, i)
     local b = makeRight(parent, i)
     b:SetScript("OnClick", function(self)
+      if self.isHeader then return end
       Br.preview(self.chapter, self.step)
     end)
     return b

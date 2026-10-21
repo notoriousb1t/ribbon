@@ -93,7 +93,7 @@ describe("Guide player", function()
       ctx.ns.guidePlayer.refresh()
       local _, cursor = ctx.ns.guidePlayer.current()
       expect(cursor).toBe(2)
-      expect(titles(ctx.ns)).toEqual({ "Kill Plainstrider (7)" })
+      expect(titles(ctx.ns)).toEqual({ "Kill Plainstrider (0/7)" })
     end)
 
     it("shows quest log progress in place, keeping the same waypoint", function()

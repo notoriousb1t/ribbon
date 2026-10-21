@@ -121,17 +121,21 @@ describe("Guide search", function()
       expect(left[1].label).toContain("Silverpine")
     end)
 
-    it("narrows the step list to the steps that match", function()
+    it("narrows the step list to the steps that match, under a header naming their chapter", function()
       local d = open()                                           -- on the steps of chapter one
       type_(d, "harnss")                                         -- "Lost Harness", misspelt
-      expect(shownCount(d.rightRows, 2)).toBe(1)
-      local texts = d.rightRows.items[1].label.SetText.calls
+      expect(shownCount(d.rightRows, 3)).toBe(2)                 -- the chapter's header and the step
+      expect(d.rightRows.items[1].isHeader).toBe(true)
+      expect(d.rightRows.items[2].isHeader).toBe(false)
+      local texts = d.rightRows.items[2].label.SetText.calls
       expect(texts[#texts][1]).toContain("Lost Harness")
     end)
 
     it("searches any text a step says, not just its first line", function()
       local _, right = ctx.ns.guideBrowser.rows(ctx.ns.guidePlayer, 1, "kodo")
-      expect(#right).toBe(1)
+      expect(#right).toBe(2)                                     -- a section header and the step
+      expect(right[1].header).toBe(true)
+      expect(right[2].step).toBe(1)
       local _, none = ctx.ns.guideBrowser.rows(ctx.ns.guidePlayer, 1, "zzzzz")
       expect(#none).toBe(0)
     end)
@@ -153,7 +157,8 @@ describe("Guide search", function()
       expect(d.search:GetText()).toBe("")
       expect(d.search.clear:IsShown()).toBe(false)
       expect(d.search.hint:IsShown()).toBe(true)
-      expect(shownCount(d.rightRows, 2)).toBe(2)                 -- everything is back
+      expect(shownCount(d.rightRows, 3)).toBe(2)                 -- everything is back: chapter one's two steps, no headers
+      expect(d.rightRows.items[1].isHeader).toBe(false)
     end)
 
     it("leaves what is typed alone while the player is typing (no rewriting a trailing space)", function()
@@ -179,13 +184,13 @@ describe("Guide search", function()
       d.close:Trigger("OnClick")
       d = open()
       expect(d.search:GetText()).toBe("")
-      expect(shownCount(d.rightRows, 2)).toBe(2)
+      expect(shownCount(d.rightRows, 3)).toBe(2)
     end)
 
     it("still jumps by the real step when the list is narrowed", function()
       local d = open()
-      type_(d, "harness")                                        -- only step two is listed, as the first row
-      local row = d.rightRows.items[1]
+      type_(d, "harness")                                        -- the header, then step two
+      local row = d.rightRows.items[2]
       expect(row.step).toBe(2)
       row.go:Trigger("OnClick")
       expect(ctx.ns.guidePlayer.current().index).toBe(2)
