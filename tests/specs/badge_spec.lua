@@ -86,6 +86,7 @@ describe("Marker badges", function()
     expect(last(m.glyphTex.SetSize)).toEqual({ g, g, n = 2 })
     local c = S.badge.kinds.kill.color
     expect(m.rim.SetVertexColor).toHaveBeenCalledWith(c[1], c[2], c[3], 1)
+    expect(m.glyphTex.SetVertexColor).toHaveBeenCalledWith(c[1], c[2], c[3], 1)   -- the symbol is in the rim's colour
   end)
 
   it("has a symbol texture, shipped in the textures folder, for every kind that has one", function()

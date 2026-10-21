@@ -105,10 +105,15 @@ function arc(cx, cy, r, from, to, n = 40) {
 // icons' symbols. `stroke(x, y)` returns the distance from a point to the glyph's centre line or shape (negative
 // inside), so the outline is a band outside the fill.
 const GLYPH_DARK = [42, 21, 0];
-function glyphShade(sdf, y) {
+// `white` draws the fill in white-to-grey instead of gold, for symbols the view tints with a colour.
+function glyphShade(sdf, y, white = false) {
   if (sdf > 6) return null;
   if (sdf > 0) return [...GLYPH_DARK, 1];
   const t = Math.max(0, Math.min(1, (y - 14) / 100));
+  if (white) {
+    const g = Math.round(255 - 70 * t);
+    return sdf > -1.8 ? [Math.round(g * 0.62), Math.round(g * 0.62), Math.round(g * 0.62), 1] : [g, g, g, 1];
+  }
   const body = t < 0.5 ? lerp([255, 238, 150], [250, 201, 64], t / 0.5) : lerp([250, 201, 64], [196, 136, 22], (t - 0.5) / 0.5);
   // a thin darker edge just inside the outline gives it body
   return sdf > -1.8 ? [...lerp(body, [150, 96, 10], 0.55), 1] : [...body, 1];
@@ -116,6 +121,7 @@ function glyphShade(sdf, y) {
 
 // The blue bevel (the old map button): a band 28 px deep. depth is the distance
 // in pixels from the outer edge.
+const ink = (sdf, y) => glyphShade(sdf, y, true);   // the step icons: white, tinted by the view
 const lerp = (a, b, t) => a.map((v, i) => Math.round(v + (b[i] - v) * t));
 function bandColor(d) {
   if (d < 2) return [6, 20, 28];                                   // outer line
@@ -283,13 +289,13 @@ const textures = {
   }),
 
   // The step icons, inked like the quest symbols: gold with a dark outline.
-  "glyph-kill": render((x, y) => glyphShade(unionSdf(
+  "glyph-kill": render((x, y) => ink(unionSdf(
     polySdf([[63.5, 12], [73, 26], [73, 80], [54, 80], [54, 26]], x, y),
     segDist(x, y, 36, 86, 91, 86) - 6.5,
     segDist(x, y, 63.5, 90, 63.5, 104) - 5.5,
     Math.hypot(x - 63.5, y - 110) - 8), y)),
 
-  "glyph-grind": render((x, y) => glyphShade(unionSdf(
+  "glyph-grind": render((x, y) => ink(unionSdf(
     segDist(x, y, 26, 24, 96, 94) - 7, segDist(x, y, 101, 24, 31, 94) - 7,
     segDist(x, y, 20, 72, 52, 104) - 5, segDist(x, y, 107, 72, 75, 104) - 5,
     Math.hypot(x - 100, y - 100) - 9, Math.hypot(x - 27, y - 100) - 9), y)),
@@ -298,25 +304,25 @@ const textures = {
     const body = (Math.hypot((x - 63.5) / 36, (y - 78) / 31) - 1) * 31;
     const neck = segDist(x, y, 52, 46, 75, 46) - 11;
     const tie = segDist(x, y, 44, 58, 83, 58) - 3;
-    return glyphShade(Math.max(unionSdf(body, neck, tie), -(segDist(x, y, 63.5, 78, 63.5, 84) - 7)), y);
+    return ink(Math.max(unionSdf(body, neck, tie), -(segDist(x, y, 63.5, 78, 63.5, 84) - 7)), y);
   }),
 
-  "glyph-poi": render((x, y) => glyphShade(Math.max(unionSdf(
+  "glyph-poi": render((x, y) => ink(Math.max(unionSdf(
     Math.hypot(x - 63.5, y - 50) - 31,
     polySdf([[36, 66], [63.5, 114], [91, 66]], x, y)), -(Math.hypot(x - 63.5, y - 50) - 12)), y)),
 
-  "glyph-fp": render((x, y) => glyphShade(polySdf([[14, 62], [114, 16], [80, 112], [60, 76]], x, y), y)),
+  "glyph-fp": render((x, y) => ink(polySdf([[14, 62], [114, 16], [80, 112], [60, 76]], x, y), y)),
 
-  "glyph-hearth": render((x, y) => glyphShade(Math.max(unionSdf(
+  "glyph-hearth": render((x, y) => ink(Math.max(unionSdf(
     polySdf([[12, 66], [63.5, 16], [115, 66]], x, y),
     polySdf([[28, 60], [99, 60], [99, 112], [28, 112]], x, y)),
     -polySdf([[53, 112], [53, 82], [74, 82], [74, 112]], x, y)), y)),
 
-  "glyph-train": render((x, y) => glyphShade(unionSdf(
+  "glyph-train": render((x, y) => ink(unionSdf(
     polySdf([[14, 34], [60, 48], [60, 108], [14, 94]], x, y),
     polySdf([[113, 34], [67, 48], [67, 108], [113, 94]], x, y)), y)),
 
-  "glyph-ding": render((x, y) => glyphShade(polySdf([[63.5, 12], [112, 62], [84, 62], [84, 112], [43, 112], [43, 62], [15, 62]], x, y), y)),
+  "glyph-ding": render((x, y) => ink(polySdf([[63.5, 12], [112, 62], [84, 62], [84, 112], [43, 112], [43, 62], [15, 62]], x, y), y)),
 
   // A thin ring drawn around the focused marker; white so the view can colour it (bright blue).
   "focus-ring": render((x, y) => {
