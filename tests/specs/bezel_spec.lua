@@ -282,6 +282,64 @@ describe("Guide panel bezel and map button", function()
     end)
   end)
 
+  describe("in the game's own frame style", function()
+    local function cleanup() _G.ButtonFrameTemplate_HidePortrait = nil end
+
+    it("uses Blizzard's frame template, with its title text and red close button, when the game has it", function()
+      local hidden
+      _G.ButtonFrameTemplate_HidePortrait = function(f) hidden = f end
+      local d = open()
+      expect(d.native).toBe(true)
+      expect(hidden).toBe(d)
+      expect(d.bezel).toBeNil()                          -- nothing of ours is drawn on top of the template's art
+      expect(d.strip).toBeNil()
+      d.title:SetText("Chapter Two")
+      expect(d.SetTitle).toHaveBeenCalledWith("Chapter Two")
+      cleanup()
+    end)
+
+    it("hangs the lists from the template's inset and closes from its own close button", function()
+      _G.ButtonFrameTemplate_HidePortrait = function() end
+      local d = open()
+      expect(d.leftScroll.SetPoint).toHaveBeenCalledWith("TOPLEFT", d, "TOPLEFT", 8, -34)
+      expect(d.leftScroll.SetPoint).toHaveBeenCalledWith("BOTTOMLEFT", d, "BOTTOMLEFT", 8, 8)
+      d.close:Trigger("OnClick")
+      expect(d:IsShown()).toBe(false)
+      cleanup()
+    end)
+
+    it("goes back with the game's own previous-page arrow", function()
+      _G.ButtonFrameTemplate_HidePortrait = function() end
+      local d = open()
+      expect(d.back.SetNormalTexture).toHaveBeenCalledWith([[Interface\Buttons\UI-SpellbookIcon-PrevPage-Up]])
+      d.back:Trigger("OnClick")
+      expect(d.page).toBe("chapters")
+      cleanup()
+    end)
+
+    it("falls back to the gold bezel when the template cannot be made", function()
+      _G.ButtonFrameTemplate_HidePortrait = function() end
+      local real = _G.CreateFrame
+      _G.CreateFrame = function(kind, name, parent, template)
+        if template == "ButtonFrameTemplate" then error("no such template") end
+        return real(kind, name, parent, template)
+      end
+      local d = open()
+      _G.CreateFrame = real
+      expect(d.native).toBe(false)
+      expect(d.bezel).toBeTruthy()
+      cleanup()
+    end)
+
+    it("draws its own gold bezel without the helper, in the map's dark warm colours", function()
+      local d = open()
+      expect(d.native).toBe(false)
+      local c = d.strip.SetColorTexture.calls[1]
+      expect(c[1]).toBeGreaterThan(c[3] - 0.001)          -- warm, not blue
+      expect(S.panel.gold[1]).toBeGreaterThan(S.panel.gold[3] + 0.4)
+    end)
+  end)
+
   describe("parent list and child page", function()
     it("always opens on the child page: the active chapter's steps with the back arrow", function()
       ctx.ns.guidePlayer.jump(2, 1)

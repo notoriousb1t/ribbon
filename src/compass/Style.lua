@@ -17,7 +17,7 @@ S.textures = {
   focusRing = DIR .. "focus-ring",   -- gold ring drawn around the focused marker
   markerFill = DIR .. "marker-fill",   -- the filled disc behind a marker's symbol (white, tinted dark by the view)
   markerRim = DIR .. "marker-rim",     -- the ring on its edge (white, tinted per kind of waypoint)
-  bezelCorner = DIR .. "bezel-corner",   -- the map panel's blue bezel: a corner (flipped for the others),
+  bezelCorner = DIR .. "bezel-corner",   -- the map panel's gold bezel: a corner (flipped for the others),
   bezelEdgeH = DIR .. "bezel-edge-h",    -- a horizontal edge and a vertical edge, which tile,
   bezelEdgeV = DIR .. "bezel-edge-v",
   bezelButton = DIR .. "bezel-button",   -- and a button in the same bevel
@@ -40,7 +40,15 @@ S.textureFiles = {
 -- rows or columns). The border is the logo's gold.
 S.bezel = { band = 9, corner = 32, title = 24, bandFraction = 18 / 64 }
 
--- The map button, a blue version of the map's quest log toggle: the body, a caret on the left (pointing right while the
+-- The colours of the guide panel's own chrome (used when Blizzard's frame template is not available): dark and warm like
+-- the map's, with gold for the title and the lines.
+S.panel = {
+  body = { 0.05, 0.04, 0.035, 0.97 },
+  strip = { 0.03, 0.025, 0.02, 1 },
+  gold = { 0.914, 0.725, 0.286 },
+}
+
+-- The map button, in the style of the map's quest log toggle (gold border, dark face): the body, a caret on the left (pointing right while the
 -- panel is open, left while it is closed) and the middle of the compass (its needle) on the right. It is sized to the
 -- map's own toggle and sits just above it, right edges level (`width` and `height` are used only when that toggle
 -- cannot be measured); `gap` pixels between them; the caret and the needle are fractions of the button's smaller side.
@@ -84,7 +92,7 @@ S.preview = { size = 32, zoom = 0.5 }
 -- `?`, are drawn like Blizzard's own quest icons (see below). An icon not listed here (TomTom's dot, RXP's arrow, the
 -- raid markers) is drawn plain, at the marker's full size.
 S.badge = {
-  fillColor = { 0.05, 0.16, 0.20, 0.92 },
+  fillColor = { 0.09, 0.07, 0.04, 0.93 },   -- warm dark, like the game's own quest icons
   iconScale = 0.60,     -- the icon's size, as a fraction of the marker
   -- The quest kinds (accept, turn-in) take Blizzard's quest icon style instead: a dark warm disc, a gold bevelled ring
   -- and a gold symbol with a dark outline, all drawn from textures so they are as crisp as the game's own.

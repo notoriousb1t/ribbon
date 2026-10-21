@@ -1,6 +1,6 @@
 // Regenerates the shaped textures in src/textures: the compass dial and needle, the marker fill and rim, the focus
 // ring, the gold bezel of the map panel (corner, two edges and a button, in the shape and width of the map's own frame),
-// the blue toggle for the map, and the quest badge in the style of Blizzard's quest icons (a gold bevelled ring and a
+// the gold toggle for the map, and the quest badge in the style of Blizzard's quest icons (a gold bevelled ring and a
 // gold "!" and "?"). Everything else in that folder is an
 // ordinary image file; edit or replace those directly.
 //
@@ -107,7 +107,7 @@ function glyphShade(sdf, y) {
   return sdf > -1.8 ? [...lerp(body, [150, 96, 10], 0.55), 1] : [...body, 1];
 }
 
-// The bezel: a steel-blue bevel in the logo's blues, drawn as a band 28 px deep (shown at 14 px). depth is the distance
+// The blue bevel (the old map button): a band 28 px deep. depth is the distance
 // in pixels from the outer edge.
 const lerp = (a, b, t) => a.map((v, i) => Math.round(v + (b[i] - v) * t));
 function bandColor(d) {
@@ -203,10 +203,10 @@ const textures = {
     const depth = -sdf;
     if (depth < 0) return null;
     if (depth < 9) return [...goldBand((depth * GOLD_BAND) / 9), 1];
-    return [13, 36, 46, 0.95];
+    return [26, 19, 10, 0.97];
   }, 64),
 
-  // The map button's body: a rounded square in the blue bevel around a dark face, like the map's own quest log toggle,
+  // The map button's body: a rounded square in the gold bevel around a dark face, like the map's own quest log toggle,
   // which is nearly square. The view sizes the button to that toggle, so it lines up with it.
   "panel-toggle": render((x, y) => {
     const r = 26, half = 63.5;
@@ -214,17 +214,17 @@ const textures = {
     const sdf = Math.hypot(Math.max(qx, 0), Math.max(qy, 0)) + Math.min(Math.max(qx, qy), 0) - r;
     const depth = -sdf;
     if (depth < 0) return null;
-    if (depth < 13) return [...bandColor((depth * BAND) / 13), 1];
-    return [10, 40, 54, 0.96];
+    if (depth < 13) return [...goldBand((depth * GOLD_BAND) / 13), 1];
+    return [26, 19, 10, 0.97];
   }),
 
-  // A caret pointing left; the view flips it for the other way. Bright blue with a dark outline.
+  // A caret pointing left; the view flips it for the other way. Bright gold with a dark outline, like the map toggle's.
   "panel-caret": render((x, y) => {
     // Triangle with its tip at the left, inset from the edges so the outline fits.
     const tri = [[12, 32], [50, 8], [50, 56]];
     const inner = [[19, 32], [43, 15], [43, 49]];
-    if (inside(inner, x, y)) return [120, 205, 232, 1];
-    if (inside(tri, x, y)) return [6, 20, 28, 1];
+    if (inside(inner, x, y)) return [255, 214, 88, 1];
+    if (inside(tri, x, y)) return [40, 24, 4, 1];
     return null;
   }, 64),
 

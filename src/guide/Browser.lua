@@ -193,10 +193,15 @@ local function makeRow(width)
 end
 
 -- A scrolling column: it runs from under the header to above the buttons, whatever the frame's height.
-local function scroller(parent, name, x, width)
+local function scroller(parent, name, x, width, anchor)
   local scroll = CreateFrame("ScrollFrame", name, parent, "UIPanelScrollFrameTemplate")
-  scroll:SetPoint("TOPLEFT", parent, "TOPLEFT", x, -TOP)
-  scroll:SetPoint("BOTTOMLEFT", parent, "BOTTOMLEFT", x, BOTTOM)
+  if anchor then
+    scroll:SetPoint("TOPLEFT", anchor.frame, "TOPLEFT", anchor.x, -anchor.top)
+    scroll:SetPoint("BOTTOMLEFT", anchor.frame, "BOTTOMLEFT", anchor.x, anchor.bottom)
+  else
+    scroll:SetPoint("TOPLEFT", parent, "TOPLEFT", x, -TOP)
+    scroll:SetPoint("BOTTOMLEFT", parent, "BOTTOMLEFT", x, BOTTOM)
+  end
   scroll:SetWidth(width - 22)
   local content = CreateFrame("Frame", nil, scroll)
   content:SetSize(width - 22, 1)
@@ -359,76 +364,125 @@ local function addBezel(f)
   f.layoutBezel()
 end
 
+-- Blizzard's own frame (ButtonFrameTemplate: the map's bronze bezel, title bar, red close button and inset), so the panel
+-- looks like the map beside it. Only when the template's helper exists and the frame can be made; otherwise the gold
+-- bezel drawn in build() stands in, in the same colours and width.
+local function nativeFrame()
+  if type(_G.ButtonFrameTemplate_HidePortrait) ~= "function" then return nil end
+  local ok, f = pcall(CreateFrame, "Frame", "RibbonGuideDock", WorldMapFrame, "ButtonFrameTemplate")
+  if not (ok and type(f) == "table") then return nil end
+  pcall(_G.ButtonFrameTemplate_HidePortrait, f)
+  return f
+end
+
 -- Builds the panel as a child of the world map, so it shows and hides with the map.
 local function build()
   local style = ns.compassStyle
   local B = style.bezel.band
-  local f = CreateFrame("Frame", "RibbonGuideDock", WorldMapFrame)
   local width = COLUMN_W + 2 * B + 12
+  local f = nativeFrame()
+  local native = f ~= nil
+  if not native then f = CreateFrame("Frame", "RibbonGuideDock", WorldMapFrame) end
+  f.native = native
   f:SetWidth(width)
   f:EnableMouse(true)
-  local bg = f:CreateTexture(nil, "BACKGROUND")
-  bg:SetAllPoints()
-  bg:SetColorTexture(0.04, 0.14, 0.18, 0.97)   -- the logo's dark teal, a little deeper so the gold border stands out
-  addBezel(f)
+  local content, anchor   -- the frame the content hangs from, and how the lists attach to it
 
-  -- The title bar, like the map's: the title in the middle and a close button on the right.
-  local strip = f:CreateTexture(nil, "ARTWORK")
-  strip:SetColorTexture(0.03, 0.10, 0.14, 1)   -- like the map's dark title bar
-  strip:SetPoint("TOPLEFT", f, "TOPLEFT", B, -B)
-  strip:SetPoint("TOPRIGHT", f, "TOPRIGHT", -B, -B)
-  strip:SetHeight(style.bezel.title)
-  f.strip = strip
-  local rule = f:CreateTexture(nil, "ARTWORK")
-  rule:SetColorTexture(0.914, 0.725, 0.286, 0.7)   -- a fine gold line under it
-  rule:SetHeight(1)
-  rule:SetPoint("TOPLEFT", strip, "BOTTOMLEFT")
-  rule:SetPoint("TOPRIGHT", strip, "BOTTOMRIGHT")
+  if native then
+    -- (A real frame has these as frames; anything else is not one.)
+    content = type(f.Inset) == "table" and f.Inset.SetPoint and f.Inset or f
+    anchor = { frame = content, x = 8, top = 34, bottom = 8 }
+    -- The title goes through the template's own title text.
+    f.title = {
+      SetText = function(_, t)
+        if f.SetTitle then f:SetTitle(t) elseif f.TitleText then f.TitleText:SetText(t) end
+      end,
+    }
+    f.title:SetText(ns.guide and ns.guide.title or "Guide")
+    f.close = type(f.CloseButton) == "table" and f.CloseButton.SetScript and f.CloseButton or nil
+    if not f.close then
+      f.close = CreateFrame("Button", nil, f)
+      f.close:SetSize(22, 22)
+      f.close:SetPoint("TOPRIGHT", f, "TOPRIGHT", -4, -4)
+    end
+    f.close:SetScript("OnClick", function() Br.setDock(false) end)
+    -- The back arrow: the game's own previous-page arrow, in the title bar.
+    f.back = CreateFrame("Button", nil, f)
+    f.back:SetSize(22, 22)
+    f.back:SetPoint("TOPLEFT", f, "TOPLEFT", 8, -4)
+    f.back:SetNormalTexture([[Interface\Buttons\UI-SpellbookIcon-PrevPage-Up]])
+    f.back:SetPushedTexture([[Interface\Buttons\UI-SpellbookIcon-PrevPage-Down]])
+    f.back:SetHighlightTexture([[Interface\Buttons\UI-Common-MouseHilight]], "ADD")
+  else
+    content = f
+    local p = style.panel
+    local bg = f:CreateTexture(nil, "BACKGROUND")
+    bg:SetAllPoints()
+    bg:SetColorTexture(unpack(p.body))
+    addBezel(f)
 
-  f.title = f:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-  f.title:SetPoint("CENTER", strip, "CENTER", 0, 0)
-  f.title:SetWidth(width - 2 * B - 64)     -- clear of the back arrow and the close button
-  f.title:SetWordWrap(false)
-  f.title:SetText(ns.guide and ns.guide.title or "Guide")
-  f.title:SetTextColor(0.914, 0.725, 0.286)   -- gold, like "Map & Quest Log"
+    -- The title bar, like the map's: the title in the middle and a close button on the right.
+    local strip = f:CreateTexture(nil, "ARTWORK")
+    strip:SetColorTexture(unpack(p.strip))
+    strip:SetPoint("TOPLEFT", f, "TOPLEFT", B, -B)
+    strip:SetPoint("TOPRIGHT", f, "TOPRIGHT", -B, -B)
+    strip:SetHeight(style.bezel.title)
+    f.strip = strip
+    local rule = f:CreateTexture(nil, "ARTWORK")
+    rule:SetColorTexture(p.gold[1], p.gold[2], p.gold[3], 0.7)   -- a fine gold line under it
+    rule:SetHeight(1)
+    rule:SetPoint("TOPLEFT", strip, "BOTTOMLEFT")
+    rule:SetPoint("TOPRIGHT", strip, "BOTTOMRIGHT")
 
-  -- The back arrow, on the child page: a bezel button with the caret pointing left.
-  f.back = CreateFrame("Button", nil, f)
-  f.back:SetSize(22, 22)
-  f.back:SetPoint("LEFT", strip, "LEFT", 2, 0)
-  f.back.bg = f.back:CreateTexture(nil, "ARTWORK")
-  f.back.bg:SetTexture(style.textures.bezelButton)
-  f.back.bg:SetAllPoints()
-  f.back.caret = f.back:CreateTexture(nil, "OVERLAY")
-  f.back.caret:SetTexture(style.textures.panelCaret)
-  f.back.caret:SetSize(14, 14)
-  f.back.caret:SetPoint("CENTER", f.back, "CENTER", -1, 0)
-  f.back:SetHighlightTexture(style.textures.bezelButton, "ADD")
+    f.title = f:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    f.title:SetPoint("CENTER", strip, "CENTER", 0, 0)
+    f.title:SetWidth(width - 2 * B - 64)     -- clear of the back arrow and the close button
+    f.title:SetWordWrap(false)
+    f.title:SetText(ns.guide and ns.guide.title or "Guide")
+    f.title:SetTextColor(unpack(p.gold))   -- gold, like "Map & Quest Log"
+
+    -- The back arrow, on the child page: a bezel button with the caret pointing left.
+    f.back = CreateFrame("Button", nil, f)
+    f.back:SetSize(22, 22)
+    f.back:SetPoint("LEFT", strip, "LEFT", 2, 0)
+    f.back.bg = f.back:CreateTexture(nil, "ARTWORK")
+    f.back.bg:SetTexture(style.textures.bezelButton)
+    f.back.bg:SetAllPoints()
+    f.back.caret = f.back:CreateTexture(nil, "OVERLAY")
+    f.back.caret:SetTexture(style.textures.panelCaret)
+    f.back.caret:SetSize(14, 14)
+    f.back.caret:SetPoint("CENTER", f.back, "CENTER", -1, 0)
+    f.back:SetHighlightTexture(style.textures.bezelButton, "ADD")
+
+    f.close = CreateFrame("Button", nil, f)
+    f.close:SetSize(22, 22)
+    f.close:SetPoint("RIGHT", strip, "RIGHT", -2, 0)
+    f.close.bg = f.close:CreateTexture(nil, "ARTWORK")
+    f.close.bg:SetTexture(style.textures.bezelButton)
+    f.close.bg:SetAllPoints()
+    -- The X is two thin bars crossed at the button's exact centre (a letter in a font sits off-centre).
+    f.close.bars = {}
+    for i, angle in ipairs({ 45, -45 }) do
+      local bar = f.close:CreateTexture(nil, "OVERLAY")
+      bar:SetColorTexture(0.953, 0.918, 0.824, 1)
+      bar:SetSize(2, 12)
+      bar:SetPoint("CENTER", f.close, "CENTER", 0, 0)
+      bar:SetRotation(math.rad(angle))
+      f.close.bars[i] = bar
+    end
+    f.close:SetHighlightTexture(style.textures.bezelButton, "ADD")
+    f.close:SetScript("OnClick", function() Br.setDock(false) end)
+  end
   f.back:SetScript("OnClick", function() Br.showChapters() end)
   f.back:Hide()
 
-  f.close = CreateFrame("Button", nil, f)
-  f.close:SetSize(22, 22)
-  f.close:SetPoint("RIGHT", strip, "RIGHT", -2, 0)
-  f.close.bg = f.close:CreateTexture(nil, "ARTWORK")
-  f.close.bg:SetTexture(style.textures.bezelButton)
-  f.close.bg:SetAllPoints()
-  -- The X is two thin bars crossed at the button's exact centre (a letter in a font sits off-centre).
-  f.close.bars = {}
-  for i, angle in ipairs({ 45, -45 }) do
-    local bar = f.close:CreateTexture(nil, "OVERLAY")
-    bar:SetColorTexture(0.953, 0.918, 0.824, 1)
-    bar:SetSize(2, 12)
-    bar:SetPoint("CENTER", f.close, "CENTER", 0, 0)
-    bar:SetRotation(math.rad(angle))
-    f.close.bars[i] = bar
-  end
-  f.close:SetHighlightTexture(style.textures.bezelButton, "ADD")
-  f.close:SetScript("OnClick", function() Br.setDock(false) end)
-
-  -- Overall progress along the whole guide, under the title bar.
+  -- Progress along the whole guide (or the chapter), under the title bar.
   f.overall = bar(f, width - 2 * (B + 8) - 40, 8)
-  f.overall.track:SetPoint("TOPLEFT", f, "TOPLEFT", B + 8, -(B + style.bezel.title + 10))
+  if native then
+    f.overall.track:SetPoint("TOPLEFT", content, "TOPLEFT", 10, -12)
+  else
+    f.overall.track:SetPoint("TOPLEFT", f, "TOPLEFT", B + 8, -(B + style.bezel.title + 10))
+  end
   f.overallText = f:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
   f.overallText:SetPoint("LEFT", f.overall.track, "RIGHT", 6, 0)
 
@@ -436,8 +490,8 @@ local function build()
   f.leftRows, f.rightRows = {}, {}
   f.page = "steps"
   local left, right
-  left, f.leftScroll = scroller(f, "RibbonGuideDockChapters", B + 6, COLUMN_W)
-  right, f.rightScroll = scroller(f, "RibbonGuideDockSteps", B + 6, COLUMN_W)
+  left, f.leftScroll = scroller(f, "RibbonGuideDockChapters", B + 6, COLUMN_W, anchor)
+  right, f.rightScroll = scroller(f, "RibbonGuideDockSteps", B + 6, COLUMN_W, anchor)
   local makeLeft, makeRight = makeCard(COLUMN_W - 22), makeRow(COLUMN_W - 22)
   f.setLeft = pool(left, f.leftRows, function(parent, i)
     local b = makeLeft(parent, i)
