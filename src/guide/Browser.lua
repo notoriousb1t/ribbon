@@ -349,7 +349,7 @@ local function makeRow(width)
       b.hover = true
       Br.paintRow(b)
       local row = b.row
-      if row and ns.map and ns.map.hoverStep then ns.map.hoverStep(row.map, row.x, row.y, row.icon) end
+      if row and ns.map and ns.map.hoverStep then ns.map.hoverStep(row.chapter, row.step) end
     end)
     b:SetScript("OnLeave", unhover)
     return b

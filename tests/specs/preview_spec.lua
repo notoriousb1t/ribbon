@@ -301,7 +301,7 @@ describe("Pins around the current step on the map", function()
     local w = ctx.ns.compassStyle.context.last.color
     expect(pin.questRing.SetVertexColor).toHaveBeenCalledWith(w[1], w[2], w[3], 1)
     local small = lib.AddWorldMapIconMap.calls[n][2]
-    expect(small.SetSize.calls[#small.SetSize.calls][1]).toBe(14)
+    expect(small.SetSize.calls[#small.SetSize.calls][1]).toBe(19)
   end)
 
   it("draws the step the mouse is over in the panel the same small way", function()
@@ -310,7 +310,7 @@ describe("Pins around the current step on the map", function()
     local lib = ctx.ns.map.lib
     local before = #lib.AddWorldMapIconMap.calls
     d.rightRows.items[5]:Trigger("OnEnter")
-    expect(#lib.AddWorldMapIconMap.calls).toBe(before + 1)
+    expect(#lib.AddWorldMapIconMap.calls).toBe(before + 2)        -- the step before it and the step itself (it is the last)
     d.rightRows.items[5]:Trigger("OnLeave")
     expect(lib.RemoveWorldMapIcon).toHaveBeenCalled()
   end)
