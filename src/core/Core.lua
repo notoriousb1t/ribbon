@@ -11,6 +11,7 @@ ns.ICONS = {
   -- guide's kill icon must not look like one.
   kill = "Interface\\Icons\\INV_Sword_04",
   loot = "Interface\\Icons\\INV_Misc_Bag_08",
+  interact = "Interface\\Icons\\INV_Misc_Gear_01",
   grind = "Interface\\Icons\\Ability_DualWield",
   poi = "Interface\\Icons\\INV_Misc_Map_01",
   -- Raid target markers, by the index GetRaidTargetIndex reports: 1 star, 2 circle, 3 diamond, 4 triangle, 5 moon,

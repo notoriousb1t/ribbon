@@ -122,7 +122,7 @@ describe("Core", function()
     end)
 
     it("include one for every guide icon name", function()
-      for _, name in ipairs({ "accept", "turnin", "kill", "loot", "grind", "poi", "fp", "hearth", "train", "ding" }) do
+      for _, name in ipairs({ "accept", "turnin", "kill", "loot", "interact", "grind", "poi", "fp", "hearth", "train", "ding" }) do
         expect(ctx.ns.ICONS[name]).toBeTruthy()
       end
     end)

@@ -289,22 +289,33 @@ const textures = {
   }),
 
   // The step icons, inked like the quest symbols: gold with a dark outline.
+  // A blood droplet: a round body with a point at the top.
   "glyph-kill": render((x, y) => ink(unionSdf(
-    polySdf([[63.5, 12], [73, 26], [73, 80], [54, 80], [54, 26]], x, y),
-    segDist(x, y, 36, 86, 91, 86) - 6.5,
-    segDist(x, y, 63.5, 90, 63.5, 104) - 5.5,
-    Math.hypot(x - 63.5, y - 110) - 8), y)),
+    Math.hypot(x - 63.5, y - 78) - 33,
+    polySdf([[63.5, 10], [32, 68], [95, 68]], x, y)), y)),
 
   "glyph-grind": render((x, y) => ink(unionSdf(
     segDist(x, y, 26, 24, 96, 94) - 7, segDist(x, y, 101, 24, 31, 94) - 7,
     segDist(x, y, 20, 72, 52, 104) - 5, segDist(x, y, 107, 72, 75, 104) - 5,
     Math.hypot(x - 100, y - 100) - 9, Math.hypot(x - 27, y - 100) - 9), y)),
 
+  // A sack: a round body, a cinched neck with a rope and a flared mouth, and a coin pressed into it.
   "glyph-loot": render((x, y) => {
-    const body = (Math.hypot((x - 63.5) / 36, (y - 78) / 31) - 1) * 31;
-    const neck = segDist(x, y, 52, 46, 75, 46) - 11;
-    const tie = segDist(x, y, 44, 58, 83, 58) - 3;
-    return ink(Math.max(unionSdf(body, neck, tie), -(segDist(x, y, 63.5, 78, 63.5, 84) - 7)), y);
+    const body = (Math.hypot((x - 63.5) / 42, (y - 84) / 33) - 1) * 33;
+    const neck = polySdf([[50, 40], [77, 40], [86, 62], [41, 62]], x, y);
+    const mouth = polySdf([[32, 12], [95, 12], [79, 36], [48, 36]], x, y);
+    const coin = Math.hypot(x - 63.5, y - 86) - 11;
+    return ink(Math.max(unionSdf(body, neck, mouth), -coin), y);
+  }),
+
+  // A gear: a disc with eight teeth and a hole.
+  "glyph-interact": render((x, y) => {
+    let d = Math.hypot(x - 63.5, y - 63.5) - 34;
+    for (let k = 0; k < 8; k++) {
+      const ang = (k * Math.PI) / 4;
+      d = Math.min(d, segDist(x, y, 63.5 + 34 * Math.cos(ang), 63.5 + 34 * Math.sin(ang), 63.5 + 40 * Math.cos(ang), 63.5 + 40 * Math.sin(ang)) - 10);
+    }
+    return ink(Math.max(d, -(Math.hypot(x - 63.5, y - 63.5) - 13)), y);
   }),
 
   "glyph-poi": render((x, y) => ink(Math.max(unionSdf(

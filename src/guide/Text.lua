@@ -116,7 +116,7 @@ end
 -- The call kind that decides a group's map icon.
 local ICON = {
   Accept = "accept", Turnin = "turnin", Kill = "kill", Grind = "grind",
-  Loot = "loot", Collect = "loot", Interact = "loot", Use = "loot",
+  Loot = "loot", Collect = "loot", Interact = "interact", Use = "interact",
   Fp = "fp", Fly = "fp", Hearth = "hearth", Home = "hearth", Train = "train", Ding = "ding",
 }
 

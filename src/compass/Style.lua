@@ -27,6 +27,7 @@ S.textures = {
   glyphKill = DIR .. "glyph-kill",       -- the step icons, inked in gold like the quest symbols
   glyphGrind = DIR .. "glyph-grind",
   glyphLoot = DIR .. "glyph-loot",
+  glyphInteract = DIR .. "glyph-interact",
   glyphPoi = DIR .. "glyph-poi",
   glyphFp = DIR .. "glyph-fp",
   glyphHearth = DIR .. "glyph-hearth",
@@ -42,7 +43,7 @@ S.textureFiles = {
   "compass-dial", "compass-needle", "edge-arrow", "focus-ring", "marker-fill", "marker-rim",
   "bezel-corner", "bezel-edge-h", "bezel-edge-v", "bezel-button", "panel-toggle", "panel-caret", "panel-needle",
   "quest-ring", "quest-exclaim", "quest-question",
-  "glyph-kill", "glyph-grind", "glyph-loot", "glyph-poi", "glyph-fp", "glyph-hearth", "glyph-train", "glyph-ding",
+  "glyph-kill", "glyph-grind", "glyph-loot", "glyph-interact", "glyph-poi", "glyph-fp", "glyph-hearth", "glyph-train", "glyph-ding",
 }
 
 -- The bezel of the guide panel docked to the map, in display pixels: the band's depth (about the width of the map's
@@ -138,6 +139,7 @@ S.badge = {
     kill = { color = { 0.90, 0.30, 0.28 }, glyph = "glyphKill" },
     grind = { color = { 0.95, 0.55, 0.20 }, glyph = "glyphGrind" },
     loot = { color = { 0.85, 0.65, 0.40 }, glyph = "glyphLoot" },
+    interact = { color = { 0.72, 0.78, 0.88 }, glyph = "glyphInteract" },   -- use or click an object: a gear
     poi = { color = { 0.62, 0.82, 0.88 }, glyph = "glyphPoi" },
     fp = { color = { 0.30, 0.85, 0.35 }, glyph = "glyphFp" },   -- flight master green, like the taxi map's available flight points
     hearth = { color = { 0.95, 0.75, 0.40 }, glyph = "glyphHearth" },

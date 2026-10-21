@@ -147,3 +147,19 @@ describe("Marker badges", function()
     end)
   end)
 end)
+
+describe("Icons by kind of objective", function()
+  local H2 = require("tests.helpers.addon")
+  local ctx = H2.use({ boot = true })
+  local T
+  beforeEach(function() T = ctx.ns.guideText end)
+
+  it("uses the gear for interacting with or using an object and the sack for looting", function()
+    local function icon(kind) return T.icon({ calls = { { kind = kind } } }) end
+    expect(icon("Interact")).toBe("interact")
+    expect(icon("Use")).toBe("interact")
+    expect(icon("Loot")).toBe("loot")
+    expect(icon("Collect")).toBe("loot")
+    expect(ctx.ns.compassStyle.badge.kinds.interact.glyph).toBe("glyphInteract")
+  end)
+end)
