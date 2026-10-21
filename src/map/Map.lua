@@ -308,7 +308,7 @@ local function contextPin(slot, item)
   elseif pin.questRing then
     pin.questRing:SetVertexColor(1, 1, 1, 1)
   end
-  pin:SetAlpha(look.alpha * (item.fade or 1))
+  pin:SetAlpha(item.alpha or look.alpha * (item.fade or 1))
   if M.lib then M.lib:AddWorldMapIconMap(contextOwner, pin, item.map, item.x / 100, item.y / 100, _G.HBD_PINS_WORLDMAP_SHOW_CONTINENT) end
   return pin
 end
@@ -340,9 +340,9 @@ function M.refreshContext()
   for n = 1, ns.compassStyle.context.count do show("next" .. n, "next", n) end
 end
 
--- A step the mouse is over in the panel: its pin, the one before it and the two after it, drawn the same way around that
--- step and a little more transparent. Called with nothing to take them away.
-local HOVER = { { "hoverLast", "last", -1 }, { "hover0", "next", 0 }, { "hover1", "next", 1 }, { "hover2", "next", 2 } }
+-- A step the mouse is over in the panel: its pin fully opaque, and the one before it and the one after it, a little more
+-- transparent. Called with nothing to take them away.
+local HOVER = { { "hoverLast", "last", -1 }, { "hover0", "next", 0 }, { "hover1", "next", 1 } }
 
 function M.hoverStep(chapter, step)
   for _, h in ipairs(HOVER) do clearSlot(h[1]) end
@@ -356,7 +356,7 @@ function M.hoverStep(chapter, step)
     if entry then
       local map, x, y = ns.guidePlanner.stepLocation(entry.step)
       if type(map) == "number" and type(x) == "number" then
-        contextPin(h[1], { mode = h[2], map = map, x = x, y = y, icon = ns.guideText.stepIcon(entry.step), fade = ns.compassStyle.context.hoverFade })
+        contextPin(h[1], { mode = h[2], map = map, x = x, y = y, icon = ns.guideText.stepIcon(entry.step), fade = ns.compassStyle.context.hoverFade, alpha = h[3] == 0 and 1 or nil })
       end
     end
   end

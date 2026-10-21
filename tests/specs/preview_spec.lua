@@ -304,6 +304,21 @@ describe("Pins around the current step on the map", function()
     expect(small.SetSize.calls[#small.SetSize.calls][1]).toBe(19)
   end)
 
+  it("draws the step the mouse is over opaque, with the steps either side of it fainter", function()
+    ctx.ns.guideBrowser.toggleDock()
+    local d = ctx.ns.guideBrowser.dock()
+    local lib = ctx.ns.map.lib
+    local before = #lib.AddWorldMapIconMap.calls
+    d.rightRows.items[3]:Trigger("OnEnter")
+    local calls = lib.AddWorldMapIconMap.calls
+    expect(#calls).toBe(before + 3)
+    local alphas = {}
+    for i = before + 1, before + 3 do local a = calls[i][2].SetAlpha.calls alphas[#alphas + 1] = a[#a][1] end
+    expect(alphas[2]).toBe(1)
+    expect(alphas[1]).toBeLessThan(0.9)
+    expect(alphas[3]).toBeLessThan(0.9)
+  end)
+
   it("draws the step the mouse is over in the panel the same small way", function()
     ctx.ns.guideBrowser.toggleDock()
     local d = ctx.ns.guideBrowser.dock()
