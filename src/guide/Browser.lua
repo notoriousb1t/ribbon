@@ -312,7 +312,16 @@ function Br.setDock(shown)
     ns:Print("no guide installed.")
     return
   end
-  if not WorldMapFrame then return end
+  -- The world map is load-on-demand on some clients: load it, and if that is not possible say what to do.
+  if not WorldMapFrame then
+    local load = (C_AddOns and C_AddOns.LoadAddOn) or LoadAddOn
+    if load then pcall(load, "Blizzard_WorldMap") end
+  end
+  if not WorldMapFrame then
+    ns:Print("the world map is not loaded yet: open it once (M), then try again.")
+    return
+  end
+  if ns.map and ns.map.createGuideButton then ns.map.createGuideButton() end   -- make sure the map button exists too
   if not dock then buildDock() end
   dock:SetShown(shown)
   if ns.db then ns.db.guideDock = shown and true or false end
@@ -334,5 +343,6 @@ end)
 function Br.frame() return frame end
 function Br.dock() return dock end
 
--- /ribbon guides: the same panel as /ribbon guide.
+-- /ribbon guides: the same panel as /ribbon guide. /ribbon dock: the one docked to the world map.
 ns.commands.guides = function() Br.toggle() end
+ns.commands.dock = function() Br.toggleDock() end

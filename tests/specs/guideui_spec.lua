@@ -353,6 +353,19 @@ describe("Guide progress", function()
       expect(d.rightRows.items[3]:IsShown()).toBe(true)
     end)
 
+    it("opens with /ribbon dock", function()
+      SlashCmdList.RIBBON("dock")
+      expect(dockPanel():IsShown()).toBe(true)
+      SlashCmdList.RIBBON("dock")
+      expect(dockPanel():IsShown()).toBe(false)
+    end)
+
+    it("puts the map button over the header art without a strata that could hide it behind the map", function()
+      local b = ctx.ns.map.guideButton
+      expect(b.SetFrameStrata.calls[1]).toBeNil()
+      expect(b.SetFrameLevel.calls[#b.SetFrameLevel.calls][1]).toBeGreaterThan(WorldMapFrame:GetFrameLevel() + 50)
+    end)
+
     it("keeps the dialog and the dock independent", function()
       ctx.ns.map.guideButton:Trigger("OnClick")
       ctx.ns.guideBrowser.toggle()
