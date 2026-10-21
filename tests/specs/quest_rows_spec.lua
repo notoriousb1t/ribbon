@@ -149,52 +149,43 @@ describe("Steps laid out like quests in the quest log", function()
       d.rightRows.items[2].objectives.GetStringHeight = function() return 12 end
       ctx.ns.guideBrowser.refresh()
       local function y(row) local c = row.SetPoint.calls return c[#c][5] end
-      expect(y(d.rightRows.items[1])).toBe(-24)                                  -- under the section header
-      expect(y(d.rightRows.items[2])).toBe(-(24 + 34))
-      expect(y(d.rightRows.items[3])).toBe(-(24 + 34 + 10 + 28 + 12 + 2))
+      expect(y(d.rightRows.items[1])).toBe(0)                                    -- no header above the steps
+      expect(y(d.rightRows.items[2])).toBe(-34)
+      expect(y(d.rightRows.items[3])).toBe(-(34 + 10 + 28 + 12 + 2))
     end)
   end)
 
-  describe("the chapter's section header", function()
-    it("tops the step list with the chapter's name, like the quest log's zone header", function()
+  describe("section headers", function()
+    it("are not there while nothing is searched for: the title bar names the chapter", function()
       local d = open()
-      expect(d.section:IsShown()).toBe(true)
-      expect(d.section.headText.SetText).toHaveBeenCalledWith("1-13 Zephras Isle (Skyborne)")
-      expect(d.section.headBg:IsShown()).toBe(true)
-      expect(d.section.minus:IsShown()).toBe(true)
-      expect(d.section.plus:IsShown()).toBe(false)
-    end)
-
-    it("folds the steps away, and a click opens them again", function()
-      local d = open()
-      d.section:Trigger("OnClick")
-      expect(d.section.plus:IsShown()).toBe(true)                                -- a plus while folded
-      expect(d.rightRows.items[1]:IsShown()).toBe(false)
-      expect(d.rightContent.SetHeight.calls[#d.rightContent.SetHeight.calls][1]).toBe(24)
-      d.section:Trigger("OnClick")
-      expect(d.section.plus:IsShown()).toBe(false)
-      expect(d.rightRows.items[1]:IsShown()).toBe(true)
-    end)
-
-    it("starts every section open when the panel is opened again", function()
-      local d = open()
-      d.section:Trigger("OnClick")
-      d.close:Trigger("OnClick")
-      d = open()
-      expect(d.rightRows.items[1]:IsShown()).toBe(true)
+      expect(d.section).toBeNil()
+      expect(d.rightRows.items[1].isHeader).toBe(false)
+      expect(d.rightRows.items[1].headBg:IsShown()).toBe(false)
     end)
 
     it("is a row of its own for each chapter while searching, and folds that chapter", function()
       local d = open()
       d.search:SetText("accept")
       d.search:Trigger("OnTextChanged", true)
-      expect(d.section:IsShown()).toBe(false)
       local head = d.rightRows.items[1]
       expect(head.isHeader).toBe(true)
       expect(head.minus:IsShown()).toBe(true)
       head:Trigger("OnClick")                                                    -- fold chapter one's results
       expect(d.rightRows.items[1].plus:IsShown()).toBe(true)
       expect(d.rightRows.items[2].isHeader).toBe(true)                           -- the next row is chapter two's header
+    end)
+
+    it("start open again when the panel is opened again", function()
+      local d = open()
+      d.search:SetText("accept")
+      d.search:Trigger("OnTextChanged", true)
+      d.rightRows.items[1]:Trigger("OnClick")                                    -- fold chapter one
+      d.close:Trigger("OnClick")
+      d = open()
+      d.search:SetText("accept")
+      d.search:Trigger("OnTextChanged", true)
+      expect(d.rightRows.items[1].plus:IsShown()).toBe(false)
+      expect(d.rightRows.items[2].isHeader).toBe(false)                          -- chapter one's steps are back
     end)
   end)
 

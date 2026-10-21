@@ -217,7 +217,7 @@ describe("Guide search", function()
       ctx.ns.guideBrowser.toggleDock()
       local d = ctx.ns.guideBrowser.dock()
       expect(d.native).toBe(true)
-      expect(d.back.bg.SetTexture).toHaveBeenCalledWith(ctx.ns.compassStyle.textures.bezelButton)
+      expect(d.back.fill.SetTexture).toHaveBeenCalledWith(ctx.ns.compassStyle.textures.markerFill)
       expect(d.back.caret.SetTexture).toHaveBeenCalledWith(ctx.ns.compassStyle.textures.panelCaret)
       expect(d.back.SetFrameLevel.calls[#d.back.SetFrameLevel.calls][1]).toBeGreaterThan(d:GetFrameLevel() + 10)
       _G.ButtonFrameTemplate_HidePortrait = nil

@@ -41,4 +41,5 @@ return {
   "loader",
   "quest_rows",
   "counter",
+  "backbutton",
 }

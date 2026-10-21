@@ -316,7 +316,7 @@ describe("Guide panel bezel and map button", function()
     it("goes back with its arrow, which is Ribbon's own button in the game's frame too", function()
       _G.ButtonFrameTemplate_HidePortrait = function() end
       local d = open()
-      expect(d.back.bg.SetTexture).toHaveBeenCalledWith(S.textures.bezelButton)
+      expect(d.back.fill.SetTexture).toHaveBeenCalledWith(S.textures.markerFill)
       d.back:Trigger("OnClick")
       expect(d.page).toBe("chapters")
       cleanup()

@@ -94,7 +94,7 @@ function Br.rows(player, chapter, query)
   end
   -- The steps of the chapter being browsed; while searching, the matching steps of every chapter, each chapter's under a
   -- section header row ({ header = true, chapter =, label =, count =, folded = }) like the quest log's zone header,
-  -- which folds them away (when not searching, the one chapter's header is a frame of its own above the rows). A step row is laid out like a quest in the quest log: a title line (the first thing the step
+  -- which folds them away (when not searching there is no header: the chapter is already named in the title bar). A step row is laid out like a quest in the quest log: a title line (the first thing the step
   -- says) and, under it, the rest of what it says as objectives.
   local base = 0
   for _, ch in ipairs(S.view) do
@@ -206,8 +206,8 @@ local function mouseOver(frame)
 end
 
 -- The look of the quest log's zone header on a frame: a dark bar with a thin gold border, a name, and a fold button (a
--- minus; with a second bar across it, a plus). Used by the section header over the list and by the step rows, which
--- become headers while searching.
+-- minus; with a second bar across it, a plus). Used by the step rows, which become one chapter's header each while
+-- searching.
 local function addHeaderLook(b, width)
   local style = ns.compassStyle
   local gold = style.panel.gold
@@ -427,21 +427,8 @@ local function fill(f, player)
     b.chapter, b.done, b.total, b.fraction = row.chapter, row.done, row.total, row.fraction
   end
   f.setRight(#right)
-  -- Not searching: the one chapter's section header sits above the rows (searching, each chapter's header is a row).
-  local searching = query ~= ""
+  -- The rows start at the top. (Searching, each chapter with matches has a section header row of its own.)
   local y = 0
-  local section = f.section
-  section:SetShown(not searching)
-  if not searching then
-    local label, isFolded
-    for _, row in ipairs(left) do
-      if row.chapter == selected then label = text.chapterParts(row.label) end
-    end
-    isFolded = folded[selected] == true
-    section.chapter = selected
-    setHeaderLook(section, true, label or "", isFolded)
-    y = SECTION_H
-  end
   f.rowTop, f.rowHeight = {}, {}
   for i, row in ipairs(right) do
     local b = f.rightRows.items[i]
@@ -794,7 +781,7 @@ local function build()
   -- The back arrow, on the child page: a button with the caret pointing left. The same in both looks, and drawn from
   -- Ribbon's own textures, so it is always there.
   f.back = CreateFrame("Button", nil, f)
-  f.back:SetSize(22, 22)
+  f.back:SetSize(24, 24)
   -- It sits at the start of the search row, inside the panel's own content (the title bar is the template's, and
   -- anything put there can be hidden under its art).
   if native then
@@ -803,14 +790,20 @@ local function build()
     f.back:SetPoint("TOPLEFT", f, "TOPLEFT", B + 8, -(B + style.bezel.title + 5))
   end
   f.back:SetFrameLevel(f:GetFrameLevel() + 20)
-  f.back.bg = f.back:CreateTexture(nil, "ARTWORK")
-  f.back.bg:SetTexture(style.textures.bezelButton)
-  f.back.bg:SetAllPoints()
+  -- Round, like the map's own filter button at the top left of the map: a dark disc in a gold bevelled ring (the quest
+  -- badge's), a gold caret in it.
+  f.back.fill = f.back:CreateTexture(nil, "BACKGROUND")
+  f.back.fill:SetTexture(style.textures.markerFill)
+  f.back.fill:SetVertexColor(unpack(style.badge.questFill))
+  f.back.fill:SetAllPoints()
+  f.back.ring = f.back:CreateTexture(nil, "BORDER")
+  f.back.ring:SetTexture(style.textures.questRing)
+  f.back.ring:SetAllPoints()
   f.back.caret = f.back:CreateTexture(nil, "OVERLAY")
   f.back.caret:SetTexture(style.textures.panelCaret)
-  f.back.caret:SetSize(14, 14)
+  f.back.caret:SetSize(12, 12)
   f.back.caret:SetPoint("CENTER", f.back, "CENTER", -1, 0)
-  f.back:SetHighlightTexture(style.textures.bezelButton, "ADD")
+  f.back:SetHighlightTexture(style.textures.markerFill, "ADD")
   f.back:SetScript("OnClick", function() Br.showChapters() end)
   f.back:Hide()
 
@@ -859,12 +852,6 @@ local function build()
   left, f.leftScroll = scroller(f, "RibbonGuideDockChapters", B + 6, COLUMN_W, anchor)
   right, f.rightScroll = scroller(f, "RibbonGuideDockSteps", B + 6, COLUMN_W, anchor)
   f.rightContent = right
-  -- The chapter's section header, at the top of the step list: it scrolls with the steps and folds them away.
-  f.section = CreateFrame("Button", nil, right)
-  f.section:SetSize(COLUMN_W - 22, SECTION_H)
-  f.section:SetPoint("TOPLEFT", right, "TOPLEFT", 0, 0)
-  addHeaderLook(f.section, COLUMN_W - 22)
-  f.section:SetScript("OnClick", function(self) Br.toggleFold(self.chapter) end)
   local makeLeft, makeRight = makeCard(COLUMN_W - 22), makeRow(COLUMN_W - 22)
   f.setLeft = pool(left, f.leftRows, function(parent, i)
     local b = makeLeft(parent, i)
