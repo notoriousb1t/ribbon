@@ -41,9 +41,10 @@ S.textureFiles = {
 S.bezel = { band = 9, corner = 32, title = 24, bandFraction = 18 / 64 }
 
 -- The map button, a blue version of the map's quest log toggle: the body, a caret on the left (pointing right while the
--- panel is open, left while it is closed) and the middle of the compass (its needle) on the right. Sizes in pixels; the
--- body's texture has 16 empty rows above and below its 96, so only the middle 75% is shown.
-S.toggle = { width = 44, height = 33, caret = 14, icon = 24, rows = { 0.125, 0.875 } }
+-- panel is open, left while it is closed) and the middle of the compass (its needle) on the right. It is sized to the
+-- map's own toggle and sits just above it, right edges level (`width` and `height` are used only when that toggle
+-- cannot be measured); `gap` pixels between them; the caret and the needle are fractions of the button's smaller side.
+S.toggle = { width = 30, height = 30, gap = 3, caret = 0.32, icon = 0.58, inset = 0.12 }
 
 -- The dial sits centred on the bar and is taller than it, so it stands out above and below. It covers the tick marks
 -- (the individual degrees) and the direction names; only the waypoint markers are drawn over it. The caption above the bar

@@ -126,23 +126,46 @@ describe("Guide panel bezel and map button", function()
       ctx.ns.map.createGuideButton()
       local b = ctx.ns.map.guideButton
       expect(b.bezel.SetTexture).toHaveBeenCalledWith(S.textures.panelToggle)
-      expect(b.bezel.SetTexCoord).toHaveBeenCalledWith(0, 1, S.toggle.rows[1], S.toggle.rows[2])
-      expect(b.SetSize).toHaveBeenCalledWith(S.toggle.width, S.toggle.height)
-      expect(b.SetPoint).toHaveBeenCalledWith("BOTTOM", WorldMapFrame.SidePanelToggle, "TOP", 0, 6)
       WorldMapFrame.SidePanelToggle = nil
     end)
 
-    it("is 4:3 like the map's toggle and the cropped texture is not stretched", function()
-      expect(S.toggle.width / S.toggle.height).toBeCloseTo(4 / 3, 1)
-      expect((S.toggle.rows[2] - S.toggle.rows[1]) * 128).toBe(96)       -- 128 wide, 96 tall in the file
+    it("is the same size as the map's toggle and sits just above it, right edges level", function()
+      ctx.ns.map.guideButton = nil
+      RibbonGuideMapButton = nil
+      local toggle = { GetObjectType = function() return "Frame" end, GetWidth = function() return 31 end, GetHeight = function() return 29 end }
+      WorldMapFrame.SidePanelToggle = toggle
+      ctx.ns.map.createGuideButton()
+      local b = ctx.ns.map.guideButton
+      expect(b.SetSize).toHaveBeenCalledWith(31, 29)
+      expect(b.SetPoint).toHaveBeenCalledWith("BOTTOMRIGHT", toggle, "TOPRIGHT", 0, S.toggle.gap)
+      WorldMapFrame.SidePanelToggle = nil
     end)
 
-    it("has a caret on the left and the middle of the compass on the right", function()
+    it("lines up again when the map lays itself out later, and falls back to the style's size before then", function()
+      ctx.ns.map.guideButton = nil
+      RibbonGuideMapButton = nil
+      local w, h = 0, 0
+      local toggle = { GetObjectType = function() return "Frame" end, GetWidth = function() return w end, GetHeight = function() return h end }
+      WorldMapFrame.SidePanelToggle = toggle
+      ctx.ns.map.createGuideButton()
       local b = ctx.ns.map.guideButton
+      expect(b.SetSize).toHaveBeenCalledWith(S.toggle.width, S.toggle.height)
+      w, h = 34, 32
+      ctx.ns.map.alignGuideButton()
+      expect(b.SetSize).toHaveBeenCalledWith(34, 32)
+      expect(WorldMapFrame.HookScript).toHaveBeenCalledWith("OnShow", ctx.ns.map.alignGuideButton)
+      WorldMapFrame.SidePanelToggle = nil
+    end)
+
+    it("has a caret on the left and the middle of the compass on the right, sized to the button", function()
+      local b = ctx.ns.map.guideButton
+      local side = math.min(S.toggle.width, S.toggle.height)
+      local caret, icon = math.floor(side * S.toggle.caret + 0.5), math.floor(side * S.toggle.icon + 0.5)
       expect(b.caret.SetTexture).toHaveBeenCalledWith(S.textures.panelCaret)
-      expect(b.caret.SetPoint).toHaveBeenCalledWith("LEFT", b, "LEFT", 6, 0)
+      expect(b.caret.SetSize).toHaveBeenCalledWith(caret, caret)
       expect(b.icon.SetTexture).toHaveBeenCalledWith(S.textures.needle)
-      expect(b.icon.SetPoint).toHaveBeenCalledWith("RIGHT", b, "RIGHT", -4, 0)
+      expect(b.icon.SetSize).toHaveBeenCalledWith(icon, icon)
+      expect(caret + icon).toBeLessThan(side + 6)          -- side by side without piling on each other
     end)
 
     it("falls back to the map's bottom right corner without that toggle", function()

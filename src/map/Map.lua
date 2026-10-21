@@ -59,38 +59,23 @@ end
 local function createGuideButton()
   if M.guideButton or not WorldMapFrame or not ns.guide then return end
   local style = ns.compassStyle
-  local look = style.toggle
   local b = CreateFrame("Button", "RibbonGuideMapButton", WorldMapFrame)
-  b:SetSize(look.width, look.height)
-  local toggle = WorldMapFrame.SidePanelToggle
-  if type(toggle) == "table" and toggle.GetObjectType then
-    b:SetPoint("BOTTOM", toggle, "TOP", 0, 6)
-  else
-    b:SetPoint("BOTTOMRIGHT", WorldMapFrame, "BOTTOMRIGHT", -10, 40)
-  end
   -- No strata of its own: a fixed one can put it behind the map frame. A high level keeps it over the map's art.
   b:SetFrameLevel(WorldMapFrame:GetFrameLevel() + 100)
   b.bezel = b:CreateTexture(nil, "BACKGROUND")
   b.bezel:SetTexture(style.textures.panelToggle)
-  b.bezel:SetTexCoord(0, 1, look.rows[1], look.rows[2])
   b.bezel:SetAllPoints()
   -- The caret points the way the panel will move: left to bring it out, right to put it away.
   b.caret = b:CreateTexture(nil, "ARTWORK")
   b.caret:SetTexture(style.textures.panelCaret)
-  b.caret:SetSize(look.caret, look.caret)
-  b.caret:SetPoint("LEFT", b, "LEFT", 6, 0)
   -- The middle of the compass: its needle.
   b.icon = b:CreateTexture(nil, "ARTWORK")
   b.icon:SetTexture(style.textures.needle)
-  b.icon:SetSize(look.icon, look.icon)
-  b.icon:SetPoint("RIGHT", b, "RIGHT", -4, 0)
   b.setOpen = function(open)
     if open then b.caret:SetTexCoord(1, 0, 0, 1) else b.caret:SetTexCoord(0, 1, 0, 1) end
   end
   b.setOpen(false)
   b:SetHighlightTexture(style.textures.panelToggle, "ADD")
-  local hl = b:GetHighlightTexture()
-  if hl then hl:SetTexCoord(0, 1, look.rows[1], look.rows[2]) end
   b:SetScript("OnClick", function() ns.guideBrowser.toggleDock() end)
   b:SetScript("OnEnter", function(self)
     GameTooltip:SetOwner(self, "ANCHOR_BOTTOM")
@@ -100,8 +85,47 @@ local function createGuideButton()
   end)
   b:SetScript("OnLeave", function() GameTooltip:Hide() end)
   M.guideButton = b
+  M.alignGuideButton()
+  -- The map lays itself out after it opens and when it is resized: line up again then.
+  pcall(function()
+    WorldMapFrame:HookScript("OnShow", M.alignGuideButton)
+    WorldMapFrame:HookScript("OnSizeChanged", M.alignGuideButton)
+  end)
   local dock = ns.guideBrowser and ns.guideBrowser.dock()
   b.setOpen(dock and dock:IsShown() and true or false)
+end
+
+-- Sizes the button to the map's own quest log toggle and puts it just above it, right edges level, so the two line up
+-- exactly. Without that toggle (or before it has a size) the button keeps the style's size in the map's corner.
+function M.alignGuideButton()
+  local b = M.guideButton
+  if not b then return end
+  local look = ns.compassStyle.toggle
+  local toggle = WorldMapFrame and WorldMapFrame.SidePanelToggle
+  local w, h = look.width, look.height
+  local found = type(toggle) == "table" and toggle.GetObjectType
+  if found then
+    local tw = toggle.GetWidth and toggle:GetWidth()
+    local th = toggle.GetHeight and toggle:GetHeight()
+    if type(tw) == "number" and tw > 0 and type(th) == "number" and th > 0 then w, h = tw, th end
+  end
+  b:SetSize(w, h)
+  b:ClearAllPoints()
+  if found then
+    b:SetPoint("BOTTOMRIGHT", toggle, "TOPRIGHT", 0, look.gap)
+  else
+    b:SetPoint("BOTTOMRIGHT", WorldMapFrame, "BOTTOMRIGHT", -10, 40)
+  end
+  -- The caret and the needle side by side, sized to the button.
+  local side = math.min(w, h)
+  local caret, icon = math.floor(side * look.caret + 0.5), math.floor(side * look.icon + 0.5)
+  local inset = math.floor(side * look.inset + 0.5)
+  b.caret:SetSize(caret, caret)
+  b.caret:ClearAllPoints()
+  b.caret:SetPoint("LEFT", b, "LEFT", inset, 0)
+  b.icon:SetSize(icon, icon)
+  b.icon:ClearAllPoints()
+  b.icon:SetPoint("RIGHT", b, "RIGHT", -math.max(1, inset - 2), 0)
 end
 
 ns:On("GUIDE_DOCK_CHANGED", function(shown)
