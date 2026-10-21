@@ -417,6 +417,17 @@ local function makeSearch(parent, width)
   box:SetSize(width, 20)
   box:SetAutoFocus(false)
   box:SetMaxLetters(60)
+
+  -- The game's search box (SearchBoxTemplate) brings its own magnifier, placeholder text and clear button, so a second
+  -- hint drawn over it would double up: use its placeholder, keep its scripts and listen alongside them.
+  if type(box.Instructions) == "table" and box.Instructions.SetText then
+    box.Instructions:SetText("Search chapters and steps")
+    box.templated = true
+    function box.sync() end
+    box:HookScript("OnTextChanged", function(self) Br.setQuery(self:GetText() or "", true) end)
+    return box
+  end
+
   box.hint = box:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
   box.hint:SetPoint("LEFT", box, "LEFT", 6, 0)
   box.hint:SetText("Search chapters and steps")
@@ -464,6 +475,16 @@ local function nativeFrame()
   local ok, f = pcall(CreateFrame, "Frame", "RibbonGuideDock", WorldMapFrame, "ButtonFrameTemplate")
   if not (ok and type(f) == "table") then return nil end
   pcall(_G.ButtonFrameTemplate_HidePortrait, f)
+  -- The template reserves a bar for buttons at the bottom and a band under the title; the panel needs neither, so the
+  -- content gets the room and sits right under the title bar.
+  if type(_G.ButtonFrameTemplate_HideButtonBar) == "function" then pcall(_G.ButtonFrameTemplate_HideButtonBar, f) end
+  if type(f.TopTileStreaks) == "table" and f.TopTileStreaks.Hide then f.TopTileStreaks:Hide() end
+  local inset = f.Inset
+  if type(inset) == "table" and inset.SetPoint then
+    inset:ClearAllPoints()
+    inset:SetPoint("TOPLEFT", f, "TOPLEFT", 6, -26)
+    inset:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -6, 6)
+  end
   return f
 end
 
@@ -498,6 +519,7 @@ local function build()
       f.close:SetPoint("TOPRIGHT", f, "TOPRIGHT", -4, -4)
     end
     f.close:SetScript("OnClick", function() Br.setDock(false) end)
+    f.close:Hide()   -- the map button closes the panel, so the frame needs no X
   else
     content = f
     local p = style.panel
@@ -544,6 +566,7 @@ local function build()
     end
     f.close:SetHighlightTexture(style.textures.bezelButton, "ADD")
     f.close:SetScript("OnClick", function() Br.setDock(false) end)
+    f.close:Hide()   -- the map button closes the panel, so the frame needs no X
   end
   -- The back arrow, on the child page: a button with the caret pointing left. The same in both looks, and drawn from
   -- Ribbon's own textures, so it is always there; a high frame level keeps it over the title bar's art.

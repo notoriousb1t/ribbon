@@ -85,7 +85,12 @@ describe("Guide panel bezel and map button", function()
       expect(d.progress).toBeNil()           -- no "Step n of x"
     end)
 
-    it("closes from the bezel-styled button on the title bar", function()
+    it("has no X on the frame: the map button closes the panel", function()
+      local d = open()
+      expect(d.close:IsShown()).toBe(false)
+    end)
+
+    it("still closes through its (hidden) close button's script", function()
       local d = open()
       expect(d.close.bg.SetTexture).toHaveBeenCalledWith(S.textures.bezelButton)
       d.close:Trigger("OnClick")

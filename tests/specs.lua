@@ -37,4 +37,5 @@ return {
   "bezel",
   "preview",
   "search",
+  "native",
 }
