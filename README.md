@@ -46,7 +46,7 @@ Ribbon works on its own: it bundles HereBeDragons for map pins (a newer copy fro
 | `/ribbon compass width <500-800>` | Set the bar width. |
 | `/ribbon compass opacity <20-100>` | How see-through the ribbon is, as a percentage (default 75). Text, markers, the dial and the caption stay solid. |
 | `/ribbon compass fov <90-180>` | Set how wide an angle the bar covers. |
-| `/ribbon guides` | With a guide installed, open the chapter list: each chapter shows its levels and a progress bar, with the whole guide on top. Also opened by clicking the compass or the Ribbon icon on the world map. |
+| `/ribbon guides` | With a guide installed, open the chapter list: each chapter shows its levels and a progress bar, with the whole guide on top. Also opened by clicking the compass dial under the ribbon or the Ribbon icon on the world map. |
 
 - Drag the compass to move it. `/ribbon compass lock` stops the compass moving.
 - Left-click a marker on the compass to focus it: it grows and its name and distance show under the bar. Click it again to go back to the nearest waypoint.

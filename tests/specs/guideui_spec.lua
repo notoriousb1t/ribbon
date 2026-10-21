@@ -139,33 +139,38 @@ describe("Guide progress", function()
     end)
   end)
 
-  describe("compass click", function()
+  describe("compass dial click", function()
     local ctx = H.use({ boot = true })
 
     it("does nothing without a guide", function()
-      ctx.ns.compass.parts.frame:Trigger("OnMouseUp", "LeftButton")
+      ctx.ns.compass.parts.dial:Trigger("OnClick", "LeftButton")
       expect(ctx.ns.guideBrowser.frame()).toBeNil()
     end)
 
-    it("opens the panel on a plain left click and closes it on the next", function()
+    it("opens the panel on a click on the dial and closes it on the next", function()
       build(Ribbon.Guide("g", { schema = 1 }))
-      local frame = ctx.ns.compass.parts.frame
-      frame:Trigger("OnMouseUp", "LeftButton")
+      local dial = ctx.ns.compass.parts.dial
+      dial:Trigger("OnClick", "LeftButton")
       expect(ctx.ns.guideBrowser.frame():IsShown()).toBe(true)
-      frame:Trigger("OnMouseUp", "LeftButton")
+      dial:Trigger("OnClick", "LeftButton")
       expect(ctx.ns.guideBrowser.frame():IsShown()).toBe(false)
     end)
 
-    it("ignores the mouse-up that ends a drag and other buttons", function()
+    it("does not open for a click on the ribbon itself", function()
       build(Ribbon.Guide("g", { schema = 1 }))
-      local frame = ctx.ns.compass.parts.frame
-      frame:Trigger("OnDragStart")
-      frame:Trigger("OnDragStop")
-      frame:Trigger("OnMouseUp", "LeftButton")
+      ctx.ns.compass.parts.frame:Trigger("OnMouseUp", "LeftButton")
+      expect(ctx.ns.compass.parts.frame:GetScript("OnMouseUp")).toBeNil()
       expect(ctx.ns.guideBrowser.frame()).toBeNil()
-      frame:Trigger("OnMouseUp", "LeftButton")      -- the next click is a click again
-      expect(ctx.ns.guideBrowser.frame():IsShown()).toBe(true)
-      frame:Trigger("OnMouseUp", "RightButton")
+    end)
+
+    it("ignores the release that ends a drag of the dial", function()
+      build(Ribbon.Guide("g", { schema = 1 }))
+      local dial = ctx.ns.compass.parts.dial
+      dial:Trigger("OnDragStart")
+      dial:Trigger("OnDragStop")
+      dial:Trigger("OnClick", "LeftButton")
+      expect(ctx.ns.guideBrowser.frame()).toBeNil()
+      dial:Trigger("OnClick", "LeftButton")          -- the next click is a click again
       expect(ctx.ns.guideBrowser.frame():IsShown()).toBe(true)
     end)
   end)

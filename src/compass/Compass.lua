@@ -137,17 +137,8 @@ local function build()
   frame:SetClampedToScreen(true)
   frame:EnableMouse(true)
   frame:RegisterForDrag("LeftButton")
-  frame:SetScript("OnDragStart", function(self)
-    dragged = true
-    if not db.locked then self:StartMoving() end
-  end)
+  frame:SetScript("OnDragStart", function(self) if not db.locked then self:StartMoving() end end)
   frame:SetScript("OnDragStop", function(self) self:StopMovingOrSizing() savePosition() end)
-  -- A plain click on the ribbon opens the guide panel (a drag, which ends in a mouse-up too, does not).
-  frame:SetScript("OnMouseUp", function(_, button)
-    local wasDrag = dragged
-    dragged = false
-    if button == "LeftButton" and not wasDrag then C.OpenGuide() end
-  end)
 
   local style = ns.compassStyle
   local c = style.colors
@@ -209,8 +200,18 @@ local function build()
   needle:SetTexture(style.textures.needle)
   dial:SetScript("OnEnter", showCoordinates)
   dial:SetScript("OnLeave", function() GameTooltip:Hide() end)
-  dial:SetScript("OnDragStart", function() if not db.locked then frame:StartMoving() end end)
+  dial:SetScript("OnDragStart", function()
+    dragged = true
+    if not db.locked then frame:StartMoving() end
+  end)
   dial:SetScript("OnDragStop", function() frame:StopMovingOrSizing() savePosition() end)
+  -- A click on the compass dial (not the ribbon) opens the guide panel; the release that ends a drag does not count.
+  dial:RegisterForClicks("LeftButtonUp")
+  dial:SetScript("OnClick", function()
+    local wasDrag = dragged
+    dragged = false
+    if not wasDrag then C.OpenGuide() end
+  end)
 
   -- Caption above the bar: a dark plate with a gold trim, the headline (name and distance) and the description.
   local cap = style.caption
