@@ -47,7 +47,7 @@ describe("Compass dial", function()
 
     it("centres the dial on the bar and makes it larger than the bar", function()
       local parts = ctx.ns.compass.parts
-      expect(parts.dial.SetPoint).toHaveBeenCalledWith("CENTER", parts.frame, "CENTER", 0, 0)
+      expect(parts.dial.SetPoint).toHaveBeenCalledWith("CENTER", parts.frame, "CENTER", 0, ctx.ns.compassStyle.dial.offsetY)
       expect(parts.dial.SetSize).toHaveBeenCalledWith(46, 46)
     end)
 

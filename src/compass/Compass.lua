@@ -188,7 +188,7 @@ local function build()
   -- Hovering it shows the coordinates; dragging it moves the bar.
   dial = CreateFrame("Button", nil, frame)
   dial:SetSize(style.dial.size, style.dial.size)
-  dial:SetPoint("CENTER", frame, "CENTER", 0, 0)
+  dial:SetPoint("CENTER", frame, "CENTER", 0, style.dial.offsetY)
   dial:SetFrameLevel(frame:GetFrameLevel() + 1)   -- over the ticks; the labels (+2) and markers (+3 and up) pass over it
   dial:RegisterForDrag("LeftButton")
   dial.face = dial:CreateTexture(nil, "ARTWORK")

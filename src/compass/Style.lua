@@ -29,7 +29,8 @@ S.cap = { width = 32, height = 40, leftEdge = 18, rightEdge = 14 }
 -- The dial sits centred on the bar and is taller than it, so it stands out above and below. It covers the tick marks
 -- (the individual degrees); the direction labels and the waypoint markers are drawn over it. The caption above the bar
 -- is lifted by the dial's overhang so the two never touch.
-S.dial = { size = 46 }
+-- `offsetY` nudges it (pixels, negative = down): it reads a pixel or two high against the icons at its centre.
+S.dial = { size = 46, offsetY = -1 }
 S.band = { highlight = 2, shadow = 2 }
 
 -- Waypoint markers grow as you get close and shrink with distance (pixels). At `nearYd` yards or

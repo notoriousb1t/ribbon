@@ -38,7 +38,7 @@ describe("Marker size by distance", function()
       local a = L.markerSize(50, false, cfg)
       local b = L.markerSize(100, false, cfg)
       local c = L.markerSize(200, false, cfg)
-      expect(math.abs((a - b) - (b - c))).toBeLessThan(2)
+      expect(math.abs((a - b) - (b - c))).toBeLessThan(3)   -- sizes are even, so steps are 2 px
     end)
 
     it("uses the default size when the distance is unknown", function()
@@ -110,7 +110,14 @@ describe("Marker size by distance", function()
       ctx.world:placePlayer(1453, 61.99, 95, 0)
       ctx.ns:AddWaypoint(1453, 61.99, 95 - 900 / YD_PER_Y, { title = "Far" })
       frameTick()
-      expect(lastSize(parts.markers[1])).toBeLessThan(20)
+      expect(lastSize(parts.markers[1])).toBeLessThan(ctx.ns.compassStyle.marker.max / 2 + 2)
+    end)
+
+    it("gives every marker an even size, so it centres on the dial", function()
+      for _, d in ipairs({ 1, 15, 33, 77, 140, 333, 900, 5000 }) do
+        expect(L.markerSize(d, false, cfg) % 2).toBe(0)
+        expect(L.markerSize(d, true, cfg) % 2).toBe(0)
+      end
     end)
 
     it("shrinks a marker as the player walks away and grows it as the player approaches", function()

@@ -50,7 +50,8 @@ function L.markerSize(dist, focused, cfg)
     size = cfg.max - (cfg.max - cfg.min) * t
   end
   if focused then size = size + cfg.focusBoost end
-  return floor(size + 0.5)
+  -- Even sizes only: an odd marker centred on the 28 px band lands on a half pixel and reads a pixel off the dial.
+  return 2 * floor(size / 2 + 0.5)
 end
 
 -- Marker placements for waypoints (nearest first, as returned by ns:Sorted()).

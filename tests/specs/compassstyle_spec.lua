@@ -19,7 +19,7 @@ describe("Compass view style", function()
 
   it("centres the compass dial on the bar", function()
     expect(parts.dial.SetSize).toHaveBeenCalledWith(S.dial.size, S.dial.size)
-    expect(parts.dial.SetPoint).toHaveBeenCalledWith("CENTER", parts.frame, "CENTER", 0, 0)
+    expect(parts.dial.SetPoint).toHaveBeenCalledWith("CENTER", parts.frame, "CENTER", 0, S.dial.offsetY)
     expect(parts.dial.face.SetTexture).toHaveBeenCalledWith(S.textures.dial)
   end)
 

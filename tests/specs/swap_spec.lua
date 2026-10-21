@@ -20,7 +20,7 @@ describe("Caption above the bar, dial centred on it", function()
   end)
 
   it("centres the dial on the bar", function()
-    expect(parts.dial.SetPoint).toHaveBeenCalledWith("CENTER", parts.frame, "CENTER", 0, 0)
+    expect(parts.dial.SetPoint).toHaveBeenCalledWith("CENTER", parts.frame, "CENTER", 0, S.dial.offsetY)
   end)
 
   it("hangs nothing under the bar", function()
