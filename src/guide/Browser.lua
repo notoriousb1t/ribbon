@@ -300,7 +300,7 @@ local function makeRow(width)
     b.glow:Hide()
     b.icon = CreateFrame("Button", nil, b)
     b.icon:SetSize(ICON, ICON)
-    b.icon:SetPoint("TOPLEFT", b, "TOPLEFT", 6, -5)
+    b.icon:SetPoint("LEFT", b, "LEFT", 6, 0)
     b.glow:SetPoint("CENTER", b.icon, "CENTER")
     ns.badge.build(b.icon)
     b.tick = b:CreateTexture(nil, "OVERLAY")
@@ -308,7 +308,7 @@ local function makeRow(width)
     if b.tick.SetDesaturated then b.tick:SetDesaturated(true) end
     b.tick:SetVertexColor(TICK_GREY, TICK_GREY, TICK_GREY)
     b.tick:SetSize(ICON, ICON)
-    b.tick:SetPoint("TOPLEFT", b, "TOPLEFT", 6, -5)
+    b.tick:SetPoint("LEFT", b, "LEFT", 6, 0)
     b.tick:Hide()
     local left = 6 + ICON + 8
     local textWidth = width - left - 10
@@ -468,6 +468,9 @@ local function fill(f, player)
         objectivesH = objectivesH + 2
       end
       h = math.max(ROW, math.ceil(10 + titleH + objectivesH))
+      -- The text block sits in the middle of the row, as the icon does.
+      b.label:ClearAllPoints()
+      b.label:SetPoint("TOPLEFT", b, "TOPLEFT", 6 + ICON + 8, -math.max(5, (h - titleH - objectivesH) / 2))
     end
     b:ClearAllPoints()
     b:SetPoint("TOPLEFT", f.rightContent, "TOPLEFT", 0, -y)

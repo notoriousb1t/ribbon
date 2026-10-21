@@ -229,3 +229,23 @@ describe("A step with several objectives of one quest", function()
     expect(#right[2].objectives).toBe(0)
   end)
 end)
+
+describe("Step rows are centred vertically", function()
+  local ctx = H.use({ boot = true })
+  beforeEach(function()
+    Ribbon.Guide("g", { title = "Test Guide", schema = 1 }):Chapter("One", { levels = { 1, 2 } })
+      :Step():Goto(1453, 50, 50):Accept(1):Done()
+  end)
+
+  it("puts the icon at the row's middle and the text block centred in the row", function()
+    ctx.ns.guideBrowser.toggleDock()
+    local d = ctx.ns.guideBrowser.dock()
+    local row = d.rightRows.items[1]
+    expect(row.icon.SetPoint).toHaveBeenCalledWith("LEFT", row, "LEFT", 6, 0)
+    row.label.GetStringHeight = function() return 14 end          -- a one-line title in a 34 px row
+    ctx.ns.guideBrowser.refresh()
+    local c = row.label.SetPoint.calls[#row.label.SetPoint.calls]
+    expect(c[1]).toBe("TOPLEFT")
+    expect(c[5]).toBe(-math.max(5, (34 - 14) / 2))
+  end)
+end)
