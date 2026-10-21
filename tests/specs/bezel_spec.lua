@@ -67,11 +67,11 @@ describe("Guide panel bezel and map button", function()
   end)
 
   describe("title bar and buttons", function()
-    it("shows the guide's title in the middle and the step at the left", function()
+    it("shows just the guide's title, in the middle of the bar", function()
       local d = open()
       expect(d.title.SetText).toHaveBeenCalledWith("Test Guide")
       expect(d.title.SetPoint).toHaveBeenCalledWith("CENTER", d.strip, "CENTER", 0, 0)
-      expect(d.progress.SetPoint).toHaveBeenCalledWith("LEFT", d.strip, "LEFT", 8, 0)
+      expect(d.progress).toBeNil()           -- no "Step n of x"
     end)
 
     it("closes from the bezel-styled button on the title bar", function()
@@ -82,16 +82,28 @@ describe("Guide panel bezel and map button", function()
       expect(RibbonDB.guideDock).toBe(false)
     end)
 
-    it("has flat blue Start chapter and Skip step buttons that glow on hover", function()
+    it("has no Start chapter or Skip step buttons", function()
       local d = open()
-      expect(d.start.text.SetText).toHaveBeenCalledWith("Start chapter")
-      expect(d.skip.text.SetText).toHaveBeenCalledWith("Skip step")
-      local c = d.start.bg.SetColorTexture.calls[1]
-      expect(c[3]).toBeGreaterThan(c[1])
-      d.start:Trigger("OnEnter")
-      expect(d.start.glow:IsShown()).toBe(true)
-      d.start:Trigger("OnLeave")
-      expect(d.start.glow:IsShown()).toBe(false)
+      expect(d.start).toBeNil()
+      expect(d.skip).toBeNil()
+    end)
+
+    it("draws the close X as two bars crossed at the button's exact centre", function()
+      local d = open()
+      expect(#d.close.bars).toBe(2)
+      local angles = {}
+      for _, bar in ipairs(d.close.bars) do
+        expect(bar.SetPoint).toHaveBeenCalledWith("CENTER", d.close, "CENTER", 0, 0)
+        angles[#angles + 1] = bar.SetRotation.calls[1][1]
+      end
+      table.sort(angles)
+      expect(angles[1]).toBeCloseTo(-math.pi / 4, 6)
+      expect(angles[2]).toBeCloseTo(math.pi / 4, 6)
+    end)
+
+    it("lets the columns run down to the bezel now that there are no buttons", function()
+      local d = open()
+      expect(d.leftScroll.SetPoint).toHaveBeenCalledWith("BOTTOMLEFT", d, "BOTTOMLEFT", S.bezel.band + 6, 22)
     end)
   end)
 

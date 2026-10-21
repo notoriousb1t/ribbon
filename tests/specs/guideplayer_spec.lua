@@ -324,22 +324,12 @@ describe("Guide player", function()
       expect(ctx.ns.guidePlayer.current().index).toBe(3)
     end)
 
-    it("clicking a chapter browses it; Start chapter jumps to its first step", function()
+    it("clicking a chapter browses it", function()
       ctx.ns.guideBrowser.toggle()
       local frame = ctx.ns.guideBrowser.dock()
       frame.leftRows.items[2]:Trigger("OnClick")
       expect(#frame.rightRows.items).toBe(4)          -- pooled rows are reused, extras hidden
       expect(frame.rightRows.items[3].IsShown and frame.rightRows.items[3]:IsShown()).toBe(false)
-      frame.start:Trigger("OnClick")
-      expect(ctx.ns.guidePlayer.current().chapter).toBe(2)
-    end)
-
-    it("Skip step moves on and the panel follows", function()
-      ctx.ns.guideBrowser.toggle()
-      local frame = ctx.ns.guideBrowser.dock()
-      frame.skip:Trigger("OnClick")
-      expect(select(2, ctx.ns.guidePlayer.current())).toBe(2)
-      expect(frame.progress.SetText).toHaveBeenCalledWith("Step 2 of 6")
     end)
 
     it("closes with Close and toggles", function()

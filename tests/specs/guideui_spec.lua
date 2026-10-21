@@ -349,7 +349,6 @@ describe("Guide progress", function()
       local d = dockPanel()
       expect(d.leftRows.items[1].sub.SetText.calls[#d.leftRows.items[1].sub.SetText.calls][1]).toContain("100%")
       expect(d.overallText.SetText).toHaveBeenCalledWith("60%")
-      expect(d.progress.SetText).toHaveBeenCalledWith("Step 4 of 5")
     end)
 
     it("remembers whether it was open, and Close hides it", function()

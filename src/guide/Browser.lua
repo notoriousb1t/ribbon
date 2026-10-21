@@ -15,7 +15,7 @@ local ROW = 20
 local CARD = 40                          -- height of a chapter card
 local LEFT_W, RIGHT_W = 190, 230        -- the two columns of the panel
 local TOP = 66                           -- room for the bezel, the title bar and the overall bar
-local BOTTOM = 50                        -- room for the bezel and the buttons
+local BOTTOM = 22                        -- room for the bezel
 
 local COLORS = {
   done = "|cff808080", current = "|cffe9b949", todo = "|cfff3ead2",
@@ -197,8 +197,6 @@ local function fill(f, player)
     b.label:SetText(colored(row.state, row.label))
     b.chapter, b.step = row.chapter, row.step
   end
-  local entry, cursor = player.current()
-  f.progress:SetText(entry and string.format("Step %d of %d", cursor, #S.flat) or "Guide finished")
   local overall = planner.progress(S.view, S.flat, S.cursor)
   f.overall.set(overall.fraction, BAR_COLORS.current)
   f.overallText:SetText(string.format("%d%%", math.floor(overall.fraction * 100 + 0.5)))
@@ -278,36 +276,6 @@ local function addBezel(f)
   f.layoutBezel()
 end
 
--- A flat blue button: a lit top edge, a dark bottom edge, centred text and a hover glow.
-local function blueButton(parent, label, width)
-  local b = CreateFrame("Button", nil, parent)
-  b:SetSize(width, 22)
-  b.bg = b:CreateTexture(nil, "BACKGROUND")
-  b.bg:SetAllPoints()
-  b.bg:SetColorTexture(0.122, 0.478, 0.600, 1)
-  b.light = b:CreateTexture(nil, "BORDER")
-  b.light:SetColorTexture(0.45, 0.80, 0.92, 1)
-  b.light:SetHeight(1)
-  b.light:SetPoint("TOPLEFT")
-  b.light:SetPoint("TOPRIGHT")
-  b.dark = b:CreateTexture(nil, "BORDER")
-  b.dark:SetColorTexture(0.03, 0.14, 0.19, 1)
-  b.dark:SetHeight(1)
-  b.dark:SetPoint("BOTTOMLEFT")
-  b.dark:SetPoint("BOTTOMRIGHT")
-  b.glow = b:CreateTexture(nil, "ARTWORK")
-  b.glow:SetAllPoints()
-  b.glow:SetColorTexture(1, 1, 1, 0.18)
-  b.glow:Hide()
-  b.text = b:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-  b.text:SetPoint("CENTER")
-  b.text:SetText(label)
-  b.text:SetTextColor(0.953, 0.918, 0.824)
-  b:SetScript("OnEnter", function(self) self.glow:Show() end)
-  b:SetScript("OnLeave", function(self) self.glow:Hide() end)
-  return b
-end
-
 -- Builds the panel as a child of the world map, so it shows and hides with the map.
 local function build()
   local style = ns.compassStyle
@@ -321,7 +289,7 @@ local function build()
   bg:SetColorTexture(0.051, 0.212, 0.275, 0.96)   -- the logo's dark teal
   addBezel(f)
 
-  -- The title bar, like the map's: the title in the middle, the step on the left and a close button on the right.
+  -- The title bar, like the map's: the title in the middle and a close button on the right.
   local strip = f:CreateTexture(nil, "ARTWORK")
   strip:SetColorTexture(0.06, 0.25, 0.33, 1)
   strip:SetPoint("TOPLEFT", f, "TOPLEFT", B, -B)
@@ -338,9 +306,6 @@ local function build()
   f.title:SetPoint("CENTER", strip, "CENTER", 0, 0)
   f.title:SetText(ns.guide and ns.guide.title or "Guide")
   f.title:SetTextColor(0.85, 0.95, 1)
-  f.progress = f:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-  f.progress:SetPoint("LEFT", strip, "LEFT", 8, 0)
-  f.progress:SetTextColor(0.72, 0.84, 0.88)
 
   f.close = CreateFrame("Button", nil, f)
   f.close:SetSize(22, 22)
@@ -348,10 +313,16 @@ local function build()
   f.close.bg = f.close:CreateTexture(nil, "ARTWORK")
   f.close.bg:SetTexture(style.textures.bezelButton)
   f.close.bg:SetAllPoints()
-  f.close.x = f.close:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-  f.close.x:SetPoint("CENTER", 0, 1)
-  f.close.x:SetText("x")
-  f.close.x:SetTextColor(0.953, 0.918, 0.824)
+  -- The X is two thin bars crossed at the button's exact centre (a letter in a font sits off-centre).
+  f.close.bars = {}
+  for i, angle in ipairs({ 45, -45 }) do
+    local bar = f.close:CreateTexture(nil, "OVERLAY")
+    bar:SetColorTexture(0.953, 0.918, 0.824, 1)
+    bar:SetSize(2, 12)
+    bar:SetPoint("CENTER", f.close, "CENTER", 0, 0)
+    bar:SetRotation(math.rad(angle))
+    f.close.bars[i] = bar
+  end
   f.close:SetHighlightTexture(style.textures.bezelButton, "ADD")
   f.close:SetScript("OnClick", function() Br.setDock(false) end)
 
@@ -382,14 +353,6 @@ local function build()
     return b
   end)
 
-  f.start = blueButton(f, "Start chapter", 110)
-  f.start:SetPoint("BOTTOMLEFT", f, "BOTTOMLEFT", B + 6, B + 8)
-  f.start:SetScript("OnClick", function()
-    if selected then ns.guidePlayer.jumpToChapter(selected) end
-  end)
-  f.skip = blueButton(f, "Skip step", 92)
-  f.skip:SetPoint("LEFT", f.start, "RIGHT", 6, 0)
-  f.skip:SetScript("OnClick", function() ns.guidePlayer.skip() end)
   return f
 end
 
