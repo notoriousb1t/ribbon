@@ -99,6 +99,10 @@ local function createGuideButton()
   pcall(function()
     WorldMapFrame:HookScript("OnShow", M.alignGuideButton)
     WorldMapFrame:HookScript("OnSizeChanged", M.alignGuideButton)
+    -- The map settles its layout a moment after it is maximized or restored: line up again then.
+    local function later() if C_Timer and C_Timer.After then C_Timer.After(0.1, M.alignGuideButton) end end
+    WorldMapFrame:HookScript("OnShow", later)
+    WorldMapFrame:HookScript("OnSizeChanged", later)
   end)
   local dock = ns.guideBrowser and ns.guideBrowser.dock()
   b.setOpen(dock and dock:IsShown() and true or false)
@@ -120,8 +124,15 @@ function M.alignGuideButton()
   end
   b:SetSize(w, h)
   b:ClearAllPoints()
-  if found then
+  -- Maximized, the map's toggle sits at the top right under the title bar with no room above it, so the button goes
+  -- below it instead of above.
+  local maximized = WorldMapFrame and WorldMapFrame.IsMaximized and WorldMapFrame:IsMaximized() and true or false
+  if found and maximized then
+    b:SetPoint("TOPRIGHT", toggle, "BOTTOMRIGHT", 0, -look.gap)
+  elseif found then
     b:SetPoint("BOTTOMRIGHT", toggle, "TOPRIGHT", 0, look.gap)
+  elseif maximized then
+    b:SetPoint("TOPRIGHT", WorldMapFrame, "TOPRIGHT", -10, -70)
   else
     b:SetPoint("BOTTOMRIGHT", WorldMapFrame, "BOTTOMRIGHT", -10, 40)
   end

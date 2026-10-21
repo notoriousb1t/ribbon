@@ -430,3 +430,25 @@ describe("Guide panel bezel and map button", function()
     end)
   end)
 end)
+
+describe("The map button when the map is maximized", function()
+  local H3 = require("tests.helpers.addon")
+  local ctx = H3.use({ boot = true })
+  beforeEach(function()
+    Ribbon.Guide("g", { title = "Test Guide", schema = 1 }):Chapter("One", { levels = { 1, 2 } })
+      :Step():Goto(1453, 50, 50):Accept(1):Done()
+    WorldMapFrame.SidePanelToggle = { GetObjectType = function() return "Frame" end }
+  end)
+
+  it("goes below the map's own toggle, which has no room above it, and above it again once restored", function()
+    local b = ctx.ns.map.guideButton
+    local toggle = WorldMapFrame.SidePanelToggle
+    WorldMapFrame.IsMaximized = function() return true end
+    ctx.ns.map.alignGuideButton()
+    expect(b.SetPoint).toHaveBeenCalledWith("TOPRIGHT", toggle, "BOTTOMRIGHT", 0, -ctx.ns.compassStyle.toggle.gap)
+    WorldMapFrame.IsMaximized = function() return false end
+    ctx.ns.map.alignGuideButton()
+    expect(b.SetPoint).toHaveBeenCalledWith("BOTTOMRIGHT", toggle, "TOPRIGHT", 0, ctx.ns.compassStyle.toggle.gap)
+    WorldMapFrame.IsMaximized = nil
+  end)
+end)
