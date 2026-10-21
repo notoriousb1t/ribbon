@@ -1,8 +1,9 @@
--- Guide settings and the quest windows' automation. Two options, both on by default, saved in RibbonDB.guideSettings:
+-- Guide settings and the quest windows' automation. Three options, all on by default, saved in RibbonDB.guideSettings:
 --   autoAdvance: the guide moves on by itself when the quest log says a step is finished (guide/Player.lua reads this).
+--   worldPin:    the step's place is also set as the game's own waypoint, so its beacon shows in the world (guide/WorldPin.lua).
 --   autoQuest:   while a guide is running, quest windows are answered for the player: a quest offered is accepted, a quest
---                whose objectives are done is handed in when it offers no reward to choose from. Holding Shift leaves a
---                window alone.
+--                whose objectives are done is handed in when it offers no reward to choose from. Gossip and quest-greeting
+--                windows that list quests among other options get the quest picked. Holding Shift leaves a window alone.
 local ADDON, ns = ...
 
 local Set = {}
@@ -12,6 +13,7 @@ ns.guideSettings = Set
 Set.OPTIONS = {
   { key = "autoAdvance", label = "Auto-advance", tip = "Move to the next step when the quest log shows the step is done." },
   { key = "autoQuest", label = "Auto accept and turn in", tip = "Accept quests and hand in finished ones that have no reward to choose from. Hold Shift to skip." },
+  { key = "worldPin", label = "In-world marker", tip = "Show the current step's place with the game's own waypoint beacon in the world." },
 }
 
 function Set.get(key)
@@ -42,7 +44,48 @@ local function call(name, ...)
   if type(fn) == "function" then return pcall(fn, ...) end
 end
 
+local function num(name)
+  local fn = _G[name]
+  return type(fn) == "function" and tonumber(fn()) or 0
+end
+
+-- Is the quest-log entry titled `title` finished? (A quest greeting lists active quests by title only.)
+local function logComplete(title)
+  if type(_G.GetNumQuestLogEntries) ~= "function" or type(_G.GetQuestLogTitle) ~= "function" then return false end
+  for i = 1, _G.GetNumQuestLogEntries() do
+    local t, _, _, isHeader, _, isComplete = _G.GetQuestLogTitle(i)
+    if not isHeader and t == title then return isComplete == 1 or isComplete == true end
+  end
+  return false
+end
+
+-- A gossip window lists its quests beside any other options; pick a finished quest first, then an offered one.
+-- Each pick opens a quest window, the handlers below finish it; the window shows again afterwards and the next
+-- quest is picked, so an NPC with several quests and other options is worked through in turn.
+local function gossip()
+  local nActive = num("GetNumGossipActiveQuests")
+  if nActive > 0 and type(_G.GetGossipActiveQuests) == "function" then
+    local list = { _G.GetGossipActiveQuests() }
+    local stride = math.floor(#list / nActive)
+    for i = 1, nActive do
+      local isComplete = list[(i - 1) * stride + 4]
+      if isComplete == 1 or isComplete == true then return call("SelectGossipActiveQuest", i) end
+    end
+  end
+  if num("GetNumGossipAvailableQuests") > 0 then return call("SelectGossipAvailableQuest", 1) end
+end
+
+local function greeting()
+  for i = 1, num("GetNumActiveQuests") do
+    local title = type(_G.GetActiveTitle) == "function" and _G.GetActiveTitle(i)
+    if title and logComplete(title) then return call("SelectActiveQuest", i) end
+  end
+  if num("GetNumAvailableQuests") > 0 then return call("SelectAvailableQuest", 1) end
+end
+
 local handlers = {
+  GOSSIP_SHOW = gossip,
+  QUEST_GREETING = greeting,
   -- A quest is offered.
   QUEST_DETAIL = function() call("AcceptQuest") end,
   -- The quest's window asks for the objectives: continue when they are done.

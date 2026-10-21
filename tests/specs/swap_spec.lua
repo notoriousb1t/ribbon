@@ -38,11 +38,11 @@ describe("Caption above the bar, dial centred on it", function()
     expect(GameTooltip.SetOwner).toHaveBeenCalledWith(parts.dial, "ANCHOR_BOTTOM")
   end)
 
-  it("starts above the bottom action bars, anchored to the bottom of the screen", function()
+  it("starts at the top of the screen, low enough that the dial is not cut off", function()
     local d = ctx.ns.defaults.compass
-    expect(d.point).toBe("BOTTOM")
-    expect(d.relPoint).toBe("BOTTOM")
-    expect(d.y).toBeGreaterThan(100)
+    expect(d.point).toBe("TOP")
+    expect(d.relPoint).toBe("TOP")
+    expect(d.y).toBe(-(ctx.ns.compassStyle.dial.size - 28) / 2)
   end)
 
   it("uses that position by default and again after a reset", function()

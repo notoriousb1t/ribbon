@@ -23,6 +23,10 @@ cmds.debug = function()
   ns:Print(string.format("world %s, %s instance %s facing %s", tostring(f), tostring(s), tostring(inst), tostring(ns.client.facing())))
   local mapID, x, y = ns.client.playerMapPosition()
   ns:Print(string.format("map %s %s, %s", tostring(mapID), tostring(x), tostring(y)))
+  -- Kept in the saved variables too (written on /reload or logout), so a capture can be read from disk.
+  if ns.db then
+    ns.db.lastDebug = { world = f, subzone = s, instance = inst, map = mapID, x = x, y = y, at = type(_G.time) == "function" and _G.time() or nil }
+  end
 end
 
 -- Status of the registered guide. The command exists always but is not advertised until a guide is registered.

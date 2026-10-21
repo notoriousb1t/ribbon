@@ -34,5 +34,6 @@ guide\Planner.lua
 guide\Text.lua
 guide\Search.lua
 guide\Settings.lua
+guide\WorldPin.lua
 guide\Player.lua
 guide\Browser.lua

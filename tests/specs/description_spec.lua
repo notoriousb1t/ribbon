@@ -162,6 +162,26 @@ describe("Descriptions", function()
       expect(m.dist.SetPoint.calls[#m.dist.SetPoint.calls][3]).toBe("TOP")
     end)
 
+    it("puts the card and the yards below the ribbon in the upper half of the screen, above it in the lower half", function()
+      UIParent.GetHeight = function() return 1000 end
+      ctx.ns:AddWaypoint(1453, 61.99, 70.58 - 50 / YD_PER_Y, { title = "T" })
+      parts.frame.GetCenter = function() return 500, 900 end
+      frameTick()
+      local m = parts.markers[1]
+      local last = m.dist.SetPoint.calls[#m.dist.SetPoint.calls]
+      expect(last[1]).toBe("TOP")
+      expect(last[3]).toBe("BOTTOM")
+      local plate = parts.captionPlate.SetPoint.calls[#parts.captionPlate.SetPoint.calls]
+      expect(plate[1]).toBe("TOP")
+      expect(plate[3]).toBe("BOTTOM")
+      parts.frame.GetCenter = function() return 500, 100 end
+      frameTick()
+      last = m.dist.SetPoint.calls[#m.dist.SetPoint.calls]
+      expect(last[1]).toBe("BOTTOM")
+      plate = parts.captionPlate.SetPoint.calls[#parts.captionPlate.SetPoint.calls]
+      expect(plate[1]).toBe("BOTTOM")
+    end)
+
     it("shows the description in the tooltip too", function()
       ctx.ns:AddWaypoint(1453, 61.99, 70.58 - 50 / YD_PER_Y, { title = "T", description = "Do the thing" })
       frameTick()

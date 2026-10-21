@@ -333,6 +333,19 @@ describe("Guide progress", function()
       GossipFrame:Hide()
     end)
 
+    it("anchors beside the shop window when it is open", function()
+      _G.MerchantFrame = _G.MerchantFrame or ctx.world:newObject("Frame")
+      MerchantFrame.GetRight = function() return 400 end
+      UIParent.GetRight = function() return 1920 end
+      MerchantFrame:Show()
+      ctx.ns.map.guideButton:Trigger("OnClick")
+      local d = dockPanel()
+      d.SetPoint.calls = {}
+      ctx.ns.guideBrowser.placeDock()
+      expect(d.SetPoint).toHaveBeenCalledWith("TOPLEFT", MerchantFrame, "TOPRIGHT", 4, 0)
+      MerchantFrame:Hide()
+    end)
+
     it("sits just outside the map's right edge when the screen has room", function()
       WorldMapFrame.GetRight = function() return 700 end
       UIParent.GetRight = function() return 1920 end

@@ -1046,10 +1046,10 @@ end
 -- it, and only falls back to overlapping the frame (above the quest log) when the map fills the screen.
 --
 -- The panel is not a child of the map, so it stays when the map closes. While open it anchors to, in order:
---   1. a quest or gossip window, beside it (the right side, or the left when the screen has no room);
+--   1. a quest, gossip or shop window, beside it (the right side, or the left when the screen has no room);
 --   2. the open map (as above);
 --   3. the side of the screen.
-local NPC_FRAMES = { "QuestFrame", "GossipFrame" }
+local NPC_FRAMES = { "QuestFrame", "GossipFrame", "MerchantFrame" }
 
 local function shownFrame(name)
   local fr = _G[name]
@@ -1127,7 +1127,7 @@ end
 -- Any other game panel (character, spellbook, talents, ...) hides the guide panel while it is open and the panel comes
 -- back when the last one closes. The windows Ribbon places itself around (map, quest, gossip) do not count. The saved
 -- "open" choice is untouched; only the frame is hidden.
-local HANDLED = { WorldMapFrame = true, QuestFrame = true, GossipFrame = true, LootFrame = true, RibbonGuideDock = true }
+local HANDLED = { WorldMapFrame = true, QuestFrame = true, GossipFrame = true, MerchantFrame = true, LootFrame = true, RibbonGuideDock = true }
 local suppressed = false
 
 local function otherPanelShown()
@@ -1177,8 +1177,39 @@ local function hookOtherPanels()
   end
 end
 
+-- Like the map: while the player walks the panel fades to a lower opacity, unless the mouse is over it, and comes back
+-- when the player stops. Follows the game's "mapFade" option when the client has it.
+local FADE_ALPHA, FADE_SPEED = 0.5, 4
+local moving = false
+
+local function fadeEnabled()
+  if type(_G.GetCVarBool) == "function" then
+    local ok, on = pcall(_G.GetCVarBool, "mapFade")
+    if ok and on ~= nil then return on and true or false end
+  end
+  return true
+end
+
+local function watchMovement()
+  if type(_G.CreateFrame) ~= "function" then return end
+  local f = CreateFrame("Frame")
+  for _, e in ipairs({ "PLAYER_STARTED_MOVING", "PLAYER_STOPPED_MOVING" }) do pcall(f.RegisterEvent, f, e) end
+  f:SetScript("OnEvent", function(_, event) moving = event == "PLAYER_STARTED_MOVING" end)
+  f:SetScript("OnUpdate", function(_, elapsed)
+    if not dock or not dock:IsShown() then return end
+    local over = dock.IsMouseOver and dock:IsMouseOver()
+    local target = (moving and not over and fadeEnabled()) and FADE_ALPHA or 1
+    local a = dock:GetAlpha() or 1
+    if a == target then return end
+    local step = (elapsed or 0) * FADE_SPEED * (1 - FADE_ALPHA)
+    if a < target then a = math.min(target, a + step) else a = math.max(target, a - step) end
+    dock:SetAlpha(a)
+  end)
+end
+
 local function buildDock()
   dock = build()
+  watchMovement()
   hookOtherPanels()
   Br.placeDock()
   -- The map moves and resizes (maximize, drag), opens and closes; so do the quest and gossip windows: follow them.

@@ -55,6 +55,36 @@ local function setCaption(wp)
   captionTrim.Show()
 end
 
+-- The caption and the yards go below the ribbon while it sits in the upper half of the screen and above it in the
+-- lower half, so they never run off the screen edge. Unknown positions keep them above.
+local below = false
+
+local function overhang()
+  return math.max(0, (ns.compassStyle.dial.size - TRACK_HEIGHT) / 2)
+end
+
+local function sideIsBelow()
+  if not (frame and frame.GetCenter and UIParent and UIParent.GetHeight) then return false end
+  local _, cy = frame:GetCenter()
+  local screenH = UIParent:GetHeight()
+  if type(cy) ~= "number" or type(screenH) ~= "number" or screenH <= 0 then return false end
+  local fs, ps = frame.GetEffectiveScale and frame:GetEffectiveScale(), UIParent.GetEffectiveScale and UIParent:GetEffectiveScale()
+  local ratio = (type(fs) == "number" and type(ps) == "number" and ps > 0) and fs / ps or 1
+  return cy * ratio > screenH / 2
+end
+
+-- Anchors the caption plate on the chosen side, clear of the row of yards.
+local function placeCaption()
+  local style = ns.compassStyle
+  local off = style.caption.gap + overhang() + style.distance.height
+  captionPlate:ClearAllPoints()
+  if below then
+    captionPlate:SetPoint("TOP", frame, "BOTTOM", 0, -off)
+  else
+    captionPlate:SetPoint("BOTTOM", frame, "TOP", 0, off)
+  end
+end
+
 local function savePosition()
   local point, _, relPoint, x, y = frame:GetPoint()
   db.point, db.relPoint, db.x, db.y = point, relPoint, x, y
@@ -71,7 +101,7 @@ function C.Apply()
   dial.face:SetAlpha(db.dialOpacity)
   frame:SetSize(db.width, TRACK_HEIGHT)
   frame:ClearAllPoints()
-  frame:SetPoint(db.point or "BOTTOM", UIParent, db.relPoint or db.point or "BOTTOM", db.x or 0, db.y or 138)
+  frame:SetPoint(db.point or "TOP", UIParent, db.relPoint or db.point or "TOP", db.x or 0, db.y or -16)
   frame:SetShown(db.shown and true or false)
 end
 
@@ -218,7 +248,7 @@ local function build()
   local cap = style.caption
   captionPlate = frame:CreateTexture(nil, "BACKGROUND")
   captionPlate:SetColorTexture(unpack(c.captionPlate))
-  captionPlate:SetPoint("BOTTOM", frame, "TOP", 0, cap.gap + math.max(0, (style.dial.size - TRACK_HEIGHT) / 2) + style.distance.height)
+  placeCaption()
   captionPlate:SetSize(cap.minWidth, 20)
   captionPlate:Hide()
   captionIcon = CreateFrame("Frame", nil, frame)
@@ -324,6 +354,12 @@ function C.Update()
 
   applyScale(ns.geometry.heading(facing))
 
+  local side = sideIsBelow()
+  if side ~= below then
+    below = side
+    placeCaption()
+  end
+
   local placements, label = layout.markers(ns:Sorted(), db.fov, db.width, layout.MAX_MARKERS, ns.focus, ns.compassStyle.marker)
   local seen = {}
   for i, p in ipairs(placements) do
@@ -361,7 +397,11 @@ function C.Update()
     if type(dist) == "number" then
       local d = ns.compassStyle.distance
       m.dist:ClearAllPoints()
-      m.dist:SetPoint("BOTTOM", frame, "TOP", p.x, d.gap + math.max(0, (ns.compassStyle.dial.size - TRACK_HEIGHT) / 2))
+      if below then
+        m.dist:SetPoint("TOP", frame, "BOTTOM", p.x, -(d.gap + overhang()))
+      else
+        m.dist:SetPoint("BOTTOM", frame, "TOP", p.x, d.gap + overhang())
+      end
       m.dist:SetText(string.format("%d yd", dist))
       m.dist:Show()
     else

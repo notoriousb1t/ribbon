@@ -43,4 +43,5 @@ return {
   "counter",
   "backbutton",
   "settings",
+  "worldpin",
 }
