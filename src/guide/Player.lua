@@ -76,7 +76,7 @@ local function desired(entry)
         for i = 2, #lines do detail[#detail + 1] = lines[i] end
         local title = lines[1]
         if entry.step.skippable then title = "(skippable) " .. title end
-        out[gi] = { map = map, x = x, y = y, title = title, description = detail, icon = text.icon(group) }
+        out[gi] = { map = map, x = x, y = y, title = title, description = detail, icon = text.icon(group), radius = planner.arrivalRadius(group) }
       end
     end
   end
@@ -106,7 +106,7 @@ local function syncWaypoints(entry)
       end
     else
       local uid = ns:AddWaypoint(d.map, d.x, d.y, {
-        title = d.title, description = d.description, icon = d.icon,
+        title = d.title, description = d.description, icon = d.icon, arrival_distance = d.radius,
         lines = { "Guide: " .. (chapterName(entry) or S.guide.title) },
       })
       if uid then

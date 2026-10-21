@@ -137,6 +137,26 @@ function P.firstOfChapter(flat, chapter)
   end
 end
 
+-- Arrival radius in yards for a group's waypoint. Travel points ("get to this zone", search areas) are coarse, so they
+-- accept a wide margin; points where you deal with an NPC (flight path, trainer, inn) get a medium one; every other
+-- group keeps the registry default (5 yd) because its quest calls decide completion, not arrival.
+P.RADIUS = { travel = 25, npc = 10 }
+
+local TRAVEL_CALLS = { Travel = true, Enter = true, Subzone = true }
+local NPC_CALLS = { Fp = true, Fly = true, Hearth = true, Home = true, Train = true }
+
+function P.arrivalRadius(group)
+  if group.loop then return P.RADIUS.travel end
+  local travel, npc = false, false
+  for _, call in ipairs(group.calls) do
+    if TRAVEL_CALLS[call.kind] then travel = true
+    elseif NPC_CALLS[call.kind] then npc = true
+    else return nil end
+  end
+  if npc then return P.RADIUS.npc end
+  if travel then return P.RADIUS.travel end
+end
+
 -- Completion ---------------------------------------------------------------------
 
 local QUEST_DONE = { active = true, complete = true, done = true }
