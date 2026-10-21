@@ -104,7 +104,7 @@ function Br.rows(player, chapter, query)
         if not filtering or search.matches(query, stepText(s.step, S.guide.names)) then
           local map, x, y = planner.stepLocation(s.step)
           local lines = text.stepLines(s.step, S.guide.names, env)
-          local title = table.remove(lines, 1) or "Step"
+          local title = text.questHeading(s.step, S.guide.names) or table.remove(lines, 1) or "Step"
           mine[#mine + 1] = {
             chapter = s.chapter, step = s.index, state = outline.steps[base + i],
             label = text.summary(s.step, S.guide.names, env),

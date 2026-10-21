@@ -113,6 +113,25 @@ function T.stepLines(step, names, env)
   return out
 end
 
+-- The quest a step's objectives belong to, by name, when the step asks for several objectives of one quest (kill this,
+-- collect that): the step list titles such a step with the quest and lists the objectives under it, so the first
+-- objective does not read as if it were the whole step. Nil for any other step.
+local OBJECTIVE = { Kill = true, Loot = true, Collect = true, Interact = true, Use = true, Explore = true }
+
+function T.questHeading(step, names)
+  local quest, count = nil, 0
+  for _, g in ipairs(step.groups or {}) do
+    for _, call in ipairs(g.calls) do
+      if call.kind ~= "Travel" then
+        if not (OBJECTIVE[call.kind] and call.quest) then return nil end
+        if quest and quest ~= call.quest then return nil end
+        quest, count = call.quest, count + 1
+      end
+    end
+  end
+  if quest and count > 1 then return name(names, "QUEST", quest, "quest") end
+end
+
 -- The call kind that decides a group's map icon.
 local ICON = {
   Accept = "accept", Turnin = "turnin", Kill = "kill", Grind = "grind",
