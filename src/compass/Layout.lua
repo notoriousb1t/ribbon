@@ -84,6 +84,22 @@ function L.markers(list, fovDeg, width, max, focusUID, cfg)
   return placements, label
 end
 
+-- Calms a marker's x. `state` is what the last frame left ({ raw =, px = }, nil for a marker not seen before) and
+-- `target` the x this frame asks for; `cfg` is Style.marker.smooth. The value is eased toward the target and drawn on
+-- whole pixels; the drawn pixel only changes once the eased value is `hold` or more pixels from it. Returns the pixel to
+-- draw and the new state.
+function L.settle(state, target, cfg)
+  if not state or abs(target - state.raw) > cfg.jump then
+    local px = floor(target + 0.5)
+    return px, { raw = target, px = px }
+  end
+  local alpha = 1 - math.exp(-cfg.step / cfg.tau)
+  local raw = state.raw + (target - state.raw) * alpha
+  local px = state.px
+  if abs(raw - px) >= cfg.hold then px = floor(raw + 0.5) end
+  return px, { raw = raw, px = px }
+end
+
 -- Waypoints from other addons' arrows sit under everything Ribbon draws itself.
 L.BOTTOM_ICONS = { tomtom = true, rxp = true }
 

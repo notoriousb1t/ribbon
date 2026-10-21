@@ -52,6 +52,52 @@ describe("Compass layout", function()
     end)
   end)
 
+  describe("settle", function()
+    local cfg = { tau = 0.06, step = 0.033, hold = 0.9, jump = 80 }
+    local function run(state, targets)
+      local px
+      for _, t in ipairs(targets) do px, state = L.settle(state, t, cfg) end
+      return px, state
+    end
+
+    it("takes a marker seen for the first time at its target, on a whole pixel", function()
+      local px, state = L.settle(nil, 123.4, cfg)
+      expect(px).toBe(123)
+      expect(state.raw).toBe(123.4)
+    end)
+
+    it("holds the pixel while the target shivers within a pixel", function()
+      local px, state = L.settle(nil, 100, cfg)
+      for _, t in ipairs({ 100.4, 99.7, 100.5, 99.6, 100.3, 100.6, 99.5 }) do
+        px, state = L.settle(state, t, cfg)
+        expect(px).toBe(100)
+      end
+    end)
+
+    it("moves once the target has really moved, easing toward it rather than jumping", function()
+      local px, state = L.settle(nil, 100, cfg)
+      px, state = L.settle(state, 130, cfg)
+      expect(px).toBeGreaterThan(100)
+      expect(px).toBeLessThan(130)
+      px = run(state, { 130, 130, 130, 130, 130, 130, 130, 130, 130, 130, 130, 130 })
+      expect(math.abs(px - 130)).toBeLessThan(1)       -- within the hold of its target
+    end)
+
+    it("takes a swing of more than the jump limit at once", function()
+      local _, state = L.settle(nil, -250, cfg)
+      local px = L.settle(state, 250, cfg)
+      expect(px).toBe(250)
+    end)
+
+    it("always draws whole pixels", function()
+      local px, state = L.settle(nil, 10.5, cfg)
+      for t = 10.5, 40, 1.37 do
+        px, state = L.settle(state, t, cfg)
+        expect(px).toBe(math.floor(px))
+      end
+    end)
+  end)
+
   describe("markers", function()
     local function wp(uid, delta, extra)
       local t = { uid = uid, delta = delta, compass = true, dist = 10 * uid, title = "wp" .. uid }

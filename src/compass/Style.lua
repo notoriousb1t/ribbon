@@ -64,6 +64,11 @@ S.marker = {
   -- Inside `settleYd` yards the bearing is eased toward the centre (scaled by distance / settleYd). The bearing of
   -- a point a few yards away swings wildly with every step, which made the marker shake on arrival.
   settleYd = 8,
+  -- Calming the markers. The bearing to a waypoint shivers with every small change of position and facing, and a
+  -- marker at a fractional pixel shimmers as it is drawn, so a marker's x is eased toward its target (`tau` seconds)
+  -- and drawn on whole pixels, moving only once it has drifted `hold` pixels from where it is drawn. A target more than
+  -- `jump` pixels away (a waypoint swinging round from one end of the bar to the other) is taken at once.
+  smooth = { tau = 0.06, step = 0.033, hold = 0.9, jump = 80 },
 }
 
 -- The focused marker gets a ring `pad` pixels larger than the marker itself.

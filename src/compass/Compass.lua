@@ -11,6 +11,7 @@ local db, frame, dial, needle, targetText, detailText, captionPlate, captionTrim
 local lastRotation, lastCombat, dragged
 local chrome = {}
 local ticks, labels, markers = {}, {}, {}
+local settled = {}   -- uid -> the calmed x the marker was last drawn at (Layout.settle)
 local layout
 
 local styleText = ns.badge.styleText   -- outlined, shadowed text that stays readable over any background
@@ -252,7 +253,7 @@ local function applyScale(heading)
       t:SetSize(1, def.height)
       t:SetAlpha(def.alpha)
       t:ClearAllPoints()
-      t:SetPoint("BOTTOM", frame, "BOTTOM", def.x, ns.compassStyle.band.shadow + 1)
+      t:SetPoint("BOTTOM", frame, "BOTTOM", math.floor(def.x + 0.5), ns.compassStyle.band.shadow + 1)
       t:Show()
     else
       t:Hide()
@@ -263,7 +264,7 @@ local function applyScale(heading)
     -- Direction names go under the dial like the ticks: one under it is hidden, not shown through it.
     if def and math.abs(def.x) >= clear then
       fs:ClearAllPoints()
-      fs:SetPoint("CENTER", frame, "CENTER", def.x, 0)
+      fs:SetPoint("CENTER", frame, "CENTER", math.floor(def.x + 0.5), 0)
       fs:Show()
     else
       fs:Hide()
@@ -299,9 +300,18 @@ function C.Update()
   applyScale(ns.geometry.heading(facing))
 
   local placements, label = layout.markers(ns:Sorted(), db.fov, db.width, layout.MAX_MARKERS, ns.focus, ns.compassStyle.marker)
+  local seen = {}
   for i, p in ipairs(placements) do
     local m = marker(i)
     m.uid = p.wp.uid
+    -- A marker at the end of the bar is already still; the rest are calmed.
+    local uid = p.wp.uid
+    seen[uid] = true
+    if p.edge then
+      settled[uid] = nil
+    else
+      p.x, settled[uid] = layout.settle(settled[uid], p.x, ns.compassStyle.marker.smooth)
+    end
     ns.badge.draw(m, p.wp.icon, p.size)
     m:ClearAllPoints()
     m:SetPoint("CENTER", frame, "CENTER", p.x, 0)
@@ -331,6 +341,9 @@ function C.Update()
       m.ring:Hide()
     end
     m:Show()
+  end
+  for uid in pairs(settled) do
+    if not seen[uid] then settled[uid] = nil end
   end
   hideMarkers(#placements + 1)
   setCaption(label)

@@ -40,8 +40,8 @@ describe("Compass view", function()
       expect(parts.labels[0]:IsShown()).toBe(false)
       expect(parts.labels[45]:IsShown()).toBe(true)
       expect(parts.labels[315]:IsShown()).toBe(true)
-      expect(math.abs(lastPoint(parts.labels[45])[4])).toBeCloseTo(45 / 70 * 300, 4)
-      expect(lastPoint(parts.labels[45])[4]).toBeCloseTo(-lastPoint(parts.labels[315])[4], 4)
+      expect(math.abs(lastPoint(parts.labels[45])[4])).toBe(math.floor(45 / 70 * 300 + 0.5))   -- on a whole pixel
+      expect(lastPoint(parts.labels[45])[4]).toBe(-lastPoint(parts.labels[315])[4])
     end)
 
     it("hides labels outside the field of view", function()
@@ -129,6 +129,36 @@ describe("Compass view", function()
       ctx.ns:SetFocus(nil)
       frameTick()
       expect(focused.ring:IsShown()).toBe(false)
+    end)
+
+    it("keeps a marker still while the player's position shivers by a fraction of a degree", function()
+      local uid = ctx.ns:AddWaypoint(1453, 61.99, 70.58 - 80 / YD_PER_Y, { title = "Ahead" })
+      frameTick()
+      local m = parts.markers[1]
+      local x0 = lastPoint(m)[4]
+      for _, wobble in ipairs({ 0.004, -0.003, 0.005, -0.004, 0.002, -0.005, 0.003 }) do
+        ctx.world.player.facing = wobble                      -- about a quarter of a degree either way
+        frameTick()
+        expect(lastPoint(m)[4]).toBe(x0)
+      end
+    end)
+
+    it("follows a real turn", function()
+      ctx.ns:AddWaypoint(1453, 61.99, 70.58 - 80 / YD_PER_Y, { title = "Ahead" })
+      frameTick()
+      local m = parts.markers[1]
+      local x0 = lastPoint(m)[4]
+      ctx.world.player.facing = -0.35                          -- turned about 20 degrees
+      for _ = 1, 12 do frameTick() end
+      expect(math.abs(lastPoint(m)[4] - x0)).toBeGreaterThan(40)
+    end)
+
+    it("draws marker positions on whole pixels", function()
+      ctx.ns:AddWaypoint(1453, 61.99, 70.58 - 80 / YD_PER_Y, { title = "Ahead" })
+      ctx.world.player.facing = 0.123
+      for _ = 1, 6 do frameTick() end
+      local x = lastPoint(parts.markers[1])[4]
+      expect(x).toBe(math.floor(x))
     end)
 
     it("sets the icon texture for the waypoint", function()
