@@ -7,7 +7,6 @@ ns.compass = C
 local deg = math.deg
 local TRACK_HEIGHT = 28
 
-local labelLayer
 local db, frame, dial, needle, targetText, detailText, captionPlate, captionTrim, combatBar
 local lastRotation, lastCombat, dragged
 local chrome = {}
@@ -189,7 +188,7 @@ local function build()
   dial = CreateFrame("Button", nil, frame)
   dial:SetSize(style.dial.size, style.dial.size)
   dial:SetPoint("CENTER", frame, "CENTER", 0, style.dial.offsetY)
-  dial:SetFrameLevel(frame:GetFrameLevel() + 1)   -- over the ticks; the labels (+2) and markers (+3 and up) pass over it
+  dial:SetFrameLevel(frame:GetFrameLevel() + 1)   -- over the ticks and direction names; the markers (+3 and up) pass over it
   dial:RegisterForDrag("LeftButton")
   dial.face = dial:CreateTexture(nil, "ARTWORK")
   dial.face:SetAllPoints()
@@ -240,13 +239,6 @@ local function build()
     captionPlate = captionPlate, ticks = ticks, labels = labels, markers = markers, combatBar = combatBar,
     capLeft = capLeft, capRight = capRight }
 
-  -- The direction labels live on their own frame above the dial so N, E, S, W and the ordinals pass over it. It takes
-  -- no mouse input, so clicks and drags reach the dial and the ribbon underneath.
-  labelLayer = CreateFrame("Frame", nil, frame)
-  labelLayer:SetAllPoints(frame)
-  labelLayer:SetFrameLevel(frame:GetFrameLevel() + 2)
-  C.parts.labelLayer = labelLayer
-
   for i = 1, layout.TICK_COUNT do
     local t = frame:CreateTexture(nil, "ARTWORK")
     t:SetColorTexture(unpack(c.cream))
@@ -254,7 +246,7 @@ local function build()
   end
   for h, name in pairs(layout.NAMES) do
     -- Outline and shadow make the directions stand out against the band and the scenery behind it.
-    local fs = labelLayer:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+    local fs = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
     styleText(fs, style.labelSize)
     fs:SetText(name)
     fs:SetTextColor(unpack(h == 0 and c.north or c.cream))
@@ -288,7 +280,8 @@ local function applyScale(heading)
   end
   for h, fs in pairs(labels) do
     local def = labelDefs[h]
-    if def then
+    -- Direction names go under the dial like the ticks: one under it is hidden, not shown through it.
+    if def and math.abs(def.x) >= clear then
       fs:ClearAllPoints()
       fs:SetPoint("CENTER", frame, "CENTER", def.x, 0)
       fs:Show()

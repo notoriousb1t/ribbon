@@ -139,6 +139,60 @@ describe("Guide progress", function()
     end)
   end)
 
+  describe("focus", function()
+    local ctx = H.use({ boot = true })
+
+    local function guide()
+      Ribbon.Guide("g", { schema = 1 }):Chapter("c")
+        :Step():Goto(1453, 50, 50):Accept(1)
+        :Step():Goto(1453, 60, 60):Accept(2):Goto(1453, 70, 70):Accept(3)
+        :Step():Goto(1453, 40, 40):Accept(4)
+        :Done()
+    end
+    local function focusedStep() return ctx.ns.focus and ctx.ns:GetWaypoint(ctx.ns.focus) end
+
+    it("focuses the current step's waypoint, and the next step's after completing one", function()
+      guide()
+      ctx.ns.guidePlayer.refresh()
+      expect(focusedStep().x).toBe(50)
+      ctx.world.quest.log[1] = { complete = false }          -- step 1 done
+      ctx.ns.guidePlayer.refresh()
+      expect(focusedStep().x).toBe(60)                        -- the first located group of step 2
+    end)
+
+    it("keeps a waypoint the player focused until the step changes", function()
+      guide()
+      ctx.ns.guidePlayer.skip()
+      ctx.ns.guidePlayer.refresh()
+      local other
+      for uid, wp in pairs(ctx.ns.waypoints) do if wp.x == 70 then other = uid end end
+      ctx.ns:SetFocus(other)
+      ctx.ns.guidePlayer.refresh()
+      ctx.ns.guidePlayer.refresh()
+      expect(ctx.ns.focus).toBe(other)
+      ctx.ns.guidePlayer.skip()
+      ctx.ns.guidePlayer.refresh()
+      expect(focusedStep().x).toBe(40)
+    end)
+
+    it("keeps the step focused when the plan is rebuilt around it", function()
+      guide()
+      ctx.ns.guidePlayer.refresh()
+      local before = focusedStep().x
+      ctx.ns:Fire("GUIDE_CHAPTER_ADDED")           -- chapters arriving mark the plan stale; the next use rebuilds it
+      ctx.ns.guidePlayer.refresh()
+      expect(focusedStep().x).toBe(before)
+    end)
+
+    it("focuses on a manual skip and a jump as well", function()
+      guide()
+      ctx.ns.guidePlayer.jump(1, 3)
+      expect(focusedStep().x).toBe(40)
+      ctx.ns.guidePlayer.prev()
+      expect(focusedStep().x).toBe(60)
+    end)
+  end)
+
   describe("compass dial click", function()
     local ctx = H.use({ boot = true })
 

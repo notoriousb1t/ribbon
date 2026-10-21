@@ -16,7 +16,7 @@ Built for the Forever beta client.
 
 ## Features
 
-- **Compass ribbon:** a heading bar with a marker for each waypoint, and a compass dial in the middle of it whose needle always points to due north (hover the dial to see your coordinates, zone and heading; click it to open the guide). The direction letters and the markers pass over the dial, the degree ticks stay under it. Above the bar, on a dark plate that stays readable over any scenery, you see the name and distance of the nearest (or focused) waypoint and a short description of what to do there.
+- **Compass ribbon:** a heading bar with a marker for each waypoint, and a compass dial in the middle of it whose needle always points to due north (hover the dial to see your coordinates, zone and heading; click it to open the guide). The markers pass over the dial; the direction names and the degree ticks stay under it. Above the bar, on a dark plate that stays readable over any scenery, you see the name and distance of the nearest (or focused) waypoint and a short description of what to do there.
 - **Distance at a glance:** markers shrink as they get farther and grow as you close in. A waypoint close by is drawn taller than the ribbon itself, a distant one is small (never smaller than 18 px). A waypoint outside your field of view is held inside the end of the bar with an arrow pointing the way to turn. The direction labels (N, NE, ...) are outlined and shadowed so they stand out.
 - **Map and minimap pins:** your waypoints drawn on the world map and minimap.
 - **Tracked quest:** the quest you track in the game shows on the compass: a sword for a kill objective, a bag for an item objective, a quest icon for a turn-in or anything else, and the pick-up icon for a quest you can accept.

@@ -51,15 +51,24 @@ describe("Compass dial", function()
       expect(parts.dial.SetSize).toHaveBeenCalledWith(46, 46)
     end)
 
-    it("draws the direction labels on a frame above the dial and the markers above both", function()
+    it("draws the markers above the dial, and the direction names and ticks under it", function()
       local parts = ctx.ns.compass.parts
       ctx.world:placePlayer(1453, 50, 50, 0)
       ctx.ns:AddWaypoint(1453, 50, 40)
       ctx.world:update(0.04)
       local function level(o) local c = o.SetFrameLevel.calls return c[#c][1] end
-      expect(level(parts.labelLayer)).toBeGreaterThan(level(parts.dial))
-      expect(level(parts.markers[1])).toBeGreaterThan(level(parts.labelLayer))
-      expect(parts.labels[0]:GetParent()).toBe(parts.labelLayer)
+      expect(level(parts.markers[1])).toBeGreaterThan(level(parts.dial))
+      expect(parts.labels[0]:GetParent()).toBe(parts.frame)       -- on the ribbon frame, under the dial child
+      expect(parts.labelLayer).toBeNil()
+    end)
+
+    it("hides a direction name that falls under the dial and shows the others", function()
+      local parts = ctx.ns.compass.parts
+      ctx.world:placePlayer(1453, 50, 50, 0)         -- facing north: N is dead centre, NE and NW are off to the sides
+      ctx.world:update(0.04)
+      expect(parts.labels[0]:IsShown()).toBe(false)
+      expect(parts.labels[45]:IsShown()).toBe(true)
+      expect(parts.labels[315]:IsShown()).toBe(true)
     end)
 
     it("keeps the ticks on the ribbon frame, under the dial", function()

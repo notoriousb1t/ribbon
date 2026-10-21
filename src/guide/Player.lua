@@ -125,6 +125,21 @@ end
 
 -- Moving ----------------------------------------------------------------------------
 
+-- Focus the first waypoint of the current step, so the compass captions the active step rather than whatever else is
+-- nearest. Done once per step (not on every poll, and not when the plan is rebuilt around the same step), so a
+-- waypoint the player focuses by hand stays focused until the step changes.
+local function focusStep(entry)
+  local key = entry.chapter .. ":" .. entry.index
+  -- Rebuilding the plan around the same step recreates its waypoints (and drops the focus with them), so refocus then.
+  if S.focusKey == key and ns.focus ~= nil then return end
+  S.focusKey = key
+  local first
+  for gi in pairs(S.waypoints) do
+    if not first or gi < first then first = gi end
+  end
+  if first then ns:SetFocus(S.waypoints[first].uid) end
+end
+
 local function setCursor(i)
   clearWaypoints()
   S.cursor = i
@@ -135,6 +150,7 @@ local function setCursor(i)
   save()
   if entry then
     syncWaypoints(entry)
+    focusStep(entry)
     ns:Fire("GUIDE_STEP_CHANGED", entry, i)
   else
     ns:Fire("GUIDE_FINISHED")

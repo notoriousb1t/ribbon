@@ -35,11 +35,13 @@ describe("Compass view", function()
   end)
 
   describe("heading scale", function()
-    it("shows the N label at the centre when facing north", function()
+    it("keeps the N label under the dial (hidden) when facing north, with NE and NW either side", function()
       frameTick()
-      local north = parts.labels[0]
-      expect(north:IsShown()).toBe(true)
-      expect(lastPoint(north)).toEqual({ "CENTER", parts.frame, "CENTER", 0, 0 })
+      expect(parts.labels[0]:IsShown()).toBe(false)
+      expect(parts.labels[45]:IsShown()).toBe(true)
+      expect(parts.labels[315]:IsShown()).toBe(true)
+      expect(math.abs(lastPoint(parts.labels[45])[4])).toBeCloseTo(45 / 70 * 300, 4)
+      expect(lastPoint(parts.labels[45])[4]).toBeCloseTo(-lastPoint(parts.labels[315])[4], 4)
     end)
 
     it("hides labels outside the field of view", function()
@@ -50,7 +52,9 @@ describe("Compass view", function()
     it("moves the labels as the player turns", function()
       ctx.world.player.facing = math.pi / 2   -- facing west
       frameTick()
-      expect(lastPoint(parts.labels[270])[4]).toBe(0)   -- W is now centred
+      expect(parts.labels[270]:IsShown()).toBe(false)   -- W is now under the dial
+      expect(parts.labels[225]:IsShown()).toBe(true)    -- SW and NW are 45 degrees either side
+      expect(parts.labels[315]:IsShown()).toBe(true)
       expect(parts.labels[0]:IsShown()).toBe(false)     -- N is now 90 degrees away, outside +/-70
     end)
 
