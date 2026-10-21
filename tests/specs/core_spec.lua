@@ -105,4 +105,21 @@ describe("Core", function()
       expect(fn).never.toHaveBeenCalled()
     end)
   end)
+  describe("icons", function()
+    local ctx = H.use({ files = CORE })
+
+    it("keep the raid target markers (raid1 to raid8) for marked units, and no other icon uses one", function()
+      for name, path in pairs(ctx.ns.ICONS) do
+        local isRaid = name:match("^raid[1-8]$") ~= nil
+        expect(path:find("RaidTargeting", 1, true) ~= nil).toBe(isRaid)
+      end
+      for i = 1, 8 do expect(ctx.ns.ICONS["raid" .. i]).toContain("UI-RaidTargetingIcon_" .. i) end
+    end)
+
+    it("include one for every guide icon name", function()
+      for _, name in ipairs({ "accept", "turnin", "kill", "loot", "grind", "poi", "fp", "hearth", "train", "ding" }) do
+        expect(ctx.ns.ICONS[name]).toBeTruthy()
+      end
+    end)
+  end)
 end)

@@ -70,14 +70,35 @@ function L.markers(list, fovDeg, width, max, focusUID, cfg)
     if wp.compass and wp.delta and (#placements < limit or focused) then
       local size = L.markerSize(wp.dist, focused, sizing)
       local inset = (cfg and cfg.arrow) and (size / 2 + cfg.pad + cfg.arrow + 1) or 0
-      local x, edge, side = ns.geometry.markerOffset(wp.delta, fovRad, width, inset)
+      local delta = wp.delta
+      if sizing.settleYd and wp.dist and wp.dist < sizing.settleYd then delta = delta * (wp.dist / sizing.settleYd) end
+      local x, edge, side = ns.geometry.markerOffset(delta, fovRad, width, inset)
       placements[#placements + 1] = {
         wp = wp, x = x, edge = edge, side = side, focused = focused, size = size,
       }
       if not label or focused then label = wp end
     end
   end
+  L.stack(placements)
   return placements, label
+end
+
+-- Waypoints from other addons' arrows sit under everything Ribbon draws itself.
+L.BOTTOM_ICONS = { tomtom = true, rxp = true }
+
+-- Stacking order, set as `level` (1 = lowest) on each placement. It depends only on the kind of waypoint and when it
+-- was added, never on distance: ordering by distance reshuffled overlapping markers as the player moved. Bridged
+-- RXP/TomTom waypoints are lowest, the focused marker is highest.
+function L.stack(placements)
+  local order = {}
+  for i, p in ipairs(placements) do order[i] = p end
+  table.sort(order, function(a, b)
+    local ta, tb = L.BOTTOM_ICONS[a.wp.icon] and 0 or 1, L.BOTTOM_ICONS[b.wp.icon] and 0 or 1
+    if ta ~= tb then return ta < tb end
+    if a.focused ~= b.focused then return b.focused end
+    return a.wp.uid < b.wp.uid
+  end)
+  for level, p in ipairs(order) do p.level = level end
 end
 
 function L.targetText(wp)

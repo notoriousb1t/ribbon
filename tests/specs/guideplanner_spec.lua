@@ -200,7 +200,16 @@ describe("Guide planner and text", function()
 
     it("picks an icon from the first call that has one", function()
       expect(T.icon({ calls = { call("Travel"), call("Kill", {}) } })).toBe("kill")
-      expect(T.icon({ calls = { call("Fp", { node = "x" }) } })).toBe("poi")
+      expect(T.icon({ calls = { call("Deathwarp") } })).toBe("poi")
+    end)
+
+    it("has icons for travel, hearth, training and levelling", function()
+      expect(T.icon({ calls = { call("Fp", { node = "x" }) } })).toBe("fp")
+      expect(T.icon({ calls = { call("Fly", { node = "x" }) } })).toBe("fp")
+      expect(T.icon({ calls = { call("Hearth", { node = "x" }) } })).toBe("hearth")
+      expect(T.icon({ calls = { call("Home", { node = "x" }) } })).toBe("hearth")
+      expect(T.icon({ calls = { call("Train", { abilities = {} }) } })).toBe("train")
+      expect(T.icon({ calls = { call("Ding", { level = 10 }) } })).toBe("ding")
     end)
 
     it("summarises a step in two lines", function()

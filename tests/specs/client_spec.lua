@@ -23,6 +23,21 @@ describe("Client adapter", function()
     end)
   end)
 
+  describe("inCombat", function()
+    local ctx = H.use({ boot = true })
+
+    it("follows the player's combat state", function()
+      expect(ctx.ns.client.inCombat()).toBe(false)
+      ctx.world.inCombat = true
+      expect(ctx.ns.client.inCombat()).toBe(true)
+    end)
+
+    it("is false without the API", function()
+      _G.UnitAffectingCombat = nil
+      expect(ctx.ns.client.inCombat()).toBe(false)
+    end)
+  end)
+
   describe("facing", function()
     it("returns the facing in radians", function()
       ctx.world.player.facing = 1.5

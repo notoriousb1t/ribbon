@@ -127,12 +127,17 @@ describe("Marker size by distance", function()
       expect(at20).toBeGreaterThan(at100)
     end)
 
-    it("keeps nearer markers above farther ones", function()
-      ctx.ns:AddWaypoint(1453, 61.99, 70.58 - 10 / YD_PER_Y, { title = "Near" })
-      ctx.ns:AddWaypoint(1453, 61.99, 70.58 - 500 / YD_PER_Y, { title = "Far" })
-      frameTick()
+    it("stacks by when a waypoint was added, not by distance", function()
       local function level(m) local c = m.SetFrameLevel.calls return c[#c][1] end
-      expect(level(parts.markers[1])).toBeGreaterThan(level(parts.markers[2]))
+      ctx.ns:AddWaypoint(1453, 61.99, 70.58 - 500 / YD_PER_Y, { title = "Far" })
+      ctx.ns:AddWaypoint(1453, 61.99, 70.58 - 10 / YD_PER_Y, { title = "Near" })
+      frameTick()
+      local byTitle = {}
+      for _, m in ipairs(parts.markers) do
+        local wp = ctx.ns:GetWaypoint(m.uid)
+        byTitle[wp.title] = level(m)
+      end
+      expect(byTitle.Near).toBeGreaterThan(byTitle.Far)   -- added later, so on top, though the other is farther
     end)
   end)
 

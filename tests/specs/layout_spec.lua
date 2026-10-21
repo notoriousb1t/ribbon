@@ -59,6 +59,40 @@ describe("Compass layout", function()
       return t
     end
 
+    it("eases the bearing toward the centre inside the settle radius", function()
+      local cfg = { min = 20, max = 20, nearYd = 1, farYd = 2, default = 20, focusBoost = 0, settleYd = 8 }
+      local far = L.markers({ wp(1, math.rad(35), { dist = 20 }) }, 140, 600, nil, nil, cfg)[1].x
+      local near = L.markers({ wp(1, math.rad(35), { dist = 2 }) }, 140, 600, nil, nil, cfg)[1].x
+      local onTop = L.markers({ wp(1, math.rad(35), { dist = 0 }) }, 140, 600, nil, nil, cfg)[1].x
+      expect(math.abs(near)).toBeLessThan(math.abs(far))
+      expect(onTop).toBeCloseTo(0, 6)
+    end)
+
+    it("does not shake: a point 2 yd away barely moves for a large bearing swing", function()
+      local cfg = { min = 20, max = 20, nearYd = 1, farYd = 2, default = 20, focusBoost = 0, settleYd = 8 }
+      local a = L.markers({ wp(1, math.rad(10), { dist = 2 }) }, 140, 600, nil, nil, cfg)[1].x
+      local b = L.markers({ wp(1, math.rad(-10), { dist = 2 }) }, 140, 600, nil, nil, cfg)[1].x
+      expect(math.abs(a - b)).toBeLessThan(30)
+    end)
+
+    it("stacks by kind and age, never by distance, with RXP and TomTom lowest and the focus highest", function()
+      local list = {
+        wp(1, 0, { dist = 500, icon = "kill" }),
+        wp(2, 0, { dist = 5, icon = "rxp" }),
+        wp(3, 0, { dist = 100, icon = "tomtom" }),
+        wp(4, 0, { dist = 1, icon = "kill" }),
+      }
+      local byUid = {}
+      for _, p in ipairs(L.markers(list, 140, 600, nil, 1)) do byUid[p.wp.uid] = p.level end
+      expect(byUid[2]).toBeLessThan(byUid[3])     -- bridged ones are lowest, oldest first
+      expect(byUid[3]).toBeLessThan(byUid[4])     -- ours above theirs
+      expect(byUid[4]).toBeLessThan(byUid[1])     -- the focused one is on top
+      local again = {}
+      list[1].dist, list[4].dist = 1, 500          -- moving does not reshuffle
+      for _, p in ipairs(L.markers(list, 140, 600, nil, 1)) do again[p.wp.uid] = p.level end
+      expect(again).toEqual(byUid)
+    end)
+
     it("places markers left for positive delta and right for negative", function()
       local placements = L.markers({ wp(1, math.rad(35)), wp(2, math.rad(-35)) }, 140, 600)
       expect(placements[1].x).toBeCloseTo(-150, 6)

@@ -291,8 +291,10 @@ function methods:Done()
   end
   local chapter = { name = self.name, opts = self.opts, steps = self.steps }
   local replaced = false
+  -- A chapter is identified by its name and faction: both factions' guides can each have, say, "Zephras Isle".
+  local faction = type(self.opts) == "table" and self.opts.faction or nil
   for i, c in ipairs(guide.chapters) do
-    if c.name == self.name then
+    if c.name == self.name and (c.opts and c.opts.faction or nil) == faction then
       guide.chapters[i] = chapter
       replaced = true
       break

@@ -7,10 +7,27 @@ ns.version = "1.0.0"
 ns.ICONS = {
   accept = "Interface\\GossipFrame\\AvailableQuestIcon",
   turnin = "Interface\\GossipFrame\\ActiveQuestIcon",
-  kill = "Interface\\TargetingFrame\\UI-RaidTargetingIcon_8",
+  -- Not a raid target marker: the compass is meant to show raid markers (skull, cross, ...) on marked mobs, and a
+  -- guide's kill icon must not look like one.
+  kill = "Interface\\Icons\\INV_Sword_04",
   loot = "Interface\\Icons\\INV_Misc_Bag_08",
   grind = "Interface\\Icons\\Ability_DualWield",
   poi = "Interface\\Icons\\INV_Misc_Map_01",
+  -- Raid target markers, by the index GetRaidTargetIndex reports: 1 star, 2 circle, 3 diamond, 4 triangle, 5 moon,
+  -- 6 square, 7 cross, 8 skull. No guide icon uses one of these (the specs check), so a marked unit is never
+  -- confused with a step.
+  raid1 = "Interface\\TargetingFrame\\UI-RaidTargetingIcon_1",
+  raid2 = "Interface\\TargetingFrame\\UI-RaidTargetingIcon_2",
+  raid3 = "Interface\\TargetingFrame\\UI-RaidTargetingIcon_3",
+  raid4 = "Interface\\TargetingFrame\\UI-RaidTargetingIcon_4",
+  raid5 = "Interface\\TargetingFrame\\UI-RaidTargetingIcon_5",
+  raid6 = "Interface\\TargetingFrame\\UI-RaidTargetingIcon_6",
+  raid7 = "Interface\\TargetingFrame\\UI-RaidTargetingIcon_7",
+  raid8 = "Interface\\TargetingFrame\\UI-RaidTargetingIcon_8",
+  fp = "Interface\\Minimap\\Tracking\\FlightMaster",
+  hearth = "Interface\\Minimap\\Tracking\\Innkeeper",
+  train = "Interface\\Minimap\\Tracking\\Class",
+  ding = "Interface\\Icons\\Spell_ChargePositive",
   -- TomTom's own world map dot. The TomTom bridge replaces this with the dot of the theme the player
   -- chose in TomTom; this is TomTom's default (the modern green theme).
   tomtom = "Interface\\AddOns\\TomTom\\Images\\Modern\\Waypoints\\WaypointDotGreen",

@@ -7,8 +7,8 @@ ns.compass = C
 local deg = math.deg
 local TRACK_HEIGHT = 28
 
-local db, frame, dial, needle, targetText, detailText, captionPlate, captionTrim
-local lastRotation
+local db, frame, dial, needle, targetText, detailText, captionPlate, captionTrim, combatBar
+local lastRotation, lastCombat
 local chrome = {}
 local ticks, labels, markers = {}, {}, {}
 local layout
@@ -104,6 +104,11 @@ local function marker(i)
   m.arrow:SetTexture(ns.compassStyle.textures.edgeArrow)
   m.arrow:SetSize(arrowSize, arrowSize)
   m.arrow:Hide()
+  -- Ring for the focused marker, behind the icon.
+  m.ring = m:CreateTexture(nil, "BACKGROUND")
+  m.ring:SetTexture(ns.compassStyle.textures.focusRing)
+  m.ring:SetPoint("CENTER")
+  m.ring:Hide()
   m:SetScript("OnEnter", showTooltip)
   m:SetScript("OnLeave", function() GameTooltip:Hide() end)
   -- Left-click focuses the waypoint (its name shows under the bar); clicking the focused one again
@@ -162,6 +167,14 @@ local function build()
   -- stay opaque so they remain easy to read.
   chrome = { bg, highlight, shadow, capLeft, capRight }
 
+  -- Combat cue: a red bar along the bottom edge of the band, shown while the player is in combat.
+  combatBar = frame:CreateTexture(nil, "OVERLAY")
+  combatBar:SetColorTexture(unpack(c.combat))
+  combatBar:SetHeight(style.combat.height)
+  combatBar:SetPoint("BOTTOMLEFT")
+  combatBar:SetPoint("BOTTOMRIGHT")
+  combatBar:Hide()
+
   -- Heading reference: a thin notch through the band.
   local notch = frame:CreateTexture(nil, "OVERLAY")
   notch:SetColorTexture(unpack(c.notch))
@@ -210,7 +223,7 @@ local function build()
   detailText:SetTextColor(unpack(c.detail))
 
   C.parts = { frame = frame, dial = dial, needle = needle, targetText = targetText, detailText = detailText,
-    captionPlate = captionPlate, ticks = ticks, labels = labels, markers = markers,
+    captionPlate = captionPlate, ticks = ticks, labels = labels, markers = markers, combatBar = combatBar,
     capLeft = capLeft, capRight = capRight }
 
   for i = 1, layout.TICK_COUNT do
@@ -274,6 +287,11 @@ end
 
 function C.Update()
   if not frame:IsShown() then return end
+  local combat = ns.client.inCombat()
+  if combat ~= lastCombat then
+    lastCombat = combat
+    combatBar:SetShown(combat)
+  end
   local facing = ns.client.facing()
   pointNeedle(facing)
   if not facing then
@@ -309,7 +327,14 @@ function C.Update()
     end
     -- Closer waypoints are drawn larger (up to taller than the ribbon), far ones small.
     m:SetSize(p.size, p.size)
-    m:SetFrameLevel(frame:GetFrameLevel() + 2 + (layout.MAX_MARKERS - i) + (p.focused and layout.MAX_MARKERS + 1 or 0))
+    m:SetFrameLevel(frame:GetFrameLevel() + 2 + p.level)
+    if p.focused then
+      local ring = ns.compassStyle.focusRing.pad
+      m.ring:SetSize(p.size + ring, p.size + ring)
+      m.ring:Show()
+    else
+      m.ring:Hide()
+    end
     m:Show()
   end
   hideMarkers(#placements + 1)

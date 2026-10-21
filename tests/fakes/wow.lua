@@ -251,6 +251,7 @@ function Fake.install()
   _G.UnitRace = function() return c.race, c.race end
   _G.UnitFactionGroup = function() return c.faction, c.faction end
   _G.UnitLevel = function() return c.level end
+  _G.UnitAffectingCombat = function() return world.inCombat == true end
 
   -- Chat, slash commands, libraries
   _G.SlashCmdList = {}

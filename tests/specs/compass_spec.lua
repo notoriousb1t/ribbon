@@ -100,6 +100,33 @@ describe("Compass view", function()
       expect(m.SetAlpha).toHaveBeenCalledWith(cfg.edgeAlpha)
     end)
 
+    it("shows the red combat bar only while in combat", function()
+      frameTick()
+      expect(parts.combatBar:IsShown()).toBe(false)
+      ctx.world.inCombat = true
+      frameTick()
+      expect(parts.combatBar:IsShown()).toBe(true)
+      ctx.world.inCombat = false
+      frameTick()
+      expect(parts.combatBar:IsShown()).toBe(false)
+    end)
+
+    it("rings only the focused marker", function()
+      local a = ctx.ns:AddWaypoint(1453, 61.99, 60)
+      ctx.ns:AddWaypoint(1453, 61.99, 59)
+      ctx.ns:SetFocus(a)
+      frameTick()
+      local focused, other
+      for _, m in ipairs(parts.markers) do
+        if m.uid == a then focused = m else other = m end
+      end
+      expect(focused.ring:IsShown()).toBe(true)
+      expect(other.ring:IsShown()).toBe(false)
+      ctx.ns:SetFocus(nil)
+      frameTick()
+      expect(focused.ring:IsShown()).toBe(false)
+    end)
+
     it("sets the icon texture for the waypoint", function()
       ctx.ns:AddWaypoint(1453, 61.99, 60, { icon = "kill" })
       frameTick()

@@ -71,6 +71,13 @@ function client.mapChildren(rootID)
   return {}
 end
 
+-- Whether the player is in combat.
+function client.inCombat()
+  if type(UnitAffectingCombat) ~= "function" then return false end
+  local ok, v = pcall(UnitAffectingCombat, "player")
+  return ok and v and true or false
+end
+
 -- Quest tracking -------------------------------------------------------------------
 
 -- Call tbl[name](...) when both exist; returns ok and the first result.

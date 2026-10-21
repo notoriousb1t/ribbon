@@ -98,6 +98,7 @@ end
 local ICON = {
   Accept = "accept", Turnin = "turnin", Kill = "kill", Grind = "grind",
   Loot = "loot", Collect = "loot", Interact = "loot", Use = "loot",
+  Fp = "fp", Fly = "fp", Hearth = "hearth", Home = "hearth", Train = "train", Ding = "ding",
 }
 
 function T.icon(group)

@@ -16,10 +16,11 @@ S.textures = {
   dial = DIR .. "compass-dial",
   needle = DIR .. "compass-needle",
   edgeArrow = DIR .. "edge-arrow",   -- points right; the view flips it for the left end
+  focusRing = DIR .. "focus-ring",   -- gold ring drawn around the focused marker
 }
 
 -- Texture file names (without extension) under src/textures; the specs check they exist.
-S.textureFiles = { "ribbon-cap-left", "ribbon-cap-right", "compass-dial", "compass-needle", "edge-arrow" }
+S.textureFiles = { "ribbon-cap-left", "ribbon-cap-right", "compass-dial", "compass-needle", "edge-arrow", "focus-ring" }
 
 -- Swallowtail end caps, in display pixels. The left cap's box starts `leftEdge` pixels left of the
 -- bar; the right cap's box mirrors it, so it starts `rightEdge` pixels left of the bar's right edge.
@@ -39,7 +40,16 @@ S.band = { highlight = 2, shadow = 2 }
 S.marker = {
   min = 18, max = 38, nearYd = 15, farYd = 1200, default = 20, focusBoost = 4,
   pad = 3, arrow = 14, edgeAlpha = 0.7,
+  -- Inside `settleYd` yards the bearing is eased toward the centre (scaled by distance / settleYd). The bearing of
+  -- a point a few yards away swings wildly with every step, which made the marker shake on arrival.
+  settleYd = 8,
 }
+
+-- The focused marker gets a ring `pad` pixels larger than the marker itself.
+S.focusRing = { pad = 10 }
+
+-- A thin bar along the bottom of the ribbon while the player is in combat.
+S.combat = { height = 3 }
 
 -- Direction labels (N, NE, ...): font pixels. They are outlined and shadowed to stand out.
 S.labelSize = 12
@@ -61,5 +71,6 @@ S.colors = {
   gold = { 0.914, 0.725, 0.286, 1 },          -- #e9b949
   cream = { 0.953, 0.918, 0.824, 1 },         -- #f3ead2
   north = { 0.886, 0.341, 0.298, 1 },         -- #e2574c
+  combat = { 0.86, 0.12, 0.12, 1 },
   notch = { 0.953, 0.918, 0.824, 0.9 },
 }
