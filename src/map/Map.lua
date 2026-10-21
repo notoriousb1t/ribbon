@@ -345,10 +345,12 @@ end
 -- transparent. Called with nothing to take them away.
 local HOVER = { { "hoverLast", "last", -1 }, { "hover0", "next", 0 }, { "hover1", "next", 1 } }
 local lines = {}
+local lineDot
 
 -- Draws a dashed line through points ({ x, y } in 0-100 on the map being shown) on the map canvas.
 local function dashedLine(points)
   for _, l in ipairs(lines) do l:Hide() end
+  if lineDot then lineDot:Hide() end
   local sc = WorldMapFrame and WorldMapFrame.ScrollContainer
   local canvas = type(sc) == "table" and sc.Child or WorldMapFrame
   if not (canvas and canvas.CreateLine) or #points < 2 then return end
@@ -356,6 +358,12 @@ local function dashedLine(points)
   if not (type(w) == "number" and w > 0 and type(h) == "number" and h > 0) then return end
   local look = ns.compassStyle.context.line
   local used = 0
+  local total = 0
+  for i = 1, #points - 1 do
+    total = total + math.sqrt(((points[i + 1][1] - points[i][1]) / 100 * w) ^ 2 + ((points[i + 1][2] - points[i][2]) / 100 * h) ^ 2)
+  end
+  if total <= 0 then return end
+  local done = 0
   local function dash(x1, y1, x2, y2)
     used = used + 1
     local l = lines[used]
@@ -363,7 +371,9 @@ local function dashedLine(points)
       l = canvas:CreateLine(nil, "OVERLAY")
       lines[used] = l
     end
-    l:SetThickness(look.thickness)
+    -- thinner along the way: the thickness at the dash's middle
+    local mid = done + (math.sqrt((x2 - x1) ^ 2 + (y2 - y1) ^ 2)) / 2
+    l:SetThickness(look.thickness + (look.thin - look.thickness) * math.min(1, (mid + 0) / total))
     l:SetColorTexture(look.color[1], look.color[2], look.color[3], look.alpha)
     l:SetStartPoint("TOPLEFT", canvas, x1, -y1)
     l:SetEndPoint("TOPLEFT", canvas, x2, -y2)
@@ -382,7 +392,19 @@ local function dashedLine(points)
         t = t + look.dash + look.gap
       end
     end
+    done = done + len
   end
+  -- A dot where the line ends.
+  local last = points[#points]
+  if not lineDot then
+    lineDot = canvas:CreateTexture(nil, "OVERLAY")
+    lineDot:SetTexture(ns.compassStyle.textures.markerFill)
+  end
+  lineDot:SetVertexColor(look.color[1], look.color[2], look.color[3], look.alpha)
+  lineDot:SetSize(look.dot, look.dot)
+  lineDot:ClearAllPoints()
+  lineDot:SetPoint("CENTER", canvas, "TOPLEFT", last[1] / 100 * w, -(last[2] / 100 * h))
+  lineDot:Show()
 end
 
 function M.hoverStep(chapter, step)

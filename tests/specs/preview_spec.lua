@@ -342,12 +342,12 @@ describe("The dashed line through a hovered step", function()
     WorldMapFrame.GetHeight = function() return 500 end
   end)
 
-  it("runs from the step before to the second step after, in the ribbon's blue and see through", function()
+  it("runs from the step before to the second step after, in the ribbon's blue", function()
     ctx.ns.guideBrowser.toggleDock()
     local d = ctx.ns.guideBrowser.dock()
     d.rightRows.items[2]:Trigger("OnEnter")                -- steps 1 to 4 at x = 10, 30, 50, 70
     local look = ctx.ns.compassStyle.context.line
-    expect(look.alpha).toBeLessThan(0.8)
+    expect(look.alpha).toBeLessThan(1.01)
     expect(look.color[3]).toBeGreaterThan(look.color[1])
     local lines = {}
     for _, o in ipairs(ctx.world.objects) do if o.kind == "Line" then lines[#lines + 1] = o end end
@@ -357,5 +357,40 @@ describe("The dashed line through a hovered step", function()
     expect(last[3]).toBeLessThan(701)                        -- not past x = 70%
     d.rightRows.items[2]:Trigger("OnLeave")
     expect(lines[1].Hide).toHaveBeenCalled()
+  end)
+end)
+
+describe("The dashed line's look", function()
+  local ctx = H.use({ boot = true })
+  beforeEach(function()
+    local c = Ribbon.Guide("g", { title = "Test Guide", schema = 1 }):Chapter("One", { levels = { 1, 2 } })
+    for i = 1, 5 do c:Step():Goto(1453, 10 + 20 * (i - 1), 50):Accept(i) end
+    c:Done()
+    WorldMapFrame.ScrollContainer = { Child = WorldMapFrame }
+    WorldMapFrame.GetWidth = function() return 1000 end
+    WorldMapFrame.GetHeight = function() return 500 end
+  end)
+
+  it("is mostly opaque, thins along its length and ends in a dot", function()
+    local look = ctx.ns.compassStyle.context.line
+    expect(look.alpha).toBeGreaterThan(0.8)
+    ctx.ns.guideBrowser.toggleDock()
+    local d = ctx.ns.guideBrowser.dock()
+    d.rightRows.items[2]:Trigger("OnEnter")
+    local lines = {}
+    for _, o in ipairs(ctx.world.objects) do if o.kind == "Line" then lines[#lines + 1] = o end end
+    local a = lines[1].SetThickness.calls[1][1]
+    local z = lines[#lines].SetThickness.calls[1][1]
+    expect(a).toBeGreaterThan(z)
+    expect(a).toBeLessThan(look.thickness + 0.001)
+    expect(z).toBeGreaterThan(look.thin - 0.001)
+    local dots = {}
+    for _, o in ipairs(ctx.world.objects) do
+      if o.kind == "Texture" and #o.SetSize.calls > 0 and o.SetSize.calls[1][1] == look.dot then dots[#dots + 1] = o end
+    end
+    expect(#dots).toBe(1)
+    expect(dots[1]:IsShown()).toBe(true)
+    d.rightRows.items[2]:Trigger("OnLeave")
+    expect(dots[1]:IsShown()).toBe(false)
   end)
 end)
