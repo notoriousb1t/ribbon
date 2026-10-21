@@ -868,12 +868,12 @@ local function build()
   local loader = style.toggle.loader
   local barParent, barX, barY = f, B + 8, BOTTOM - 4
   if native then barParent, barX, barY = content, loader.inset + 4, 8 end
-  f.track = f:CreateTexture(nil, "OVERLAY")
+  f.track = barParent:CreateTexture(nil, "OVERLAY")
   f.track:SetColorTexture(0.42, 0.33, 0.14, 0.95)   -- a dull bronze groove, so an empty bar shows too
   f.track:SetPoint("BOTTOMLEFT", barParent, "BOTTOMLEFT", barX, barY)
   f.track:SetPoint("BOTTOMRIGHT", barParent, "BOTTOMRIGHT", -barX, barY)
   f.track:SetHeight(loader.height)
-  f.fill = f:CreateTexture(nil, "OVERLAY")
+  f.fill = barParent:CreateTexture(nil, "OVERLAY")
   f.fill:SetColorTexture(0.914, 0.725, 0.286, 1)
   f.fill:SetPoint("BOTTOMLEFT", barParent, "BOTTOMLEFT", barX, barY)
   f.fill:SetHeight(loader.height)
@@ -941,6 +941,7 @@ end
 -- after a jump).
 ns:On("GUIDE_STEP_CHANGED", function()
   selected = nil
+  pcall(Br.updateProgress)
   if preview then
     preview = nil
     if ns.map then ns.map.clearPreview() end
