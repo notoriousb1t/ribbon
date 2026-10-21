@@ -330,3 +330,32 @@ describe("Pins around the current step on the map", function()
     expect(lib.RemoveWorldMapIcon).toHaveBeenCalled()
   end)
 end)
+
+describe("The dashed line through a hovered step", function()
+  local ctx = H.use({ boot = true })
+  beforeEach(function()
+    local c = Ribbon.Guide("g", { title = "Test Guide", schema = 1 }):Chapter("One", { levels = { 1, 2 } })
+    for i = 1, 5 do c:Step():Goto(1453, 10 + 20 * (i - 1), 50):Accept(i) end
+    c:Done()
+    WorldMapFrame.ScrollContainer = { Child = WorldMapFrame }
+    WorldMapFrame.GetWidth = function() return 1000 end
+    WorldMapFrame.GetHeight = function() return 500 end
+  end)
+
+  it("runs from the step before to the second step after, in the ribbon's blue and see through", function()
+    ctx.ns.guideBrowser.toggleDock()
+    local d = ctx.ns.guideBrowser.dock()
+    d.rightRows.items[2]:Trigger("OnEnter")                -- steps 1 to 4 at x = 10, 30, 50, 70
+    local look = ctx.ns.compassStyle.context.line
+    expect(look.alpha).toBeLessThan(0.8)
+    expect(look.color[3]).toBeGreaterThan(look.color[1])
+    local lines = {}
+    for _, o in ipairs(ctx.world.objects) do if o.kind == "Line" then lines[#lines + 1] = o end end
+    expect(#lines).toBeGreaterThan(10)
+    local first, last = lines[1].SetStartPoint.calls[1], lines[#lines].SetEndPoint.calls[1]
+    expect(first[3]).toBeCloseTo(100, 1)                    -- x = 10% of 1000
+    expect(last[3]).toBeLessThan(701)                        -- not past x = 70%
+    d.rightRows.items[2]:Trigger("OnLeave")
+    expect(lines[1].Hide).toHaveBeenCalled()
+  end)
+end)

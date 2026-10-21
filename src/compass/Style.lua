@@ -104,6 +104,8 @@ S.context = {
   last = { scale = 1.13, alpha = 0.95, color = { 0.93, 0.91, 0.84 } },
   next = { scale = 0.93, alpha = 0.75 },
   count = 2,
+  -- The dashed line through the hovered step and its neighbours (the ribbon's blue, see through).
+  line = { color = { 0.122, 0.478, 0.600 }, alpha = 0.6, thickness = 3, dash = 9, gap = 7 },
   hoverFade = 0.75,   -- the pins around a step the mouse is over are this much more transparent
 }
 

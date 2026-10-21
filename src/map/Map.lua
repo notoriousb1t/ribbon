@@ -300,6 +300,7 @@ local function contextPin(slot, item)
   end
   if M.lib then M.lib:RemoveWorldMapIcon(contextOwner, pin) end
   pin:SetSize(size, size)
+  pin:Show()
   ns.badge.draw(pin, item.icon, size)
   if look.color then
     local c = look.color
@@ -343,9 +344,50 @@ end
 -- A step the mouse is over in the panel: its pin fully opaque, and the one before it and the one after it, a little more
 -- transparent. Called with nothing to take them away.
 local HOVER = { { "hoverLast", "last", -1 }, { "hover0", "next", 0 }, { "hover1", "next", 1 } }
+local lines = {}
+
+-- Draws a dashed line through points ({ x, y } in 0-100 on the map being shown) on the map canvas.
+local function dashedLine(points)
+  for _, l in ipairs(lines) do l:Hide() end
+  local sc = WorldMapFrame and WorldMapFrame.ScrollContainer
+  local canvas = type(sc) == "table" and sc.Child or WorldMapFrame
+  if not (canvas and canvas.CreateLine) or #points < 2 then return end
+  local w, h = canvas:GetWidth(), canvas:GetHeight()
+  if not (type(w) == "number" and w > 0 and type(h) == "number" and h > 0) then return end
+  local look = ns.compassStyle.context.line
+  local used = 0
+  local function dash(x1, y1, x2, y2)
+    used = used + 1
+    local l = lines[used]
+    if not l then
+      l = canvas:CreateLine(nil, "OVERLAY")
+      lines[used] = l
+    end
+    l:SetThickness(look.thickness)
+    l:SetColorTexture(look.color[1], look.color[2], look.color[3], look.alpha)
+    l:SetStartPoint("TOPLEFT", canvas, x1, -y1)
+    l:SetEndPoint("TOPLEFT", canvas, x2, -y2)
+    l:Show()
+  end
+  for i = 1, #points - 1 do
+    local x1, y1 = points[i][1] / 100 * w, points[i][2] / 100 * h
+    local x2, y2 = points[i + 1][1] / 100 * w, points[i + 1][2] / 100 * h
+    local len = math.sqrt((x2 - x1) ^ 2 + (y2 - y1) ^ 2)
+    if len > 0 then
+      local ux, uy = (x2 - x1) / len, (y2 - y1) / len
+      local t = 0
+      while t < len do
+        local e = math.min(t + look.dash, len)
+        dash(x1 + ux * t, y1 + uy * t, x1 + ux * e, y1 + uy * e)
+        t = t + look.dash + look.gap
+      end
+    end
+  end
+end
 
 function M.hoverStep(chapter, step)
   for _, h in ipairs(HOVER) do clearSlot(h[1]) end
+  dashedLine({})
   local player = ns.guidePlayer
   local S = player and player.state()
   if not (S and chapter and step) then return end
@@ -360,6 +402,22 @@ function M.hoverStep(chapter, step)
       end
     end
   end
+  -- The dashed route from the step before to the second step after, over the stretch that is on one map: the one the
+  -- hovered step is on.
+  local shown = {}
+  local home
+  for offset = -1, 2 do
+    local entry = S.flat[at + offset]
+    local map, x, y
+    if entry then map, x, y = ns.guidePlanner.stepLocation(entry.step) end
+    if offset == 0 then home = map end
+    if type(map) == "number" and type(x) == "number" then shown[#shown + 1] = { x, y, map = map } else shown[#shown + 1] = false end
+  end
+  local run = {}
+  for _, p in ipairs(shown) do
+    if p and p.map == home then run[#run + 1] = p else if #run > 0 and p == false then break end end
+  end
+  dashedLine(run)
 end
 
 ns:On("GUIDE_STEP_CHANGED", function() M.refreshContext() end)

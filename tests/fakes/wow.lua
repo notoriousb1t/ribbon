@@ -51,6 +51,7 @@ local function newObject(world, kind)
     SetParent = function(self, p) self.state.parent = p end,
     GetParent = function(self) return self.state.parent end,
     CreateTexture = function(self) local o = world:newObject("Texture") o.state.parent = self return o end,
+    CreateLine = function(self) local o = world:newObject("Line") o.state.parent = self return o end,
     CreateFontString = function(self) local o = world:newObject("FontString") o.state.parent = self return o end,
     -- Test helpers (not part of the WoW API).
     Trigger = function(self, script, ...)
