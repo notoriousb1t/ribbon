@@ -104,6 +104,15 @@ describe("Marker badges", function()
     end
   end)
 
+  it("outlines flight points in flight master green", function()
+    local c = S.badge.kinds.fp.color
+    expect(c[2]).toBeGreaterThan(c[1] + 0.3)
+    expect(c[2]).toBeGreaterThan(c[3] + 0.3)
+    ctx.ns:AddWaypoint(1453, 61.99, 60, { icon = "fp" })
+    frameTick()
+    expect(parts.markers[1].rim.SetVertexColor).toHaveBeenCalledWith(c[1], c[2], c[3], 1)
+  end)
+
   it("keeps the biggest marker with its ring inside the dial", function()
     expect(S.marker.max + S.marker.focusBoost + S.focusRing.pad).toBeLessThan(S.dial.size)
   end)

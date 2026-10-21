@@ -116,7 +116,7 @@ S.badge = {
     grind = { color = { 0.95, 0.55, 0.20 } },
     loot = { color = { 0.85, 0.65, 0.40 } },
     poi = { color = { 0.62, 0.82, 0.88 } },
-    fp = { color = { 0.45, 0.75, 0.95 } },
+    fp = { color = { 0.30, 0.85, 0.35 } },   -- flight master green, like the taxi map's available flight points
     hearth = { color = { 0.95, 0.75, 0.40 } },
     train = { color = { 0.60, 0.85, 0.50 } },
   },
