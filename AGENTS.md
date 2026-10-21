@@ -19,7 +19,7 @@ src/
   compass/              Layout (pure placement), Style (colours, sizes, texture paths), Badge (the round icons: compass markers, step rows and the map preview pin share it), Compass (view)
   map/                  PinManager (pin bookkeeping, library injected), Map (wiring, Clear Pins button)
   integrations/         TomTom, RXP, Quest bridges, each with a pure Translate module
-  guide/                Builder (chained calls a generated guide file makes; registers the one guide), Planner (pure: who sees which steps, positions, completion), Text (pure: captions from ids and the guide's name tables), Search (pure: the forgiving match behind the panel's search box), Player (state, polling, waypoints, skip/jump), Browser (the chapter list (parent) and a chapter's steps (child page, with a back arrow, always opened first) in a gold-bezelled panel (the map frame's width and shape) docked beside the world map; the one view of the guide)
+  guide/                Builder (chained calls a generated guide file makes; registers the one guide), Planner (pure: who sees which steps, positions, completion), Text (pure: captions from ids and the guide's name tables), Search (pure: the forgiving match behind the panel's search box), Counter (pure: which combat log kills count toward a grind), Player (state, polling, waypoints, skip/jump), Browser (the chapter list (parent) and a chapter's steps (child page, with a back arrow, always opened first) in a gold-bezelled panel (the map frame's width and shape) docked beside the world map; the one view of the guide)
 ```
 
 The guide layer is planned in `docs/guide-plan.md` (not shipped). Nothing in Ribbon knows about guides until the first `Ribbon.Guide(id, { schema = 1 })` call; the Builder is pure data, runs before the client is ready, and never raises (errors are kept on `guide.errors` and the bad chapter is skipped). `docs/samples/mulgore.lua` is real emitter output and `tests/specs/guide_spec.lua` loads it.
@@ -38,7 +38,7 @@ Run the specs before every commit and after every change under `src/`.
 
 ## Rules
 
-- **Client boundary:** Only `src/core/Client.lua` calls game APIs for position, maps and quests (`UnitPosition`, `GetPlayerFacing`, `C_Map.*`, `C_QuestLog.*`, `C_SuperTrack.*`). Everything else calls `ns.client`.
+- **Client boundary:** Only `src/core/Client.lua` calls game APIs for position, maps and quests (`UnitPosition`, `GetPlayerFacing`, `C_Map.*`, `C_QuestLog.*`, `C_SuperTrack.*`, `CombatLogGetCurrentEventInfo`). Everything else calls `ns.client`.
 - **Integration boundary:** Only `src/integrations/` touches other addons' globals (TomTom, RXPGuides, HereBeDragons). Observe them with `hooksecurefunc` or by reading; never replace their functions or install their globals (no `TomTom` global, no `/way`). Translating their data stays pure (`*Translate.lua`).
 - **Pure logic:** Math, layout and row/model code take plain values and touch no frames or client globals. Keep new logic there and keep the views thin.
 - **Fail soft:** Public API calls validate arguments and return `nil` on bad input. Never raise to a caller. Handler and ticker errors go to `geterrorhandler()`.

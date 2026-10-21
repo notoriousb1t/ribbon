@@ -267,14 +267,17 @@ function methods:Grind(map, x, y, radius, opts)
   if not (need(self, "Grind", isId(map), "map must be an id")
     and need(self, "Grind", isCoord(x) and isCoord(y), "x and y must be 0-100 with at most two decimals")
     and need(self, "Grind", isId(radius), "radius must be a positive integer")
-    and need(self, "Grind", type(opts) == "table", "needs { npc =, count =, level =, xp = }")) then
+    and need(self, "Grind", type(opts) == "table", "needs { npc =, count =, level =, xp =, gate = }")) then
     return self
   end
   local goal = isId(opts.count) or isId(opts.level)
   if need(self, "Grind", goal, "needs a count or a level")
     and need(self, "Grind", opts.npc == nil or isIdList(opts.npc), "npc must be a list of creature ids")
-    and need(self, "Grind", opts.xp == nil or isId(opts.xp), "xp must be a positive integer") then
-    add(self, "Grind", { map = map, x = x, y = y, radius = radius, npc = opts.npc, count = opts.count, level = opts.level, xp = opts.xp })
+    and need(self, "Grind", opts.xp == nil or isId(opts.xp), "xp must be a positive integer")
+    and need(self, "Grind", opts.gate == nil or type(opts.gate) == "table" and isId(opts.gate.level) and opts.gate.level <= 60
+      and (opts.gate.xp == nil or isId(opts.gate.xp)), "gate must be { level = 1-60, xp = positive integer }") then
+    local gate = opts.gate and { level = opts.gate.level, xp = opts.gate.xp }
+    add(self, "Grind", { map = map, x = x, y = y, radius = radius, npc = opts.npc, count = opts.count, level = opts.level, xp = opts.xp, gate = gate })
   end
   return self
 end

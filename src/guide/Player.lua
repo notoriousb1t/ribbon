@@ -22,8 +22,14 @@ local function objective(questID, index)
   if o then return { have = o.numFulfilled, need = o.numRequired, finished = o.finished } end
 end
 
+-- Kills counted for a Grind call (S.kills, keyed by the call's place in the guide).
+local function kills(call)
+  local key = S.callKey[call]
+  return key and S.kills[key] or 0
+end
+
 local function env()
-  return { quest = ns.client.questStatus, objective = objective, level = S.who.level }
+  return { quest = ns.client.questStatus, objective = objective, level = S.who.level, xp = S.who.xp, kills = kills }
 end
 
 local function chapterName(entry)
@@ -37,7 +43,9 @@ local function save()
   if not (S and ns.db) then return end
   ns.db.guide = ns.db.guide or {}
   local entry = S.flat[S.cursor]
-  ns.db.guide[S.who.key] = entry and { guide = S.guide.id, chapter = entry.chapter, step = entry.index } or { guide = S.guide.id, finished = true }
+  local kills = next(S.kills) and S.kills or nil
+  ns.db.guide[S.who.key] = entry and { guide = S.guide.id, chapter = entry.chapter, step = entry.index, kills = kills }
+    or { guide = S.guide.id, finished = true, kills = kills }
 end
 
 local function saved()
@@ -164,6 +172,15 @@ local function replan()
   S.who = ns.client.character()
   S.view = planner.view(S.guide, S.who)
   S.flat = planner.flatten(S.view)
+  -- Grind counts are saved under "chapter:step:group:call", the same guide position the saved cursor uses.
+  S.callKey = {}
+  for _, entry in ipairs(S.flat) do
+    for gi, group in ipairs(entry.step.groups) do
+      for ci, call in ipairs(group.calls) do
+        if call.kind == "Grind" then S.callKey[call] = table.concat({ entry.chapter, entry.index, gi, ci }, ":") end
+      end
+    end
+  end
   local i
   if S.finished and #S.flat > 0 then
     i = #S.flat + 1
@@ -181,10 +198,13 @@ local function ensure()
   if S and S.dirty then replan() end
 end
 
--- The step the client says is finished, or one whose every located group has been reached when the client can say
--- nothing (travel, flight points, training).
-local function stepComplete(entry)
-  local done = planner.stepDone(entry.step, env())
+-- The step the client says is finished, a grind the player is past (gate met, the next quest step done), or one whose
+-- every located group has been reached when the client can say nothing (travel, flight points, training).
+local function stepComplete(i)
+  local entry = S.flat[i]
+  local e = env()
+  local done = planner.stepDone(entry.step, e)
+  if done == false and planner.grindPassed(S.flat, i, e) then return true end
   if done ~= nil then return done end
   local located = 0
   for gi, group in ipairs(entry.step.groups) do
@@ -202,12 +222,12 @@ function Pl.refresh()
   ensure()
   local who = ns.client.character()
   S.who.level = who.level or S.who.level
+  S.who.xp = who.xp or S.who.xp
   local i = S.cursor
   local advance = not ns.guideSettings or ns.guideSettings.get("autoAdvance")
   for _ = 1, 500 do
     if not advance then break end
-    local entry = S.flat[i]
-    if not entry or not stepComplete(entry) then break end
+    if not S.flat[i] or not stepComplete(i) then break end
     i = i + 1
     S.arrived = {}
   end
@@ -267,7 +287,33 @@ end
 
 function Pl.reset()
   ensure()
-  if S then setCursor(1) end
+  if not S then return end
+  S.kills = {}
+  setCursor(1)
+end
+
+-- A kill from the combat log: count it for every open Grind of the current step it is a target of.
+local function onCombat(subevent, sourceFlags, destGUID)
+  if not S then return end
+  local npc = ns.guideCounter.credit(subevent, sourceFlags, destGUID)
+  if not npc then return end
+  ensure()
+  local entry = S.flat[S.cursor]
+  if not entry then return end
+  local counted = false
+  for _, group in ipairs(entry.step.groups) do
+    for _, call in ipairs(group.calls) do
+      local key = S.callKey[call]
+      if key and ns.guideCounter.counts(call, npc) and (S.kills[key] or 0) < call.count then
+        S.kills[key] = (S.kills[key] or 0) + 1
+        counted = true
+      end
+    end
+  end
+  if counted then
+    save()
+    Pl.refresh()
+  end
 end
 
 -- Read-only access for the views.
@@ -291,14 +337,17 @@ end
 
 function Pl.start(guide)
   if S then return end
-  S = { guide = guide, who = ns.client.character(), view = {}, flat = {}, cursor = 1, waypoints = {}, arrived = {}, unplaced = {}, dirty = true }
+  S = { guide = guide, who = ns.client.character(), view = {}, flat = {}, cursor = 1, waypoints = {}, arrived = {}, unplaced = {},
+    kills = {}, callKey = {}, dirty = true }
   local mine = saved()
+  if mine and type(mine.kills) == "table" then S.kills = mine.kills end
   if mine and mine.finished then
     S.finished = true
   elseif mine then
     S.pos = { chapter = mine.chapter, step = mine.step }
   end
   ns:Every(POLL, Pl.refresh)
+  ns.client.watchCombatLog(onCombat)
   Pl.refresh()
   ns:Fire("GUIDE_STARTED", S)
 end

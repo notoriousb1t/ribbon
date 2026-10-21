@@ -221,6 +221,12 @@ describe("Guide", function()
       bad(function(c) return c:Grind(1412, 1, 1, 40, { npc = { 5 } }) end, "count or a level")
     end)
 
+    it("rejects a grind gate without a level 1-60 or with a bad xp", function()
+      bad(function(c) return c:Grind(1412, 1, 1, 40, { count = 5, gate = { xp = 10 } }) end, "gate")
+      bad(function(c) return c:Grind(1412, 1, 1, 40, { count = 5, gate = { level = 61 } }) end, "gate")
+      bad(function(c) return c:Grind(1412, 1, 1, 40, { count = 5, gate = { level = 5, xp = -1 } }) end, "gate")
+    end)
+
     it("rejects a level above 60", function()
       bad(function(c) return c:Ding(61) end, "1-60")
     end)

@@ -172,7 +172,7 @@ local QUEST_DONE = { active = true, complete = true, done = true }
 
 -- "done", "open" or "manual" (nothing the client can tell us) for one call.
 -- env: quest(id) -> "none"|"active"|"complete"|"done"; objective(quest, index) -> { have, need, finished } or nil;
---      level -> number.
+--      level -> number; kills(call) -> kills counted for a Grind (optional).
 local function callState(call, env)
   local kind = call.kind
   if kind == "Accept" then
@@ -192,7 +192,8 @@ local function callState(call, env)
     return (env.level or 0) >= call.level and "done" or "open"
   elseif kind == "Grind" then
     if call.level then return (env.level or 0) >= call.level and "done" or "open" end
-    return "manual"   -- a kill count needs the counter
+    if call.count and env.kills then return env.kills(call) >= call.count and "done" or "open" end
+    return "manual"   -- no counter to ask
   end
   return "manual"
 end
@@ -212,4 +213,40 @@ function P.stepDone(step, env)
   end
   if judged then return true end
   return nil
+end
+
+local function hasGrind(step)
+  for _, g in ipairs(step.groups) do
+    for _, call in ipairs(g.calls) do
+      if call.kind == "Grind" then return true end
+    end
+  end
+  return false
+end
+
+-- Whether the player's level and XP into it (env.xp) reach a grind's gate ({ level, xp }).
+local function gateMet(gate, env)
+  local level = env.level or 0
+  if level ~= gate.level then return level > gate.level end
+  return (env.xp or 0) >= (gate.xp or 0)
+end
+
+-- A grind step the player is past although its kills are not all counted: every Grind in it has a gate the player
+-- has met, and the next step after it the client can judge (other grinds aside) is done.
+function P.grindPassed(flat, i, env)
+  local entry = flat[i]
+  if not (entry and hasGrind(entry.step)) then return false end
+  for _, g in ipairs(entry.step.groups) do
+    for _, call in ipairs(g.calls) do
+      if call.kind == "Grind" and not (call.gate and gateMet(call.gate, env)) then return false end
+    end
+  end
+  for j = i + 1, #flat do
+    local step = flat[j].step
+    if not hasGrind(step) then
+      local done = P.stepDone(step, env)
+      if done ~= nil then return done end
+    end
+  end
+  return false
 end

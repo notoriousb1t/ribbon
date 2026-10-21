@@ -59,6 +59,9 @@ function T.line(call, names, env, group)
     if call.level then
       return string.format("Grind %s to level %d", what, call.level)
     end
+    if call.count and env and env.kills then
+      return string.format("Kill %s (%d/%d)", what, math.min(env.kills(call), call.count), call.count)
+    end
     return string.format("Kill %d %s", call.count or 0, what)
   elseif k == "Ding" then
     return "Reach level " .. call.level

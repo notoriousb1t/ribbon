@@ -85,6 +85,29 @@ function client.isDead()
   return ok and v and true or false
 end
 
+-- Combat log -------------------------------------------------------------------------
+
+-- Call fn(subevent, sourceFlags, destGUID) for every combat log event. The modern client hands the fields to
+-- CombatLogGetCurrentEventInfo; an older one passes them as the event's arguments. Returns false when the client has
+-- no combat log event.
+function client.watchCombatLog(fn)
+  local frame = CreateFrame("Frame")
+  if not pcall(frame.RegisterEvent, frame, "COMBAT_LOG_EVENT_UNFILTERED") then return false end
+  frame:SetScript("OnEvent", function(_, _, ...)
+    local fields = { ... }
+    if type(CombatLogGetCurrentEventInfo) == "function" then
+      local r = { pcall(CombatLogGetCurrentEventInfo) }
+      if not r[1] then return end
+      table.remove(r, 1)
+      fields = r
+    end
+    -- timestamp, subevent, hideCaster, sourceGUID, sourceName, sourceFlags, sourceRaidFlags, destGUID, ...
+    local ok, err = pcall(fn, fields[2], fields[6], fields[8])
+    if not ok then geterrorhandler()(err) end
+  end)
+  return true
+end
+
 -- Quest tracking -------------------------------------------------------------------
 
 -- Call tbl[name](...) when both exist; returns ok and the first result.
@@ -247,6 +270,7 @@ function client.character()
   local name = call(UnitName, "player")
   local realm = call(GetRealmName)
   local level = call(UnitLevel, "player")
+  local xp = call(UnitXP, "player")
   -- A character is told apart by its GUID: a character deleted and made again under the same name is a new one, and must
   -- not inherit the old one's place in the guide.
   local guid = call(UnitGUID, "player")
@@ -255,6 +279,7 @@ function client.character()
     race = race and string.upper(race) or nil,
     faction = faction and string.upper(faction) or nil,
     level = type(level) == "number" and level or nil,
+    xp = type(xp) == "number" and xp or nil,   -- XP into the current level
     flavor = client.flavor(),
     key = type(guid) == "string" and guid ~= "" and guid or ((name or "player") .. "-" .. (realm or "realm")),
   }

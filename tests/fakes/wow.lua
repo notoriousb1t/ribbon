@@ -176,6 +176,13 @@ function World:fireEvent(event, ...)
   end
 end
 
+-- Log one combat event: CombatLogGetCurrentEventInfo returns these fields until the next one.
+-- fields = { subevent =, sourceGUID =, sourceFlags =, destGUID =, destName = }.
+function World:combatEvent(fields)
+  self.combatLog = { 0, fields.subevent, false, fields.sourceGUID, "source", fields.sourceFlags, 0, fields.destGUID, fields.destName or "dest", 0, 0 }
+  self:fireEvent("COMBAT_LOG_EVENT_UNFILTERED")
+end
+
 -- Run every OnUpdate script once.
 function World:update(dt)
   for _, o in ipairs(self.objects) do
@@ -306,8 +313,10 @@ function Fake.install()
   _G.UnitRace = function() return c.race, c.race end
   _G.UnitFactionGroup = function() return c.faction, c.faction end
   _G.UnitLevel = function() return c.level end
+  _G.UnitXP = function() return c.xp or 0 end
   _G.UnitAffectingCombat = function() return world.inCombat == true end
   _G.UnitIsDeadOrGhost = function() return world.dead == true end
+  _G.CombatLogGetCurrentEventInfo = function() return unpack(world.combatLog or {}) end
 
   -- Chat, slash commands, libraries
   _G.SlashCmdList = {}

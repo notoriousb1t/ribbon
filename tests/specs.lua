@@ -45,4 +45,5 @@ return {
   "settings",
   "worldpin",
   "classic",
+  "grind",
 }
