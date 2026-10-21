@@ -27,10 +27,15 @@ local BOTTOM = BEZEL.band + 8               -- room for the bezel
 local COLORS = {
   done = "|cff808080", current = "|cffe9b949", todo = "|cfff3ead2",
 }
+-- A step's title is gold like a quest's name in the quest log, grey once done; its objectives are plain cream.
+local TITLE_COLORS = { done = "|cff808080", current = "|cffffd24a", todo = "|cffe9b949" }
+local OBJECTIVE_COLOR = "|cffe6e0cf"
+local DONE_OBJECTIVE_COLOR = "|cff808080"
 
 local dock, selected   -- the docked panel; selected: guide chapter index being browsed (nil: the active chapter)
 local query = ""       -- what the search box holds, trimmed
 local reportedError
+local folded = {}   -- chapter index -> true while its section is folded away
 local preview          -- { chapter =, step = } of the step shown on the world map, or nil
 
 -- Search text -----------------------------------------------------------------------
@@ -85,8 +90,10 @@ function Br.rows(player, chapter, query)
     }
     end
   end
-  -- The steps of the chapter being browsed; while searching, the matching steps of every chapter, each chapter's under
-  -- a section header of its own ({ header = true, chapter =, label =, count = }), like the quest log's zones.
+  -- The steps of the chapter being browsed; while searching, the matching steps of every chapter, each chapter's under a
+  -- section header row ({ header = true, chapter =, label =, count =, folded = }) like the quest log's zone header,
+  -- which folds them away (when not searching, the one chapter's header is a frame of its own above the rows). A step row is laid out like a quest in the quest log: a title line ("[3/12] Turn in
+  -- ...": its place in the chapter) and, under it, the rest of what it says as objectives.
   local base = 0
   for _, ch in ipairs(S.view) do
     if filtering or ch.index == chapter then
@@ -94,17 +101,24 @@ function Br.rows(player, chapter, query)
       for i, s in ipairs(ch.steps) do
         if not filtering or search.matches(query, stepText(s.step, S.guide.names)) then
           local map, x, y = planner.stepLocation(s.step)
+          local lines = text.stepLines(s.step, S.guide.names, env)
+          local title = table.remove(lines, 1) or "Step"
           mine[#mine + 1] = {
             chapter = s.chapter, step = s.index, state = outline.steps[base + i],
             label = text.summary(s.step, S.guide.names, env),
+            title = title, objectives = lines, position = i, of = #ch.steps,
             icon = text.stepIcon(s.step), map = map, x = x, y = y,
           }
         end
       end
       if filtering and #mine > 0 then
-        right[#right + 1] = { header = true, chapter = ch.index, label = text.chapterParts(ch.name), count = #mine }
+        right[#right + 1] = {
+          header = true, chapter = ch.index, label = text.chapterParts(ch.name), count = #mine, folded = folded[ch.index] == true,
+        }
       end
-      for _, row in ipairs(mine) do right[#right + 1] = row end
+      if not folded[ch.index] then
+        for _, row in ipairs(mine) do right[#right + 1] = row end
+      end
     end
     base = base + #ch.steps
   end
@@ -114,6 +128,7 @@ end
 local function colored(state, label)
   return (COLORS[state] or COLORS.todo) .. (state == "current" and "> " or "") .. label .. "|r"
 end
+
 
 -- Frame ---------------------------------------------------------------------------------
 
@@ -182,6 +197,7 @@ end
 
 local ICON = 24                           -- the icon a step is drawn with
 local GO = 22                            -- the hover button that moves the player's place to the step
+local CHECK = 18                         -- the check mark on a step that is done
 
 -- Is the mouse over a frame? (Frame:IsMouseOver is the retail call; MouseIsOver the older one.)
 local function mouseOver(frame)
@@ -189,8 +205,60 @@ local function mouseOver(frame)
   return MouseIsOver and MouseIsOver(frame) or false
 end
 
--- A step row: the step's icon, its text over up to two lines, a blue wash when it is the one being previewed, and a
--- button at the right, shown while the mouse is over the row, that makes this the player's current step.
+-- The look of the quest log's zone header on a frame: a dark bar with a thin gold border, a name, and a fold button (a
+-- minus; with a second bar across it, a plus). Used by the section header over the list and by the step rows, which
+-- become headers while searching.
+local function addHeaderLook(b, width)
+  local style = ns.compassStyle
+  local gold = style.panel.gold
+  b.headBg = b:CreateTexture(nil, "BACKGROUND")
+  b.headBg:SetAllPoints()
+  b.headBg:SetColorTexture(0.10, 0.08, 0.05, 1)
+  b.headLines = {}
+  for n, edge in ipairs({ "TOP", "BOTTOM" }) do
+    local line = b:CreateTexture(nil, "BORDER")
+    line:SetColorTexture(gold[1], gold[2], gold[3], 0.45)
+    line:SetHeight(1)
+    line:SetPoint(edge .. "LEFT")
+    line:SetPoint(edge .. "RIGHT")
+    b.headLines[n] = line
+  end
+  b.headText = b:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
+  b.headText:SetPoint("LEFT", b, "LEFT", 8, 0)
+  b.headText:SetWidth(width - 44)
+  b.headText:SetJustifyH("LEFT")
+  b.headText:SetWordWrap(false)
+  b.headText:SetTextColor(0.82, 0.78, 0.68)
+  b.minus = b:CreateTexture(nil, "OVERLAY")
+  b.minus:SetColorTexture(gold[1], gold[2], gold[3], 1)
+  b.minus:SetSize(10, 3)
+  b.minus:SetPoint("RIGHT", b, "RIGHT", -8, 0)
+  b.plus = b:CreateTexture(nil, "OVERLAY")
+  b.plus:SetColorTexture(gold[1], gold[2], gold[3], 1)
+  b.plus:SetSize(3, 10)
+  b.plus:SetPoint("CENTER", b.minus, "CENTER")
+  b.headBg:Hide()
+  b.headText:Hide()
+  b.minus:Hide()
+  b.plus:Hide()
+  for _, line in ipairs(b.headLines) do line:Hide() end
+end
+
+-- Shows or hides a frame's header look and sets its name and fold state.
+local function setHeaderLook(b, shown, label, isFolded)
+  b.headBg:SetShown(shown)
+  b.headText:SetShown(shown)
+  b.minus:SetShown(shown)
+  b.plus:SetShown(shown and isFolded == true)
+  for _, line in ipairs(b.headLines) do line:SetShown(shown) end
+  if shown then b.headText:SetText(label) end
+end
+
+-- A step row, laid out like a quest in the quest log: its icon (with a gold glow when it is the player's step), a gold
+-- title over up to two lines, its objectives under the title in plain text, and a check mark at the right once it is
+-- done; a blue wash when it is the one being previewed. While the mouse is over the row an arrow takes the check's
+-- place and makes this the player's current step. The same row is also a section header (a chapter's name with a
+-- fold button), switched by fill().
 local function makeRow(width)
   return function(parent, i)
     local style = ns.compassStyle
@@ -201,40 +269,41 @@ local function makeRow(width)
     b.sel:SetAllPoints()
     b.sel:SetColorTexture(0.25, 0.65, 1.0, 0.22)
     b.sel:Hide()
-    -- The section header look (a row of search results that names a chapter): a dark bar with a thin gold border.
-    b.headBg = b:CreateTexture(nil, "BACKGROUND")
-    b.headBg:SetAllPoints()
-    b.headBg:SetColorTexture(0.10, 0.08, 0.05, 1)
-    b.headLines = {}
-    for i, edge in ipairs({ "TOP", "BOTTOM" }) do
-      local line = b:CreateTexture(nil, "BORDER")
-      line:SetColorTexture(style.panel.gold[1], style.panel.gold[2], style.panel.gold[3], 0.45)
-      line:SetHeight(1)
-      line:SetPoint(edge .. "LEFT")
-      line:SetPoint(edge .. "RIGHT")
-      b.headLines[i] = line
-    end
-    b.headText = b:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    b.headText:SetPoint("LEFT", b, "LEFT", 8, 0)
-    b.headText:SetTextColor(0.82, 0.78, 0.68)
-    b.headBg:Hide()
-    b.headText:Hide()
-    for _, line in ipairs(b.headLines) do line:Hide() end
+    addHeaderLook(b, width)
+
+    -- A step: the glow behind the icon, the icon, the title, the objectives and the check.
+    b.glow = b:CreateTexture(nil, "BACKGROUND")
+    b.glow:SetTexture(style.textures.markerFill)
+    b.glow:SetVertexColor(1, 0.82, 0.2, 0.35)
+    b.glow:SetSize(ICON + 12, ICON + 12)
+    b.glow:Hide()
     b.icon = CreateFrame("Frame", nil, b)
     b.icon:SetSize(ICON, ICON)
-    b.icon:SetPoint("LEFT", b, "LEFT", 4, 0)
+    b.icon:SetPoint("TOPLEFT", b, "TOPLEFT", 6, -5)
+    b.glow:SetPoint("CENTER", b.icon, "CENTER")
     ns.badge.build(b.icon)
-    local left = 4 + ICON + 6
-    b.label = b:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-    b.label:SetPoint("LEFT", b, "LEFT", left, 0)
-    b.label:SetWidth(width - left - GO - 8)
+    local left = 6 + ICON + 8
+    local textWidth = width - left - GO - 10
+    b.label = b:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    b.label:SetPoint("TOPLEFT", b, "TOPLEFT", left, -5)
+    b.label:SetWidth(textWidth)
     b.label:SetJustifyH("LEFT")
-    b.label:SetMaxLines(2)       -- two lines per step: a longer summary is cut, it does not run into the next row
+    b.label:SetMaxLines(2)       -- a title longer than two lines is cut, it does not run into the next row
+    b.objectives = b:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    b.objectives:SetPoint("TOPLEFT", b.label, "BOTTOMLEFT", 6, -2)
+    b.objectives:SetWidth(textWidth - 6)
+    b.objectives:SetJustifyH("LEFT")
+    b.check = b:CreateTexture(nil, "OVERLAY")
+    b.check:SetTexture([[Interface\Buttons\UI-CheckBox-Check]])
+    b.check:SetVertexColor(1, 0.82, 0.2)
+    b.check:SetSize(CHECK, CHECK)
+    b.check:SetPoint("TOPRIGHT", b, "TOPRIGHT", -6, -6)
+    b.check:Hide()
     b:SetHighlightTexture("Interface\\QuestFrame\\UI-QuestTitleHighlight")
 
     b.go = CreateFrame("Button", nil, b)
     b.go:SetSize(GO, GO)
-    b.go:SetPoint("RIGHT", b, "RIGHT", -4, 0)
+    b.go:SetPoint("TOPRIGHT", b, "TOPRIGHT", -4, -4)
     b.go.bg = b.go:CreateTexture(nil, "ARTWORK")
     b.go.bg:SetTexture(style.textures.bezelButton)
     b.go.bg:SetAllPoints()
@@ -254,14 +323,22 @@ local function makeRow(width)
       GameTooltip:SetText("Make this your current step")
       GameTooltip:Show()
     end)
-    -- The button is a child of the row, so moving onto it leaves the row: only hide when the mouse is on neither.
+    -- The check and the arrow share a place: the arrow while the mouse is over the row.
+    local function hideGo()
+      b.go:Hide()
+      b.check:SetShown(b.done == true and not b.isHeader)
+    end
     b.go:SetScript("OnLeave", function()
       GameTooltip:Hide()
-      if not mouseOver(b) then b.go:Hide() end
+      if not mouseOver(b) then hideGo() end
     end)
-    b:SetScript("OnEnter", function() if not b.isHeader then b.go:Show() end end)
+    b:SetScript("OnEnter", function()
+      if b.isHeader then return end
+      b.go:Show()
+      b.check:Hide()
+    end)
     b:SetScript("OnLeave", function()
-      if not mouseOver(b) then b.go:Hide() end
+      if not mouseOver(b) then hideGo() end
     end)
     return b
   end
@@ -285,11 +362,12 @@ local function scroller(parent, name, x, width, anchor)
 end
 
 -- Scrolls a column so row i (rows of the given height) is in the middle of its view, or as near as the column allows.
-local function scrollTo(scroll, i, height)
+local function scrollTo(scroll, i, height, top)
   if not (scroll and scroll.SetVerticalScroll and i) then return end
   local view = scroll:GetHeight()
   view = math.max(type(view) == "number" and view or 0, height)
-  local y = math.max(0, (i - 1) * height - (view - height) / 2)
+  -- `top` is where the row starts when rows differ in height; otherwise rows are `height` each.
+  local y = math.max(0, (top or (i - 1) * height) - (view - height) / 2)
   local range = scroll.GetVerticalScrollRange and scroll:GetVerticalScrollRange()
   if type(range) == "number" then y = math.min(y, range) end
   scroll:SetVerticalScroll(y)
@@ -316,7 +394,8 @@ function Br.scrollToCurrent()
     if dock.page == "chapters" then
       scrollTo(dock.leftScroll, chapter, CARD)
     else
-      scrollTo(dock.rightScroll, step or 1, ROW)
+      local top, height = dock.rowTop and dock.rowTop[step or 1], dock.rowHeight and dock.rowHeight[step or 1]
+      scrollTo(dock.rightScroll, step or 1, height or ROW, top)
     end
   end
   go()
@@ -339,31 +418,69 @@ local function fill(f, player)
     b.chapter, b.done, b.total, b.fraction = row.chapter, row.done, row.total, row.fraction
   end
   f.setRight(#right)
+  -- Not searching: the one chapter's section header sits above the rows (searching, each chapter's header is a row).
+  local searching = query ~= ""
   local y = 0
+  local section = f.section
+  section:SetShown(not searching)
+  if not searching then
+    local label, isFolded
+    for _, row in ipairs(left) do
+      if row.chapter == selected then label = text.chapterParts(row.label) end
+    end
+    isFolded = folded[selected] == true
+    section.chapter = selected
+    setHeaderLook(section, true, label or "", isFolded)
+    y = SECTION_H
+  end
+  f.rowTop, f.rowHeight = {}, {}
   for i, row in ipairs(right) do
     local b = f.rightRows.items[i]
     local header = row.header == true
-    local h = header and SECTION_H or ROW
     b.isHeader = header
+    -- A section header names a chapter; any other row is a step.
+    -- (while searching, a header also says how many of the chapter's steps matched)
+    setHeaderLook(b, header, header and string.format("%s  |cff9a9484(%d)|r", row.label, row.count) or "", row.folded)
+    b.icon:SetShown(not header)
+    b.label:SetShown(not header)
+    b.objectives:SetShown(not header)
+    local h
+    if header then
+      b.sel:Hide()
+      b.go:Hide()
+      b.glow:Hide()
+      b.check:Hide()
+      b.done = false
+      h = SECTION_H
+    else
+      local titleColor = TITLE_COLORS[row.state] or TITLE_COLORS.todo
+      b.label:SetText(string.format("%s[%d/%d] %s|r", titleColor, row.position, row.of, row.title))
+      local objectiveColor = row.state == "done" and DONE_OBJECTIVE_COLOR or OBJECTIVE_COLOR
+      local lines = {}
+      for _, line in ipairs(row.objectives) do lines[#lines + 1] = objectiveColor .. "- " .. line .. "|r" end
+      b.objectives:SetText(table.concat(lines, "\n"))
+      ns.badge.draw(b.icon, row.icon, ICON)
+      b.glow:SetShown(row.state == "current")
+      b.done = row.state == "done"
+      b.check:SetShown(b.done and not (b.go:IsShown()))
+      b.sel:SetShown(preview ~= nil and preview.chapter == row.chapter and preview.step == row.step)
+      -- The row is as tall as its text: the title, then the objectives under it (measured when the client can say, a
+      -- line each otherwise), never shorter than its icon needs.
+      local titleH = b.label:GetStringHeight()
+      titleH = type(titleH) == "number" and titleH > 0 and titleH or 14
+      local objectivesH = 0
+      if #lines > 0 then
+        objectivesH = b.objectives:GetStringHeight()
+        objectivesH = type(objectivesH) == "number" and objectivesH > 0 and objectivesH or 12 * #lines
+        objectivesH = objectivesH + 2
+      end
+      h = math.max(ROW, math.ceil(10 + titleH + objectivesH))
+    end
     b:ClearAllPoints()
     b:SetPoint("TOPLEFT", f.rightContent, "TOPLEFT", 0, -y)
     b:SetHeight(h)
+    f.rowTop[i], f.rowHeight[i] = y, h
     y = y + h
-    -- A section header names a chapter; any other row is a step.
-    b.headBg:SetShown(header)
-    b.headText:SetShown(header)
-    for _, line in ipairs(b.headLines) do line:SetShown(header) end
-    b.icon:SetShown(not header)
-    b.label:SetShown(not header)
-    if header then
-      b.headText:SetText(string.format("%s  |cff9a9484(%d)|r", row.label, row.count))
-      b.sel:Hide()
-      b.go:Hide()
-    else
-      b.label:SetText(colored(row.state, row.label))
-      ns.badge.draw(b.icon, row.icon, ICON)
-      b.sel:SetShown(preview ~= nil and preview.chapter == row.chapter and preview.step == row.step)
-    end
     b.chapter, b.step = row.chapter, row.step
   end
   f.rightContent:SetHeight(math.max(1, y))
@@ -690,6 +807,12 @@ local function build()
   left, f.leftScroll = scroller(f, "RibbonGuideDockChapters", B + 6, COLUMN_W, anchor)
   right, f.rightScroll = scroller(f, "RibbonGuideDockSteps", B + 6, COLUMN_W, anchor)
   f.rightContent = right
+  -- The chapter's section header, at the top of the step list: it scrolls with the steps and folds them away.
+  f.section = CreateFrame("Button", nil, right)
+  f.section:SetSize(COLUMN_W - 22, SECTION_H)
+  f.section:SetPoint("TOPLEFT", right, "TOPLEFT", 0, 0)
+  addHeaderLook(f.section, COLUMN_W - 22)
+  f.section:SetScript("OnClick", function(self) Br.toggleFold(self.chapter) end)
   local makeLeft, makeRight = makeCard(COLUMN_W - 22), makeRow(COLUMN_W - 22)
   f.setLeft = pool(left, f.leftRows, function(parent, i)
     local b = makeLeft(parent, i)
@@ -701,7 +824,10 @@ local function build()
   f.setRight = pool(right, f.rightRows, function(parent, i)
     local b = makeRight(parent, i)
     b:SetScript("OnClick", function(self)
-      if self.isHeader then return end
+      if self.isHeader then
+        Br.toggleFold(self.chapter)
+        return
+      end
       Br.preview(self.chapter, self.step)
     end)
     return b
@@ -779,6 +905,12 @@ function Br.clearPreview()
   Br.refresh()
 end
 
+-- Folds a chapter's section away, or opens it again.
+function Br.toggleFold(chapter)
+  folded[chapter] = not folded[chapter] or nil
+  Br.refresh()
+end
+
 -- The child page: a chapter's steps (the browsed chapter when none is given).
 function Br.showSteps(chapter)
   if not dock then return end
@@ -837,7 +969,8 @@ function Br.setDock(shown)
   if ns.db then ns.db.guideDock = shown and true or false end
   if shown then
     selected = nil
-    Br.setQuery("")  -- a new look starts with nothing searched for
+    folded = {}      -- a new look starts with every section open
+    Br.setQuery("")  -- ... and nothing searched for
     Br.showSteps()   -- always open on the child page, at the step the player is on
   end
   ns:Fire("GUIDE_DOCK_CHANGED", shown and true or false)

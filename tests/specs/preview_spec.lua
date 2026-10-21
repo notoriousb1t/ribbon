@@ -75,9 +75,10 @@ describe("Step icons, preview and the hover arrow", function()
     it("keeps the text clear of the icon and of the hover arrow", function()
       local d = open()
       local row = d.rightRows.items[1]
-      expect(row.label.SetPoint).toHaveBeenCalledWith("LEFT", row, "LEFT", 4 + 24 + 6, 0)
+      local left = 6 + 24 + 8
+      expect(row.label.SetPoint).toHaveBeenCalledWith("TOPLEFT", row, "TOPLEFT", left, -5)
       local width = 300 - 22
-      expect(row.label.SetWidth).toHaveBeenCalledWith(width - (4 + 24 + 6) - 22 - 8)
+      expect(row.label.SetWidth).toHaveBeenCalledWith(width - left - 22 - 10)
     end)
   end)
 

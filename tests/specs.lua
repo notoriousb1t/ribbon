@@ -39,4 +39,5 @@ return {
   "search",
   "native",
   "loader",
+  "quest_rows",
 }

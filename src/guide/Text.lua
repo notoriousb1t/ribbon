@@ -104,6 +104,15 @@ function T.chapterParts(name)
   return name, nil
 end
 
+-- Every line a step says, in order, for the step list (the first is the step's title, the rest are its objectives).
+function T.stepLines(step, names, env)
+  local out = {}
+  for _, g in ipairs(step.groups or {}) do
+    for _, line in ipairs(T.lines(g, names, env, nil)) do out[#out + 1] = line end
+  end
+  return out
+end
+
 -- The call kind that decides a group's map icon.
 local ICON = {
   Accept = "accept", Turnin = "turnin", Kill = "kill", Grind = "grind",
