@@ -13,17 +13,7 @@ local chrome = {}
 local ticks, labels, markers = {}, {}, {}
 local layout
 
--- Outlined, shadowed text stays readable over any background. The font file comes from the
--- game's own font object so it follows the player's UI font and language.
-local function styleText(fs, size)
-  local base = _G.GameFontHighlight
-  if base and base.GetFont then
-    local ok, path = pcall(base.GetFont, base)
-    if ok and path then fs:SetFont(path, size, "OUTLINE") end
-  end
-  fs:SetShadowColor(0, 0, 0, 1)
-  fs:SetShadowOffset(1, -1)
-end
+local styleText = ns.badge.styleText   -- outlined, shadowed text that stays readable over any background
 
 -- Show the caption for a waypoint (or clear it): headline, up to two description lines, and a plate
 -- sized to fit the text.
@@ -98,74 +88,13 @@ local function showCoordinates(owner)
   GameTooltip:Show()
 end
 
--- Fills a marker's badge for its waypoint and size. A kind with no entry in Style.badge is drawn plain, full size.
-local function drawBadge(m, p)
-  local style = ns.compassStyle
-  local badge = style.badge
-  local kind = badge.kinds[p.wp.icon]
-  m.tex:SetTexture(ns.ICONS[p.wp.icon] or ns.ICONS[ns.DEFAULT_ICON])
-  m.tex:ClearAllPoints()
-  if not kind then
-    m.fill:Hide()
-    m.rim:Hide()
-    m.glyph:Hide()
-    m.tex:SetAllPoints(m)
-    m.tex:Show()
-    return
-  end
-  -- Usual badge: dark disc, coloured rim and symbol. Flipped: a solid disc in the colour, a dark symbol.
-  local color, dark = kind.color, badge.fillColor
-  if kind.flip then
-    m.fill:SetVertexColor(color[1], color[2], color[3], 1)
-    m.rim:SetVertexColor(color[1] * badge.flipRim, color[2] * badge.flipRim, color[3] * badge.flipRim, 1)
-  else
-    m.fill:SetVertexColor(unpack(dark))
-    m.rim:SetVertexColor(color[1], color[2], color[3], 1)
-  end
-  m.fill:Show()
-  m.rim:Show()
-  if kind.glyph then
-    local px = math.floor(p.size * badge.glyphScale + 0.5)
-    if m.glyphSize ~= px then
-      m.glyphSize = px
-      styleText(m.glyph, px)
-    end
-    m.glyph:SetText(kind.glyph)
-    if kind.flip then
-      m.glyph:SetTextColor(dark[1], dark[2], dark[3], 1)
-    else
-      m.glyph:SetTextColor(color[1], color[2], color[3], 1)
-    end
-    m.glyph:Show()
-    m.tex:Hide()
-  else
-    local icon = math.floor(p.size * badge.iconScale + 0.5)
-    m.tex:SetPoint("CENTER", m, "CENTER", 0, 0)
-    m.tex:SetSize(icon, icon)
-    m.tex:Show()
-    m.glyph:Hide()
-  end
-end
-
 local function marker(i)
   local m = markers[i]
   if m then return m end
   m = CreateFrame("Button", nil, frame)
   m:SetSize(20, 20)
   m:RegisterForClicks("LeftButtonUp", "RightButtonUp")
-  local style = ns.compassStyle
-  -- The badge: a dark disc, a coloured rim, and the symbol (text for ! and ?, an icon for the rest).
-  m.fill = m:CreateTexture(nil, "BACKGROUND")
-  m.fill:SetTexture(style.textures.markerFill)
-  m.fill:SetAllPoints()
-  m.fill:SetVertexColor(unpack(style.badge.fillColor))
-  m.rim = m:CreateTexture(nil, "BORDER")
-  m.rim:SetTexture(style.textures.markerRim)
-  m.rim:SetAllPoints()
-  m.glyph = m:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
-  m.glyph:SetPoint("CENTER", m, "CENTER", 0, style.badge.glyphOffsetY)
-  m.tex = m:CreateTexture(nil, "ARTWORK")
-  m.tex:SetAllPoints()
+  ns.badge.build(m)   -- the badge: a dark disc, a coloured rim, and the symbol (text for ! and ?, an icon for the rest)
   -- For a waypoint outside the view: an arrow beside the marker, pointing the way to turn.
   local arrowSize = ns.compassStyle.marker.arrow
   m.arrow = m:CreateTexture(nil, "OVERLAY")
@@ -373,7 +302,7 @@ function C.Update()
   for i, p in ipairs(placements) do
     local m = marker(i)
     m.uid = p.wp.uid
-    drawBadge(m, p)
+    ns.badge.draw(m, p.wp.icon, p.size)
     m:ClearAllPoints()
     m:SetPoint("CENTER", frame, "CENTER", p.x, 0)
     m:SetAlpha(p.edge and ns.compassStyle.marker.edgeAlpha or 1)
