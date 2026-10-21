@@ -13,12 +13,14 @@ ns.guideBrowser = Br
 
 local planner = ns.guidePlanner
 local text = ns.guideText
+local search = ns.guideSearch
 
 local ROW = 34                           -- height of a step row (two lines of text)
 local CARD = 40                          -- height of a chapter card
 local COLUMN_W = 300                     -- the width of the list
 local BEZEL = ns.compassStyle.bezel
-local TOP = BEZEL.band + BEZEL.title + 28    -- room for the bezel, the title bar and the overall bar
+local SEARCH_H = 26                          -- the search box and the gap under it
+local TOP = BEZEL.band + BEZEL.title + 28 + SEARCH_H   -- room for the bezel, the title bar, the search box and the overall bar
 local BOTTOM = BEZEL.band + 8               -- room for the bezel
 
 local COLORS = {
@@ -26,36 +28,73 @@ local COLORS = {
 }
 
 local dock, selected   -- the docked panel; selected: guide chapter index being browsed (nil: the active chapter)
+local query = ""       -- what the search box holds, trimmed
 local preview          -- { chapter =, step = } of the step shown on the world map, or nil
+
+-- Search text -----------------------------------------------------------------------
+
+-- What a step says and what a chapter holds, for the search. Steps are rebuilt when the plan is, so the caches are
+-- keyed by the step or chapter table and let go of it with it.
+local stepTexts = setmetatable({}, { __mode = "k" })
+local chapterTexts = setmetatable({}, { __mode = "k" })
+
+local function stepText(step, names)
+  local t = stepTexts[step]
+  if not t then
+    t = text.fullText(step, names)
+    stepTexts[step] = t
+  end
+  return t
+end
+
+-- The chapter's name (both halves), its level range and every step.
+local function chapterText(ch, names)
+  local t = chapterTexts[ch]
+  if not t then
+    local parts = { ch.name }
+    if type(ch.levels) == "table" and ch.levels[1] then parts[#parts + 1] = "level " .. ch.levels[1] .. " " .. (ch.levels[2] or ch.levels[1]) end
+    for _, s in ipairs(ch.steps) do parts[#parts + 1] = stepText(s.step, names) end
+    t = table.concat(parts, " ")
+    chapterTexts[ch] = t
+  end
+  return t
+end
 
 -- Rows --------------------------------------------------------------------------------
 
 -- Left rows: { chapter =, label =, state =, levels =, done =, total =, fraction = }. Right rows:
 -- { chapter =, step =, label =, state =, icon =, map =, x =, y = } (the icon the step is drawn with and where it is, if it
--- is anywhere). Progress is by position: steps before the current one count as done.
-function Br.rows(player, chapter)
+-- is anywhere). Progress is by position: steps before the current one count as done. With a `query` the lists are
+-- narrowed to what matches it (guide/Search.lua): a chapter when its name, its levels or any of its steps match, a step
+-- when anything it says matches.
+function Br.rows(player, chapter, query)
   local S = player.state()
   local env = player.env()
   local outline = planner.outline(S.view, S.flat, S.cursor)
   local progress = planner.progress(S.view, S.flat, S.cursor)
   local left, right = {}, {}
+  local filtering = query ~= nil and #search.words(search.normalize(query)) > 0
   for _, ch in ipairs(S.view) do
     local p = progress.chapters[ch.index]
+    if not filtering or search.matches(query, chapterText(ch, S.guide.names)) then
     left[#left + 1] = {
       chapter = ch.index, label = ch.name, state = outline.chapters[ch.index], levels = ch.levels,
       done = p.done, total = p.total, fraction = p.fraction,
     }
+    end
   end
   local base = 0
   for _, ch in ipairs(S.view) do
     if ch.index == chapter then
       for i, s in ipairs(ch.steps) do
-        local map, x, y = planner.stepLocation(s.step)
-        right[#right + 1] = {
-          chapter = s.chapter, step = s.index, state = outline.steps[base + i],
-          label = text.summary(s.step, S.guide.names, env),
-          icon = text.stepIcon(s.step), map = map, x = x, y = y,
-        }
+        if not filtering or search.matches(query, stepText(s.step, S.guide.names)) then
+          local map, x, y = planner.stepLocation(s.step)
+          right[#right + 1] = {
+            chapter = s.chapter, step = s.index, state = outline.steps[base + i],
+            label = text.summary(s.step, S.guide.names, env),
+            icon = text.stepIcon(s.step), map = map, x = x, y = y,
+          }
+        end
       end
     end
     base = base + #ch.steps
@@ -213,7 +252,7 @@ end
 local function scrollTo(scroll, i, height)
   if not (scroll and scroll.SetVerticalScroll and i) then return end
   local view = scroll:GetHeight()
-  view = type(view) == "number" and view or 0
+  view = math.max(type(view) == "number" and view or 0, height)
   local y = math.max(0, (i - 1) * height - (view - height) / 2)
   local range = scroll.GetVerticalScrollRange and scroll:GetVerticalScrollRange()
   if type(range) == "number" then y = math.min(y, range) end
@@ -227,7 +266,7 @@ function Br.scrollToCurrent()
   if not dock then return end
   local player = ns.guidePlayer
   if not player.state() then return end
-  local left, right = Br.rows(player, selected)
+  local left, right = Br.rows(player, selected, query)
   local chapter, step
   for i, row in ipairs(left) do
     if row.chapter == selected then chapter = i end
@@ -235,6 +274,8 @@ function Br.scrollToCurrent()
   for i, row in ipairs(right) do
     if row.state == "current" then step = i end
   end
+  -- Looking at search results, the place to show is the top of them.
+  if query ~= "" then chapter, step = 1, 1 end
   local function go()
     if dock.page == "chapters" then
       scrollTo(dock.leftScroll, chapter, CARD)
@@ -249,7 +290,7 @@ end
 -- Fills the panel from the player's state.
 local function fill(f, player)
   local S = player.state()
-  local left, right = Br.rows(player, selected)
+  local left, right = Br.rows(player, selected, query)
 
   f.setLeft(#left)
   for i, row in ipairs(left) do
@@ -272,6 +313,8 @@ local function fill(f, player)
   -- The page: the chapter list shows the whole guide's progress and the guide's title; a chapter's steps show that
   -- chapter's progress and its name, with the back arrow.
   local onSteps = f.page == "steps"
+  local shownRows = onSteps and #right or #left
+  f.empty:SetShown(query ~= "" and shownRows == 0)
   f.leftScroll:SetShown(not onSteps)
   f.rightScroll:SetShown(onSteps)
   f.back:SetShown(onSteps)
@@ -364,6 +407,55 @@ local function addBezel(f)
   f.layoutBezel()
 end
 
+-- The search box: an input box with a hint while it is empty and a clear button while it is not. Typing narrows the
+-- lists as you go; Escape clears it, then leaves it.
+local function makeSearch(parent, width)
+  local ok, box = pcall(CreateFrame, "EditBox", "RibbonGuideSearch", parent, "SearchBoxTemplate")
+  if not (ok and type(box) == "table" and box.SetAutoFocus) then
+    box = CreateFrame("EditBox", "RibbonGuideSearch", parent, "InputBoxTemplate")
+  end
+  box:SetSize(width, 20)
+  box:SetAutoFocus(false)
+  box:SetMaxLetters(60)
+  box.hint = box:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+  box.hint:SetPoint("LEFT", box, "LEFT", 6, 0)
+  box.hint:SetText("Search chapters and steps")
+  box.clear = CreateFrame("Button", nil, box)
+  box.clear:SetSize(16, 16)
+  box.clear:SetPoint("RIGHT", box, "RIGHT", -2, 0)
+  box.clear.x = box.clear:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+  box.clear.x:SetPoint("CENTER")
+  box.clear.x:SetText("x")
+  box.clear:Hide()
+  -- The hint and the clear button follow what the box holds.
+  function box.sync()
+    local t = box:GetText() or ""
+    box.hint:SetShown(t == "")
+    box.clear:SetShown(t ~= "")
+  end
+  box.clear:SetScript("OnClick", function()
+    box:SetText("")
+    box.sync()
+    Br.setQuery("")
+    box:ClearFocus()
+  end)
+  box:SetScript("OnTextChanged", function(self)
+    self.sync()
+    Br.setQuery(self:GetText() or "", true)
+  end)
+  box:SetScript("OnEscapePressed", function(self)
+    if (self:GetText() or "") ~= "" then
+      self:SetText("")
+      self.sync()
+      Br.setQuery("")
+    else
+      self:ClearFocus()
+    end
+  end)
+  box:SetScript("OnEnterPressed", function(self) self:ClearFocus() end)
+  return box
+end
+
 -- Blizzard's own frame (ButtonFrameTemplate: the map's bronze bezel, title bar, red close button and inset), so the panel
 -- looks like the map beside it. Only when the template's helper exists and the frame can be made; otherwise the gold
 -- bezel drawn in build() stands in, in the same colours and width.
@@ -391,7 +483,7 @@ local function build()
   if native then
     -- (A real frame has these as frames; anything else is not one.)
     content = type(f.Inset) == "table" and f.Inset.SetPoint and f.Inset or f
-    anchor = { frame = content, x = 8, top = 34, bottom = 8 }
+    anchor = { frame = content, x = 8, top = 34 + SEARCH_H, bottom = 8 }
     -- The title goes through the template's own title text.
     f.title = {
       SetText = function(_, t)
@@ -406,13 +498,6 @@ local function build()
       f.close:SetPoint("TOPRIGHT", f, "TOPRIGHT", -4, -4)
     end
     f.close:SetScript("OnClick", function() Br.setDock(false) end)
-    -- The back arrow: the game's own previous-page arrow, in the title bar.
-    f.back = CreateFrame("Button", nil, f)
-    f.back:SetSize(22, 22)
-    f.back:SetPoint("TOPLEFT", f, "TOPLEFT", 8, -4)
-    f.back:SetNormalTexture([[Interface\Buttons\UI-SpellbookIcon-PrevPage-Up]])
-    f.back:SetPushedTexture([[Interface\Buttons\UI-SpellbookIcon-PrevPage-Down]])
-    f.back:SetHighlightTexture([[Interface\Buttons\UI-Common-MouseHilight]], "ADD")
   else
     content = f
     local p = style.panel
@@ -441,19 +526,6 @@ local function build()
     f.title:SetText(ns.guide and ns.guide.title or "Guide")
     f.title:SetTextColor(unpack(p.gold))   -- gold, like "Map & Quest Log"
 
-    -- The back arrow, on the child page: a bezel button with the caret pointing left.
-    f.back = CreateFrame("Button", nil, f)
-    f.back:SetSize(22, 22)
-    f.back:SetPoint("LEFT", strip, "LEFT", 2, 0)
-    f.back.bg = f.back:CreateTexture(nil, "ARTWORK")
-    f.back.bg:SetTexture(style.textures.bezelButton)
-    f.back.bg:SetAllPoints()
-    f.back.caret = f.back:CreateTexture(nil, "OVERLAY")
-    f.back.caret:SetTexture(style.textures.panelCaret)
-    f.back.caret:SetSize(14, 14)
-    f.back.caret:SetPoint("CENTER", f.back, "CENTER", -1, 0)
-    f.back:SetHighlightTexture(style.textures.bezelButton, "ADD")
-
     f.close = CreateFrame("Button", nil, f)
     f.close:SetSize(22, 22)
     f.close:SetPoint("RIGHT", strip, "RIGHT", -2, 0)
@@ -473,18 +545,53 @@ local function build()
     f.close:SetHighlightTexture(style.textures.bezelButton, "ADD")
     f.close:SetScript("OnClick", function() Br.setDock(false) end)
   end
+  -- The back arrow, on the child page: a button with the caret pointing left. The same in both looks, and drawn from
+  -- Ribbon's own textures, so it is always there; a high frame level keeps it over the title bar's art.
+  f.back = CreateFrame("Button", nil, f)
+  f.back:SetSize(22, 22)
+  local titleBar = native and type(f.TitleContainer) == "table" and f.TitleContainer.SetPoint and f.TitleContainer or nil
+  if titleBar then
+    f.back:SetPoint("LEFT", titleBar, "LEFT", 6, 0)
+  elseif native then
+    f.back:SetPoint("TOPLEFT", f, "TOPLEFT", 10, -6)
+  else
+    f.back:SetPoint("LEFT", f.strip, "LEFT", 2, 0)
+  end
+  f.back:SetFrameLevel(f:GetFrameLevel() + 20)
+  f.back.bg = f.back:CreateTexture(nil, "ARTWORK")
+  f.back.bg:SetTexture(style.textures.bezelButton)
+  f.back.bg:SetAllPoints()
+  f.back.caret = f.back:CreateTexture(nil, "OVERLAY")
+  f.back.caret:SetTexture(style.textures.panelCaret)
+  f.back.caret:SetSize(14, 14)
+  f.back.caret:SetPoint("CENTER", f.back, "CENTER", -1, 0)
+  f.back:SetHighlightTexture(style.textures.bezelButton, "ADD")
   f.back:SetScript("OnClick", function() Br.showChapters() end)
   f.back:Hide()
 
-  -- Progress along the whole guide (or the chapter), under the title bar.
+  -- The search box, under the title bar.
+  f.search = makeSearch(f, width - 2 * (B + 12) - (native and 12 or 0))
+  if native then
+    f.search:SetPoint("TOPLEFT", content, "TOPLEFT", 14, -8)
+  else
+    f.search:SetPoint("TOPLEFT", f, "TOPLEFT", B + 12, -(B + style.bezel.title + 6))
+  end
+
+  -- Progress along the whole guide (or the chapter), under the search box.
   f.overall = bar(f, width - 2 * (B + 8) - 40, 8)
   if native then
-    f.overall.track:SetPoint("TOPLEFT", content, "TOPLEFT", 10, -12)
+    f.overall.track:SetPoint("TOPLEFT", content, "TOPLEFT", 10, -(12 + SEARCH_H))
   else
-    f.overall.track:SetPoint("TOPLEFT", f, "TOPLEFT", B + 8, -(B + style.bezel.title + 10))
+    f.overall.track:SetPoint("TOPLEFT", f, "TOPLEFT", B + 8, -(B + style.bezel.title + 10 + SEARCH_H))
   end
   f.overallText = f:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
   f.overallText:SetPoint("LEFT", f.overall.track, "RIGHT", 6, 0)
+
+  -- Shown over the lists when a search finds nothing.
+  f.empty = f:CreateFontString(nil, "OVERLAY", "GameFontDisable")
+  f.empty:SetPoint("TOP", f, "TOP", 0, -(TOP + 24))
+  f.empty:SetText("Nothing matches")
+  f.empty:Hide()
 
   -- Two lists in the same place, one per page: the chapters (left rows) and a chapter's steps (right rows).
   f.leftRows, f.rightRows = {}, {}
@@ -527,6 +634,8 @@ function Br.placeDock()
     dock:SetPoint("BOTTOMRIGHT", WorldMapFrame, "BOTTOMRIGHT", -6, 6)
   end
   dock:SetFrameLevel(WorldMapFrame:GetFrameLevel() + 200)
+  -- The back arrow is raised with it, so it stays over the title bar's art whatever level the panel ends up at.
+  if dock.back then dock.back:SetFrameLevel(dock:GetFrameLevel() + 20) end
   if dock.layoutBezel then dock.layoutBezel() end
 end
 
@@ -597,6 +706,21 @@ function Br.showChapters()
   Br.scrollToCurrent()
 end
 
+-- Narrows the lists to what matches the text (an empty text shows everything). `fromBox` is true when the text came from
+-- typing in the box, which must not be rewritten while the player is typing.
+function Br.setQuery(q, fromBox)
+  q = tostring(q or ""):gsub("^%s+", ""):gsub("%s+$", "")
+  if q == query then return end
+  query = q
+  if not dock then return end
+  if not fromBox and (dock.search:GetText() or "") ~= q then
+    dock.search:SetText(q)
+    dock.search.sync()
+  end
+  Br.refresh()
+  Br.scrollToCurrent()
+end
+
 -- Show or hide the panel, and remember the choice for the next session.
 function Br.setDock(shown)
   if not ns.guidePlayer.state() then
@@ -621,6 +745,7 @@ function Br.setDock(shown)
   if ns.db then ns.db.guideDock = shown and true or false end
   if shown then
     selected = nil
+    Br.setQuery("")  -- a new look starts with nothing searched for
     Br.showSteps()   -- always open on the child page, at the step the player is on
   end
   ns:Fire("GUIDE_DOCK_CHANGED", shown and true or false)

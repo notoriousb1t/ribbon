@@ -117,6 +117,15 @@ function T.icon(group)
   return "poi"
 end
 
+-- Everything a step says, for searching: the line of every call of every group, with no progress counts.
+function T.fullText(step, names)
+  local out = {}
+  for _, g in ipairs(step.groups or {}) do
+    for _, line in ipairs(T.lines(g, names, nil, nil)) do out[#out + 1] = line end
+  end
+  return table.concat(out, " ")
+end
+
 -- The icon a step is shown with in a list: the first group whose calls have an icon of their own, else the plain map
 -- point. (A step that accepts a quest and then kills for it is drawn as the accept.)
 function T.stepIcon(step)

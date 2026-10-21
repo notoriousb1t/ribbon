@@ -36,4 +36,5 @@ return {
   "badge",
   "bezel",
   "preview",
+  "search",
 }
