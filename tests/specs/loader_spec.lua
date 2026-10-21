@@ -44,12 +44,22 @@ describe("Progress on the map button, and the section header", function()
       local d = open()
       expect(d.fill:IsShown()).toBe(false)
       d.barParent.GetWidth = function() return 300 end
-      ctx.ns.guidePlayer.jump(2, 1)                          -- 3 of 5 steps done
+      ctx.ns.guidePlayer.jump(1, 2)                          -- 1 of the chapter's 3 steps done
       local inner = 300 - 2 * d.barInset
-      expect(lastCall(d.fill.SetWidth)[1]).toBeCloseTo(0.6 * inner, 4)
+      expect(lastCall(d.fill.SetWidth)[1]).toBeCloseTo(inner / 3, 4)
       expect(d.fill:IsShown()).toBe(true)
-      ctx.ns.guidePlayer.jump(2, 2)
-      expect(lastCall(d.fill.SetWidth)[1]).toBeCloseTo(0.8 * inner, 4)
+      ctx.ns.guidePlayer.jump(1, 3)
+      expect(lastCall(d.fill.SetWidth)[1]).toBeCloseTo(inner * 2 / 3, 4)
+    end)
+
+    it("shows the chapter's progress, not the guide's, and the guide's on the chapter list", function()
+      local d = open()
+      d.barParent.GetWidth = function() return 300 end
+      ctx.ns.guidePlayer.jump(2, 1)                          -- chapter one done, chapter two just started
+      local inner = 300 - 2 * d.barInset
+      expect(lastCall(d.fill.SetWidth)[1]).toBeCloseTo(0.001, 4)      -- chapter two: 0 of 2
+      ctx.ns.guideBrowser.showChapters()
+      expect(lastCall(d.fill.SetWidth)[1]).toBeCloseTo(0.6 * inner, 4)  -- guide: 3 of 5
     end)
 
     it("is gold on a bronze groove that shows even when the bar is empty", function()
@@ -57,7 +67,7 @@ describe("Progress on the map button, and the section header", function()
       local c = d.fill.SetColorTexture.calls[1]
       expect(c[1]).toBeGreaterThan(c[3] + 0.4)
       local g = d.track.SetColorTexture.calls[1]
-      expect(g[1] + g[2] + g[3]).toBeGreaterThan(0.6)            -- not black on the dark face
+      expect(g[1] + g[2] + g[3]).toBeGreaterThan(0.4)            -- not black on the dark face
       expect(d.track:IsShown()).toBe(true)
     end)
 

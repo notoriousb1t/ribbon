@@ -572,7 +572,15 @@ function Br.updateProgress()
   local f = dock
   if not (f and f.fill) then return end
   local look = ns.compassStyle.toggle
-  local overall = Br.progress()
+  -- The chapter being shown (its steps page); the whole guide on the chapter list.
+  local overall, chapter = Br.progress()
+  local S = ns.guidePlayer and ns.guidePlayer.state()
+  local shown = overall
+  if f.page ~= "chapters" and S and selected then
+    local p = planner.progress(S.view, S.flat, S.cursor).chapters[selected]
+    shown = p and p.fraction or chapter
+  end
+  overall = shown
   local width = f.barParent and f.barParent:GetWidth()
   width = (type(width) == "number" and width > 0 and width or f:GetWidth() or 0) - 2 * f.barInset
   f.barFraction = overall
@@ -869,12 +877,12 @@ local function build()
   local barParent, barX, barY = f, B + 8, BOTTOM - 4
   if native then barParent, barX, barY = content, loader.inset + 4, 8 end
   f.track = barParent:CreateTexture(nil, "OVERLAY")
-  f.track:SetColorTexture(0.42, 0.33, 0.14, 0.95)   -- a dull bronze groove, so an empty bar shows too
+  f.track:SetColorTexture(0.25, 0.19, 0.08, 0.95)   -- a dull bronze groove, so an empty bar shows too
   f.track:SetPoint("BOTTOMLEFT", barParent, "BOTTOMLEFT", barX, barY)
   f.track:SetPoint("BOTTOMRIGHT", barParent, "BOTTOMRIGHT", -barX, barY)
   f.track:SetHeight(loader.height)
   f.fill = barParent:CreateTexture(nil, "OVERLAY")
-  f.fill:SetColorTexture(0.914, 0.725, 0.286, 1)
+  f.fill:SetColorTexture(0.74, 0.52, 0.1, 1)
   f.fill:SetPoint("BOTTOMLEFT", barParent, "BOTTOMLEFT", barX, barY)
   f.fill:SetHeight(loader.height)
   f.barInset, f.barParent = barX, barParent
