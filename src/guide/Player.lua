@@ -216,6 +216,21 @@ function Pl.refresh()
   end
 end
 
+-- Whether the current step already deals with a quest (any call that names it), so the tracked-quest bridge need not
+-- show the same quest a second time.
+function Pl.coversQuest(questID)
+  if not S then return false end
+  ensure()
+  local entry = S.flat[S.cursor]
+  if not entry then return false end
+  for _, group in ipairs(entry.step.groups) do
+    for _, call in ipairs(group.calls) do
+      if call.quest == questID then return true end
+    end
+  end
+  return false
+end
+
 function Pl.skip()
   ensure()
   if not S or S.cursor > #S.flat then return end

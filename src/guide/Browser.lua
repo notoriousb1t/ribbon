@@ -244,7 +244,10 @@ local function build()
   frame.close = button("Close", LEFT_W + RIGHT_W + 36 - 122, function() frame:Hide() end)
 
   if UISpecialFrames then table.insert(UISpecialFrames, "RibbonGuideBrowser") end
+  -- A step change drops the chapter being browsed, so the panel goes back to the active chapter (the one just
+  -- clicked, after a jump).
   ns:On("GUIDE_STEP_CHANGED", function()
+    selected = nil
     if frame:IsShown() then Br.refresh() end
   end)
 end

@@ -114,6 +114,15 @@ describe("Guide progress", function()
       expect(frame.overallText.SetText).toHaveBeenCalledWith("60%")
     end)
 
+    it("drops the browsed chapter when the step changes and shows the active chapter again", function()
+      ctx.ns.guideBrowser.toggle()
+      local frame = ctx.ns.guideBrowser.frame()
+      frame.leftRows.items[2]:Trigger("OnClick")            -- browse chapter 2 (two steps)
+      expect(frame.rightRows.items[3]:IsShown()).toBe(false)
+      ctx.ns.guidePlayer.skip()                              -- a step occurs, still in chapter 1 (three steps)
+      expect(frame.rightRows.items[3]:IsShown()).toBe(true)
+    end)
+
     it("opens with /ribbon guides", function()
       SlashCmdList.RIBBON("guides")
       expect(ctx.ns.guideBrowser.frame():IsShown()).toBe(true)
@@ -190,6 +199,54 @@ describe("Guide progress", function()
       expect(focusedStep().x).toBe(40)
       ctx.ns.guidePlayer.prev()
       expect(focusedStep().x).toBe(60)
+    end)
+  end)
+
+  describe("tracked quest that the guide already covers", function()
+    local ctx = H.use({ boot = true })
+
+    local function track(id)
+      local q = ctx.world.quest
+      q.tracked = id
+      q.titles[id] = "Stormpike's Order"
+      q.points[1453] = { { questID = id, x = 0.646, y = 0.372 } }
+      q.objectives[id] = { { finished = true, type = "log" } }
+    end
+    local function titles()
+      local out = {}
+      for _, wp in pairs(ctx.ns.waypoints) do out[#out + 1] = wp.title end
+      table.sort(out)
+      return out
+    end
+
+    it("is left out while the guide's current step names the quest, and shows once the step moves on", function()
+      Ribbon.Guide("g", { schema = 1 }):Chapter("c")
+        :Step():Goto(1453, 60, 60):Turnin(1338)
+        :Step():Goto(1453, 70, 70):Accept(2)
+        :Done()
+      track(1338)
+      ctx.world:placePlayer(1453, 50, 50, 0)
+      ctx.ns.guidePlayer.refresh()
+      ctx.world:update(0.3)
+      expect(#titles()).toBe(1)                                   -- just the guide's step
+      expect(titles()[1]).toContain("Turn in")
+      ctx.ns.guidePlayer.skip()
+      ctx.world:update(0.3)
+      local all = titles()
+      expect(#all).toBe(2)                                        -- the game's tracked quest comes back
+      expect(all[1]).toBe("Accept quest 2")
+      expect(all[2]).toBe("Stormpike's Order")
+    end)
+
+    it("still shows a tracked quest the guide does not mention", function()
+      Ribbon.Guide("g", { schema = 1 }):Chapter("c")
+        :Step():Goto(1453, 60, 60):Accept(7)
+        :Done()
+      track(1338)
+      ctx.world:placePlayer(1453, 50, 50, 0)
+      ctx.ns.guidePlayer.refresh()
+      ctx.world:update(0.3)
+      expect(#titles()).toBe(2)
     end)
   end)
 

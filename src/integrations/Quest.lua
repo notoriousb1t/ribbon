@@ -20,6 +20,12 @@ end
 
 function B.refresh()
   local questID = ns.client.superTrackedQuestID()
+  -- The guide's current step already has this quest as an objective: its waypoint is on the compass, so the
+  -- game's tracked quest is left out.
+  if questID and ns.guidePlayer and ns.guidePlayer.coversQuest(questID) then
+    clear()
+    return
+  end
   local mapID = ns.client.currentMap()
   local point = questID and mapID and translate.pickPoint(ns.client.questPoints(mapID), questID)
   if not point then
