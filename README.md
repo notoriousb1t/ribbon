@@ -47,7 +47,7 @@ Ribbon works on its own: it bundles HereBeDragons for map pins (a newer copy fro
 | `/ribbon compass opacity <20-100>` | How see-through the ribbon is, as a percentage (default 60). Text, markers and the caption stay solid. |
 | `/ribbon compass dial <20-100>` | How see-through the compass dial is, as a percentage (default 70). Its needle stays solid. |
 | `/ribbon compass fov <90-180>` | Set how wide an angle the bar covers. |
-| `/ribbon guides` | With a guide installed, open the guide panel beside the world map (opening the map too), on the steps of the chapter you are in. Its back arrow goes to the list of chapters, each with its levels and a progress bar. The same panel opens from the blue Ribbon button above the map's quest log toggle, or by clicking the compass dial in the middle of the ribbon. It reopens next session if you left it open. |
+| `/ribbon guides` | With a guide installed, open the guide panel beside the world map (opening the map too), on the steps of the chapter you are in. Each step has the icon of what it asks for: click it to preview it on the world map (the map switches to its zone and centres on it), or use the arrow that appears when you hover it to make it your current step. The back arrow goes to the list of chapters, each with its levels and a progress bar. The same panel opens from the blue Ribbon button above the map's quest log toggle, or by clicking the compass dial in the middle of the ribbon. It reopens next session if you left it open. |
 
 - Drag the compass to move it. `/ribbon compass lock` stops the compass moving.
 - Left-click a marker on the compass to focus it: it grows and its name and distance show under the bar. Click it again to go back to the nearest waypoint.

@@ -177,8 +177,62 @@ ns:On("INIT", function()
 end)
 ns:On("GUIDE_REGISTERED", createGuideButton)
 
+-- Preview ---------------------------------------------------------------------------------
+
+local previewPin
+local previewOwner = {}   -- the pin library keys icons by owner; the preview has its own
+
+-- Takes the preview pin off the map.
+function M.clearPreview()
+  if previewPin and M.lib then
+    M.lib:RemoveWorldMapIcon(previewOwner, previewPin)
+    previewPin:Hide()
+  end
+end
+
+-- Pans the map so a point (0-100) is in the middle, at the style's zoom between the smallest and the largest scale.
+-- The map's scroll container is Blizzard's and its calls are not documented, so each is tried and none may fail.
+local function centreOn(x, y)
+  local sc = WorldMapFrame and WorldMapFrame.ScrollContainer
+  if type(sc) ~= "table" then return end
+  local nx, ny = x / 100, y / 100
+  local lo = sc.GetScaleForMinZoom and select(2, pcall(sc.GetScaleForMinZoom, sc))
+  local hi = sc.GetScaleForMaxZoom and select(2, pcall(sc.GetScaleForMaxZoom, sc))
+  local scale
+  if type(lo) == "number" and type(hi) == "number" then scale = lo + (hi - lo) * ns.compassStyle.preview.zoom end
+  if scale and sc.InstantPanAndZoom then
+    pcall(sc.InstantPanAndZoom, sc, scale, nx, ny)
+  else
+    if scale and sc.SetZoomTarget then pcall(sc.SetZoomTarget, sc, scale) end
+    if sc.SetPanTarget then pcall(sc.SetPanTarget, sc, nx, ny) end
+  end
+end
+
+-- Shows a point of the guide on the map: switches the map to its zone, draws its icon there and centres on it. The map
+-- needs a frame to lay itself out after a zone change, so the centring runs again a moment later.
+function M.preview(map, x, y, icon)
+  if not (WorldMapFrame and type(map) == "number" and type(x) == "number" and type(y) == "number") then return end
+  M.clearPreview()
+  pcall(WorldMapFrame.SetMapID, WorldMapFrame, map)
+  if M.lib then
+    local size = ns.compassStyle.preview.size
+    if not previewPin then
+      previewPin = CreateFrame("Frame", nil, UIParent)
+      ns.badge.build(previewPin)
+    end
+    previewPin:SetSize(size, size)
+    ns.badge.draw(previewPin, icon, size)
+    M.lib:AddWorldMapIconMap(previewOwner, previewPin, map, x / 100, y / 100, _G.HBD_PINS_WORLDMAP_SHOW_CONTINENT)
+  end
+  centreOn(x, y)
+  if C_Timer and C_Timer.After then C_Timer.After(0.05, function() centreOn(x, y) end) end
+end
+
+M.previewPin = function() return previewPin end
+
 ns:On("INIT", function()
   local lib = LibStub and LibStub("HereBeDragons-Pins-2.0", true)
+  M.lib = lib
   if not lib then
     ns:Print("map pins disabled: the bundled HereBeDragons-Pins-2.0 did not load.")
     return

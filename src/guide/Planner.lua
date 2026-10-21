@@ -90,6 +90,14 @@ end
 
 function P.positionOf(entry) return { chapter = entry.chapter, step = entry.index } end
 
+-- Where a step is: map, x, y (0-100) of its first located group (a search area's first point), or nil.
+function P.stepLocation(step)
+  for _, g in ipairs(step.groups or {}) do
+    if g.at then return g.at.map, g.at.x, g.at.y end
+    if g.loop and g.loop.points[1] then return g.loop.map, g.loop.points[1][1], g.loop.points[1][2] end
+  end
+end
+
 -- Where each chapter and step stands relative to the current step (flat index `cursor`), for the outline:
 -- "done" (passed), "current" or "todo". Returns chapters = { [chapter index] = state } and
 -- steps = { [flat index] = state }.

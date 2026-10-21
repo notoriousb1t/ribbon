@@ -35,4 +35,5 @@ return {
   "guideui",
   "badge",
   "bezel",
+  "preview",
 }

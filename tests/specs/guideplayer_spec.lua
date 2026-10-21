@@ -317,10 +317,12 @@ describe("Guide player", function()
       expect(right[4].state).toBe("done")
     end)
 
-    it("clicking a step jumps to it", function()
+    it("clicking a step previews it without moving the player; the hover arrow moves the player", function()
       ctx.ns.guideBrowser.toggle()
       local frame = ctx.ns.guideBrowser.dock()
       frame.rightRows.items[3]:Trigger("OnClick")
+      expect(ctx.ns.guidePlayer.current().index).toBe(1)
+      frame.rightRows.items[3].go:Trigger("OnClick")
       expect(ctx.ns.guidePlayer.current().index).toBe(3)
     end)
 

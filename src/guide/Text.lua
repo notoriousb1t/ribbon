@@ -117,6 +117,16 @@ function T.icon(group)
   return "poi"
 end
 
+-- The icon a step is shown with in a list: the first group whose calls have an icon of their own, else the plain map
+-- point. (A step that accepts a quest and then kills for it is drawn as the accept.)
+function T.stepIcon(step)
+  for _, g in ipairs(step.groups or {}) do
+    local icon = T.icon(g)
+    if icon ~= "poi" then return icon end
+  end
+  return "poi"
+end
+
 -- A whole step on one line, for the outline: its first two lines.
 function T.summary(step, names, env)
   local out = {}

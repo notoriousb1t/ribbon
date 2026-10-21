@@ -65,6 +65,10 @@ S.marker = {
 -- The focused marker gets a ring `pad` pixels larger than the marker itself.
 S.focusRing = { pad = 8, color = { 0.25, 0.65, 1.0 } }   -- bright blue, so the selection stands out from the gold badges
 
+-- Previewing a guide step puts a badge of this size on the world map and zooms the map to `zoom` of the way from its
+-- smallest to its largest scale, with the step's point in the middle.
+S.preview = { size = 32, zoom = 0.5 }
+
 -- A marker is a badge like the objective tracker's: a dark filled disc with a coloured rim and, inside, a symbol in
 -- the same colour. `!` and `?` are drawn as text (crisp at any size); the other kinds put their icon in the disc. An icon
 -- not listed here (TomTom's dot, RXP's arrow, the raid markers) is drawn plain, at the marker's full size.

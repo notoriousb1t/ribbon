@@ -1,7 +1,9 @@
 -- Guide browser: a panel with a blue bezel docked beside the world map. The chapters are the parent list (cards with
 -- progress bars) and a chapter's steps are its child page, shown one at a time: click a chapter to go into it, the back
--- arrow in the title bar to return to the list, a step to jump to it. The panel always opens on the child page, at the
--- step the player is on. The map button, the compass dial and /ribbon guides all open this one panel (opening the map
+-- arrow in the title bar to return to the list. A step is drawn with the icon of what it asks for; clicking it previews
+-- it on the world map (the map switches to its zone and centres on it), and the arrow that appears when the mouse is
+-- over it moves the player's place in the guide there. The panel always opens on the child page, at the step the player
+-- is on. The map button, the compass dial and /ribbon guides all open this one panel (opening the map
 -- if need be). It is built on first use, so a player without a guide never has the frames. Rows are built from
 -- guide/Planner's outline; this file is the view.
 local ADDON, ns = ...
@@ -23,11 +25,13 @@ local COLORS = {
 }
 
 local dock, selected   -- the docked panel; selected: guide chapter index being browsed (nil: the active chapter)
+local preview          -- { chapter =, step = } of the step shown on the world map, or nil
 
 -- Rows --------------------------------------------------------------------------------
 
 -- Left rows: { chapter =, label =, state =, levels =, done =, total =, fraction = }. Right rows:
--- { chapter =, step =, label =, state = }. Progress is by position: steps before the current one count as done.
+-- { chapter =, step =, label =, state =, icon =, map =, x =, y = } (the icon the step is drawn with and where it is, if it
+-- is anywhere). Progress is by position: steps before the current one count as done.
 function Br.rows(player, chapter)
   local S = player.state()
   local env = player.env()
@@ -45,9 +49,11 @@ function Br.rows(player, chapter)
   for _, ch in ipairs(S.view) do
     if ch.index == chapter then
       for i, s in ipairs(ch.steps) do
+        local map, x, y = planner.stepLocation(s.step)
         right[#right + 1] = {
           chapter = s.chapter, step = s.index, state = outline.steps[base + i],
-          label = string.format("%d. %s", i, text.summary(s.step, S.guide.names, env)),
+          label = text.summary(s.step, S.guide.names, env),
+          icon = text.stepIcon(s.step), map = map, x = x, y = y,
         }
       end
     end
@@ -117,17 +123,70 @@ local function makeCard(width)
   end
 end
 
+local ICON = 24                           -- the icon a step is drawn with
+local GO = 22                            -- the hover button that moves the player's place to the step
+
+-- Is the mouse over a frame? (Frame:IsMouseOver is the retail call; MouseIsOver the older one.)
+local function mouseOver(frame)
+  if frame.IsMouseOver then return frame:IsMouseOver() end
+  return MouseIsOver and MouseIsOver(frame) or false
+end
+
+-- A step row: the step's icon, its text over up to two lines, a blue wash when it is the one being previewed, and a
+-- button at the right, shown while the mouse is over the row, that makes this the player's current step.
 local function makeRow(width)
   return function(parent, i)
+    local style = ns.compassStyle
     local b = CreateFrame("Button", nil, parent)
     b:SetSize(width, ROW)
     b:SetPoint("TOPLEFT", parent, "TOPLEFT", 0, -(i - 1) * ROW)
+    b.sel = b:CreateTexture(nil, "BACKGROUND")
+    b.sel:SetAllPoints()
+    b.sel:SetColorTexture(0.25, 0.65, 1.0, 0.22)
+    b.sel:Hide()
+    b.icon = CreateFrame("Frame", nil, b)
+    b.icon:SetSize(ICON, ICON)
+    b.icon:SetPoint("LEFT", b, "LEFT", 4, 0)
+    ns.badge.build(b.icon)
+    local left = 4 + ICON + 6
     b.label = b:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-    b.label:SetPoint("LEFT", b, "LEFT", 4, 0)
-    b.label:SetWidth(width - 8)
+    b.label:SetPoint("LEFT", b, "LEFT", left, 0)
+    b.label:SetWidth(width - left - GO - 8)
     b.label:SetJustifyH("LEFT")
     b.label:SetMaxLines(2)       -- two lines per step: a longer summary is cut, it does not run into the next row
     b:SetHighlightTexture("Interface\\QuestFrame\\UI-QuestTitleHighlight")
+
+    b.go = CreateFrame("Button", nil, b)
+    b.go:SetSize(GO, GO)
+    b.go:SetPoint("RIGHT", b, "RIGHT", -4, 0)
+    b.go.bg = b.go:CreateTexture(nil, "ARTWORK")
+    b.go.bg:SetTexture(style.textures.bezelButton)
+    b.go.bg:SetAllPoints()
+    b.go.caret = b.go:CreateTexture(nil, "OVERLAY")
+    b.go.caret:SetTexture(style.textures.panelCaret)
+    b.go.caret:SetTexCoord(1, 0, 0, 1)   -- pointing right: go here
+    b.go.caret:SetSize(12, 12)
+    b.go.caret:SetPoint("CENTER", b.go, "CENTER", 1, 0)
+    b.go:SetHighlightTexture(style.textures.bezelButton, "ADD")
+    b.go:Hide()
+    b.go:SetScript("OnClick", function()
+      GameTooltip:Hide()
+      ns.guidePlayer.jump(b.chapter, b.step)
+    end)
+    b.go:SetScript("OnEnter", function(self)
+      GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+      GameTooltip:SetText("Make this your current step")
+      GameTooltip:Show()
+    end)
+    -- The button is a child of the row, so moving onto it leaves the row: only hide when the mouse is on neither.
+    b.go:SetScript("OnLeave", function()
+      GameTooltip:Hide()
+      if not mouseOver(b) then b.go:Hide() end
+    end)
+    b:SetScript("OnEnter", function() b.go:Show() end)
+    b:SetScript("OnLeave", function()
+      if not mouseOver(b) then b.go:Hide() end
+    end)
     return b
   end
 end
@@ -200,6 +259,8 @@ local function fill(f, player)
   for i, row in ipairs(right) do
     local b = f.rightRows.items[i]
     b.label:SetText(colored(row.state, row.label))
+    ns.badge.draw(b.icon, row.icon, ICON)
+    b.sel:SetShown(preview ~= nil and preview.chapter == row.chapter and preview.step == row.step)
     b.chapter, b.step = row.chapter, row.step
   end
   -- The page: the chapter list shows the whole guide's progress and the guide's title; a chapter's steps show that
@@ -387,7 +448,7 @@ local function build()
   f.setRight = pool(right, f.rightRows, function(parent, i)
     local b = makeRight(parent, i)
     b:SetScript("OnClick", function(self)
-      ns.guidePlayer.jump(self.chapter, self.step)
+      Br.preview(self.chapter, self.step)
     end)
     return b
   end, ROW)
@@ -429,13 +490,43 @@ end
 -- after a jump).
 ns:On("GUIDE_STEP_CHANGED", function()
   selected = nil
+  if preview then
+    preview = nil
+    if ns.map then ns.map.clearPreview() end
+  end
   Br.refresh()
   Br.scrollToCurrent()
 end)
 
+-- Shows a step on the world map: the map switches to the step's zone, its icon is drawn there and the map centres on it.
+-- A step with no place on the map just gets the selection wash. Nothing about the player's place in the guide changes.
+function Br.preview(chapter, step)
+  if not dock then return end
+  preview = { chapter = chapter, step = step }
+  Br.refresh()
+  local _, right = Br.rows(ns.guidePlayer, selected)
+  for _, row in ipairs(right) do
+    if row.chapter == chapter and row.step == step then
+      if ns.map then
+        if row.map then ns.map.preview(row.map, row.x, row.y, row.icon) else ns.map.clearPreview() end
+      end
+      return
+    end
+  end
+end
+
+-- Puts the preview away (the pin and the selection wash; the map stays where it is).
+function Br.clearPreview()
+  if not preview then return end
+  preview = nil
+  if ns.map then ns.map.clearPreview() end
+  Br.refresh()
+end
+
 -- The child page: a chapter's steps (the browsed chapter when none is given).
 function Br.showSteps(chapter)
   if not dock then return end
+  if chapter and chapter ~= selected then Br.clearPreview() end
   if chapter then selected = chapter end
   dock.page = "steps"
   Br.refresh()
@@ -445,6 +536,7 @@ end
 -- The parent page: the chapters.
 function Br.showChapters()
   if not dock then return end
+  Br.clearPreview()
   dock.page = "chapters"
   Br.refresh()
   Br.scrollToCurrent()
@@ -470,6 +562,7 @@ function Br.setDock(shown)
   -- The map's quest log panel and this one take turns.
   if shown and ns.map and ns.map.collapseQuestLog then ns.map.collapseQuestLog() end
   dock:SetShown(shown)
+  if not shown then Br.clearPreview() end
   if ns.db then ns.db.guideDock = shown and true or false end
   if shown then
     selected = nil

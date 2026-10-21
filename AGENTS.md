@@ -16,7 +16,7 @@ src/
   core/                 Core (events, tickers, saved variables, start-up), Client (the only game-API adapter),
                         Geometry (pure math), Registry (waypoint model, API, distance, arrival),
                         Coordinates (/ribbon text parsing, zone lookup), Commands (/ribbon)
-  compass/              Layout (pure placement), Style (colours, sizes, texture paths), Compass (view)
+  compass/              Layout (pure placement), Style (colours, sizes, texture paths), Badge (the round icons: compass markers, step rows and the map preview pin share it), Compass (view)
   map/                  PinManager (pin bookkeeping, library injected), Map (wiring, Clear Pins button)
   integrations/         TomTom, RXP, Quest bridges, each with a pure Translate module
   guide/                Builder (chained calls a generated guide file makes; registers the one guide), Planner (pure: who sees which steps, positions, completion), Text (pure: captions from ids and the guide's name tables), Player (state, polling, waypoints, skip/jump), Browser (the chapter list (parent) and a chapter's steps (child page, with a back arrow, always opened first) in a blue-bezelled panel docked beside the world map; the one view of the guide)
