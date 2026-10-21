@@ -1,7 +1,8 @@
 -- Pin manager: keeps map and minimap icons in step with waypoints.
 -- The pin library and the pin factory are injected, so specs verify the exact library calls:
 --   PM.new{ pins = lib, ref = owner, factory = { create = function(kind) -> pin }, icons = {}, defaultIcon = "poi", worldFlag = n }
--- A pin is any object with Configure(uid, texture) and Hide(); kind is "world" or "mini".
+-- A pin is any object with Configure(uid, texture, icon) and Hide(); kind is "world" or "mini". `icon` is the waypoint's
+-- icon name, `texture` its texture; a pin that draws badges uses the name.
 local ADDON, ns = ...
 
 local PM = {}
@@ -51,13 +52,13 @@ function PM:refresh(wp)
 
   if wp.worldmap then
     local pin = self:acquire("world")
-    pin:Configure(wp.uid, texture)
+    pin:Configure(wp.uid, texture, wp.icon)
     self.pins:AddWorldMapIconMap(self.ref, pin, wp.mapID, x, y, self.worldFlag)
     entry.world = pin
   end
   if wp.minimap then
     local pin = self:acquire("mini")
-    pin:Configure(wp.uid, texture)
+    pin:Configure(wp.uid, texture, wp.icon)
     self.pins:AddMinimapIconMap(self.ref, pin, wp.mapID, x, y, true, true)
     entry.mini = pin
   end

@@ -21,6 +21,9 @@ S.textures = {
   bezelEdgeH = DIR .. "bezel-edge-h",    -- a horizontal edge and a vertical edge, which tile,
   bezelEdgeV = DIR .. "bezel-edge-v",
   bezelButton = DIR .. "bezel-button",   -- and a button in the same bevel
+  questRing = DIR .. "quest-ring",           -- the quest badge: a gold bevelled ring,
+  questExclaim = DIR .. "quest-exclaim",   -- a gold "!" and
+  questQuestion = DIR .. "quest-question", -- "?", in the style of Blizzard's quest icons
   panelToggle = DIR .. "panel-toggle",   -- the map button's body (4:3, in the middle rows of its texture)
   panelCaret = DIR .. "panel-caret",     -- its caret, pointing left (flipped to point right)
 }
@@ -29,6 +32,7 @@ S.textures = {
 S.textureFiles = {
   "compass-dial", "compass-needle", "edge-arrow", "focus-ring", "marker-fill", "marker-rim",
   "bezel-corner", "bezel-edge-h", "bezel-edge-v", "bezel-button", "panel-toggle", "panel-caret",
+  "quest-ring", "quest-exclaim", "quest-question",
 }
 
 -- The bezel of the guide panel docked to the map, in display pixels: the band's depth, the corner pieces' size, the title
@@ -69,19 +73,19 @@ S.focusRing = { pad = 8, color = { 0.25, 0.65, 1.0 } }   -- bright blue, so the 
 -- smallest to its largest scale, with the step's point in the middle.
 S.preview = { size = 32, zoom = 0.5 }
 
--- A marker is a badge like the objective tracker's: a dark filled disc with a coloured rim and, inside, a symbol in
--- the same colour. `!` and `?` are drawn as text (crisp at any size); the other kinds put their icon in the disc. An icon
--- not listed here (TomTom's dot, RXP's arrow, the raid markers) is drawn plain, at the marker's full size.
+-- A marker is a badge: a dark filled disc with a coloured rim and, inside, the kind's icon. The quest kinds, `!` and
+-- `?`, are drawn like Blizzard's own quest icons (see below). An icon not listed here (TomTom's dot, RXP's arrow, the
+-- raid markers) is drawn plain, at the marker's full size.
 S.badge = {
   fillColor = { 0.05, 0.16, 0.20, 0.92 },
-  glyphScale = 0.80,    -- the text's height, as a fraction of the marker
-  glyphOffsetY = -1,    -- the font's "?" sits a little high in its line
   iconScale = 0.60,     -- the icon's size, as a fraction of the marker
-  flipRim = 0.72,       -- a flipped badge's rim is its colour times this, so the edge still reads on the solid disc
+  -- The quest kinds (accept, turn-in) take Blizzard's quest icon style instead: a dark warm disc, a gold bevelled ring
+  -- and a gold symbol with a dark outline, all drawn from textures so they are as crisp as the game's own.
+  questFill = { 0.10, 0.08, 0.04, 0.96 },
+  questGlyphScale = 0.74,   -- the symbol's size, as a fraction of the marker
   kinds = {
-    accept = { color = { 0.98, 0.82, 0.30 }, glyph = "!" },
-    -- Flipped like the quest tracker's ready-to-turn-in "?": a solid gold disc with a dark symbol.
-    turnin = { color = { 0.98, 0.82, 0.30 }, glyph = "?", flip = true },
+    accept = { quest = "questExclaim" },
+    turnin = { quest = "questQuestion" },
     ding = { color = { 0.98, 0.82, 0.30 } },
     kill = { color = { 0.90, 0.30, 0.28 } },
     grind = { color = { 0.95, 0.55, 0.20 } },

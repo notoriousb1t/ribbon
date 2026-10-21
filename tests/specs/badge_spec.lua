@@ -13,72 +13,64 @@ describe("Marker badges", function()
     S = ctx.ns.compassStyle
   end)
 
-  it("draws accept and turn-in as a dark disc, a coloured rim and a crisp text symbol", function()
-    ctx.ns:AddWaypoint(1453, 61.99, 60, { icon = "accept" })
-    frameTick()
-    local m = parts.markers[1]
-    expect(m.fill:IsShown()).toBe(true)
-    expect(m.rim:IsShown()).toBe(true)
-    expect(m.glyph:IsShown()).toBe(true)
-    expect(last(m.glyph.SetText)[1]).toBe("!")
-    expect(m.tex:IsShown()).toBe(false)
-    local c = S.badge.kinds.accept.color
-    expect(m.rim.SetVertexColor).toHaveBeenCalledWith(c[1], c[2], c[3], 1)
-    expect(m.fill.SetVertexColor).toHaveBeenCalledWith(unpack(S.badge.fillColor))
+  describe("the quest kinds, drawn like Blizzard's quest icons", function()
+    it("draws an accept as a warm dark disc, a gold bevelled ring and a gold exclamation mark", function()
+      ctx.ns:AddWaypoint(1453, 61.99, 60, { icon = "accept" })
+      frameTick()
+      local m = parts.markers[1]
+      expect(m.fill:IsShown()).toBe(true)
+      expect(m.fill.SetVertexColor).toHaveBeenCalledWith(unpack(S.badge.questFill))
+      expect(m.questRing:IsShown()).toBe(true)
+      expect(m.rim:IsShown()).toBe(false)
+      expect(m.glyphTex:IsShown()).toBe(true)
+      expect(m.glyphTex.SetTexture).toHaveBeenCalledWith(S.textures.questExclaim)
+      expect(m.tex:IsShown()).toBe(false)
+    end)
+
+    it("draws a turn-in the same way with the question mark, not flipped", function()
+      ctx.ns:AddWaypoint(1453, 61.99, 60, { icon = "turnin" })
+      frameTick()
+      local m = parts.markers[1]
+      expect(m.glyphTex.SetTexture).toHaveBeenCalledWith(S.textures.questQuestion)
+      expect(m.questRing:IsShown()).toBe(true)
+      expect(m.fill.SetVertexColor).toHaveBeenCalledWith(unpack(S.badge.questFill))
+    end)
+
+    it("sizes the symbol to the marker", function()
+      ctx.ns:AddWaypoint(1453, 61.99, 60, { icon = "accept" })
+      frameTick()
+      local m = parts.markers[1]
+      local size = last(m.SetSize)[1]
+      local g = math.floor(size * S.badge.questGlyphScale + 0.5)
+      expect(last(m.glyphTex.SetSize)).toEqual({ g, g, n = 2 })
+    end)
+
+    it("is drawn from textures, so it is as crisp as the game's own: no text, no font", function()
+      ctx.ns:AddWaypoint(1453, 61.99, 60, { icon = "turnin" })
+      frameTick()
+      expect(parts.markers[1].glyph).toBeNil()
+    end)
+
+    it("uses the ring and symbols that exist as 128 px files", function()
+      for _, name in ipairs({ "quest-ring", "quest-exclaim", "quest-question" }) do
+        local found = false
+        for _, f in ipairs(S.textureFiles) do if f == name then found = true end end
+        expect(found).toBe(true)
+      end
+    end)
   end)
 
-  it("uses a question mark for a turn-in", function()
-    ctx.ns:AddWaypoint(1453, 61.99, 60, { icon = "turnin" })
-    frameTick()
-    expect(last(parts.markers[1].glyph.SetText)[1]).toBe("?")
-  end)
-
-  it("flips a turn-in like the quest tracker: a solid gold disc and a dark symbol", function()
-    ctx.ns:AddWaypoint(1453, 61.99, 60, { icon = "turnin" })
-    frameTick()
-    local m = parts.markers[1]
-    local gold, dark = S.badge.kinds.turnin.color, S.badge.fillColor
-    expect(last(m.fill.SetVertexColor)).toEqual({ gold[1], gold[2], gold[3], 1, n = 4 })
-    expect(last(m.glyph.SetTextColor)).toEqual({ dark[1], dark[2], dark[3], 1, n = 4 })
-    local rim = last(m.rim.SetVertexColor)
-    expect(rim[1]).toBeCloseTo(gold[1] * S.badge.flipRim, 6)
-  end)
-
-  it("keeps an accept unflipped: a dark disc with a gold symbol", function()
-    ctx.ns:AddWaypoint(1453, 61.99, 60, { icon = "accept" })
-    frameTick()
-    local m = parts.markers[1]
-    local gold, dark = S.badge.kinds.accept.color, S.badge.fillColor
-    expect(last(m.fill.SetVertexColor)).toEqual({ dark[1], dark[2], dark[3], dark[4], n = 4 })
-    expect(last(m.glyph.SetTextColor)).toEqual({ gold[1], gold[2], gold[3], 1, n = 4 })
-  end)
-
-  it("redraws a reused marker with the right colours when its waypoint changes kind", function()
+  it("redraws a reused marker with the right look when its waypoint changes kind", function()
     local uid = ctx.ns:AddWaypoint(1453, 61.99, 60, { icon = "turnin" })
     frameTick()
     ctx.ns:RemoveWaypoint(uid)
-    ctx.ns:AddWaypoint(1453, 61.99, 60, { icon = "accept" })
-    frameTick()
-    local dark = S.badge.fillColor
-    expect(last(parts.markers[1].fill.SetVertexColor)).toEqual({ dark[1], dark[2], dark[3], dark[4], n = 4 })
-  end)
-
-  it("rings the focused marker in bright blue, not gold", function()
-    local uid = ctx.ns:AddWaypoint(1453, 61.99, 60, { icon = "turnin" })
-    ctx.ns:SetFocus(uid)
-    frameTick()
-    local c = S.focusRing.color
-    expect(parts.markers[1].ring.SetVertexColor).toHaveBeenCalledWith(c[1], c[2], c[3])
-    expect(c[3]).toBeGreaterThan(c[1])
-    expect(c[3]).toBeGreaterThan(c[2])
-  end)
-
-  it("sizes the symbol to the marker", function()
-    ctx.ns:AddWaypoint(1453, 61.99, 60, { icon = "accept" })
+    ctx.ns:AddWaypoint(1453, 61.99, 60, { icon = "kill" })
     frameTick()
     local m = parts.markers[1]
-    local size = last(m.SetSize)[1]
-    expect(m.glyphSize).toBe(math.floor(size * S.badge.glyphScale + 0.5))
+    expect(m.questRing:IsShown()).toBe(false)
+    expect(m.glyphTex:IsShown()).toBe(false)
+    expect(m.rim:IsShown()).toBe(true)
+    expect(m.fill.SetVertexColor).toHaveBeenCalledWith(unpack(S.badge.fillColor))
   end)
 
   it("puts the icon of other kinds inside the disc at the icon scale", function()
@@ -87,11 +79,13 @@ describe("Marker badges", function()
     local m = parts.markers[1]
     local size = last(m.SetSize)[1]
     expect(m.fill:IsShown()).toBe(true)
-    expect(m.glyph:IsShown()).toBe(false)
+    expect(m.glyphTex:IsShown()).toBe(false)
     expect(m.tex:IsShown()).toBe(true)
     expect(m.tex.SetTexture).toHaveBeenCalledWith(ctx.ns.ICONS.kill)
     local icon = math.floor(size * S.badge.iconScale + 0.5)
     expect(last(m.tex.SetSize)).toEqual({ icon, icon, n = 2 })
+    local c = S.badge.kinds.kill.color
+    expect(m.rim.SetVertexColor).toHaveBeenCalledWith(c[1], c[2], c[3], 1)
   end)
 
   it("draws other addons' icons plain, at the full marker size, with no disc", function()
@@ -103,7 +97,8 @@ describe("Marker badges", function()
       local m = ns.compass.parts.markers[1]
       expect(m.fill:IsShown()).toBe(false)
       expect(m.rim:IsShown()).toBe(false)
-      expect(m.glyph:IsShown()).toBe(false)
+      expect(m.questRing:IsShown()).toBe(false)
+      expect(m.glyphTex:IsShown()).toBe(false)
       expect(m.tex:IsShown()).toBe(true)
       expect(m.tex.SetAllPoints).toHaveBeenCalledWith(m)
     end
@@ -111,5 +106,22 @@ describe("Marker badges", function()
 
   it("keeps the biggest marker with its ring inside the dial", function()
     expect(S.marker.max + S.marker.focusBoost + S.focusRing.pad).toBeLessThan(S.dial.size)
+  end)
+
+  describe("on the map", function()
+    it("draws a world map or minimap pin as the same badge", function()
+      local uid = ctx.ns:AddWaypoint(1453, 50, 25, { icon = "turnin" })
+      local pin = ctx.world.pins.AddWorldMapIconMap.calls[1][2]
+      expect(pin.glyphTex.SetTexture).toHaveBeenCalledWith(S.textures.questQuestion)
+      expect(pin.questRing:IsShown()).toBe(true)
+      local mini = ctx.world.pins.AddMinimapIconMap.calls[1][2]
+      expect(mini.glyphTex.SetTexture).toHaveBeenCalledWith(S.textures.questQuestion)
+    end)
+
+    it("draws a kill pin with the sword inside the disc", function()
+      ctx.ns:AddWaypoint(1453, 50, 25, { icon = "kill" })
+      local pin = ctx.world.pins.AddWorldMapIconMap.calls[1][2]
+      expect(pin.tex.SetTexture).toHaveBeenCalledWith(ctx.ns.ICONS.kill)
+    end)
   end)
 end)

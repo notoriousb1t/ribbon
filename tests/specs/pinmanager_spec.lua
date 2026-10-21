@@ -50,13 +50,13 @@ describe("PinManager", function()
 
   it("configures each pin with the waypoint uid and its icon texture", function()
     manager:refresh(wp({ uid = 7, icon = "kill" }))
-    expect(created[1].Configure).toHaveBeenCalledWith(7, "tex-kill")
-    expect(created[2].Configure).toHaveBeenCalledWith(7, "tex-kill")
+    expect(created[1].Configure).toHaveBeenCalledWith(7, "tex-kill", "kill")
+    expect(created[2].Configure).toHaveBeenCalledWith(7, "tex-kill", "kill")
   end)
 
   it("falls back to the default icon for an unknown icon name", function()
     manager:refresh(wp({ icon = "nonsense" }))
-    expect(created[1].Configure).toHaveBeenCalledWith(1, "tex-poi")
+    expect(created[1].Configure).toHaveBeenCalledWith(1, "tex-poi", "nonsense")
   end)
 
   it("skips a surface the waypoint opts out of", function()

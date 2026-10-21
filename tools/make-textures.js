@@ -1,5 +1,6 @@
 // Regenerates the shaped textures in src/textures: the compass dial and needle, the marker fill and rim, the focus
-// ring, and the blue bezel of the map panel (corner, two edges and a button). Everything else in that folder is an
+// ring, the blue bezel of the map panel (corner, two edges and a button), and the quest badge in the style of
+// Blizzard's quest icons (a gold bevelled ring and a gold "!" and "?"). Everything else in that folder is an
 // ordinary image file; edit or replace those directly.
 //
 //   node tools/make-textures.js
@@ -70,6 +71,40 @@ function inside(poly, x, y) {
 }
 
 const R = 62;
+
+// Distance from a point to a segment, and to a polyline.
+function segDist(px, py, ax, ay, bx, by) {
+  const dx = bx - ax, dy = by - ay;
+  const t = Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / (dx * dx + dy * dy || 1)));
+  return Math.hypot(px - (ax + t * dx), py - (ay + t * dy));
+}
+function lineDist(px, py, pts) {
+  let d = Infinity;
+  for (let i = 0; i + 1 < pts.length; i++) d = Math.min(d, segDist(px, py, pts[i][0], pts[i][1], pts[i + 1][0], pts[i + 1][1]));
+  return d;
+}
+// Points along an arc (angles in degrees, y pointing down).
+function arc(cx, cy, r, from, to, n = 40) {
+  const out = [];
+  for (let i = 0; i <= n; i++) {
+    const a = ((from + ((to - from) * i) / n) * Math.PI) / 180;
+    out.push([cx + r * Math.cos(a), cy + r * Math.sin(a)]);
+  }
+  return out;
+}
+
+// A gold glyph with a dark outline and a gradient from bright at the top to deep gold at the bottom, like the quest
+// icons' symbols. `stroke(x, y)` returns the distance from a point to the glyph's centre line or shape (negative
+// inside), so the outline is a band outside the fill.
+const GLYPH_DARK = [42, 21, 0];
+function glyphShade(sdf, y) {
+  if (sdf > 6) return null;
+  if (sdf > 0) return [...GLYPH_DARK, 1];
+  const t = Math.max(0, Math.min(1, (y - 14) / 100));
+  const body = t < 0.5 ? lerp([255, 238, 150], [250, 201, 64], t / 0.5) : lerp([250, 201, 64], [196, 136, 22], (t - 0.5) / 0.5);
+  // a thin darker edge just inside the outline gives it body
+  return sdf > -1.8 ? [...lerp(body, [150, 96, 10], 0.55), 1] : [...body, 1];
+}
 
 // The bezel: a steel-blue bevel in the logo's blues, drawn as a band 28 px deep (shown at 14 px). depth is the distance
 // in pixels from the outer edge.
@@ -174,6 +209,38 @@ const textures = {
     if (inside(tri, x, y)) return [6, 20, 28, 1];
     return null;
   }, 64),
+
+  // The quest badge's ring: a gold bevel, lit from the top left, with a dark line on each edge.
+  "quest-ring": render((x, y) => {
+    const d = dist(x, y);
+    if (d > R || d < R - 14) return null;
+    if (d > R - 2 || d < R - 12) return [60, 36, 4, 1];
+    const lit = 0.5 + 0.5 * Math.cos(Math.atan2(y - C, x - C) + (3 * Math.PI) / 4);   // 1 at the top left
+    const across = (d - (R - 12)) / 10;                                                 // 0 inner .. 1 outer
+    const base = lerp([150, 100, 14], [255, 226, 120], 0.2 + 0.8 * lit);
+    return [...lerp(base, [205, 150, 30], Math.abs(across - 0.5) * 0.9), 1];
+  }),
+
+  // The quest badge's "!": a tapering bar and a dot.
+  "quest-exclaim": render((x, y) => {
+    // A bar that tapers: round at both ends, 11 px either side of its centre line at the top and 5.5 at the foot.
+    const top = 24, bottom = 74;
+    const t = Math.max(0, Math.min(1, (y - top) / (bottom - top)));
+    const radius = 11 - 5.5 * t;
+    let sdf = Math.hypot(x - 63.5, y - Math.max(top, Math.min(bottom, y))) - radius;
+    sdf = Math.min(sdf, Math.hypot(x - 63.5, y - 104) - 11);
+    return glyphShade(sdf, y);
+  }),
+
+  // The quest badge's "?": a hook, a stem and a dot, drawn as thick strokes.
+  "quest-question": render((x, y) => {
+    const hook = arc(63.5, 44, 24, 205, 420);
+    const tail = hook[hook.length - 1];
+    const path = [...hook, [tail[0] - 4, tail[1] + 12], [63.5, 78]];
+    let sdf = lineDist(x, y, path) - 9.5;
+    sdf = Math.min(sdf, Math.hypot(x - 63.5, y - 104) - 11);
+    return glyphShade(sdf, y);
+  }),
 
   // A thin ring drawn around the focused marker; white so the view can colour it (bright blue).
   "focus-ring": render((x, y) => {

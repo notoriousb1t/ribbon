@@ -19,18 +19,18 @@ local function showTooltip(self)
   GameTooltip:Show()
 end
 
-local SIZES = { world = 18, mini = 14 }
+local SIZES = { world = 24, mini = 18 }
 
--- Pin factory: a button with an icon texture, Configure(uid, texture) and Hide().
+-- Pin factory: a button drawn as the waypoint's badge (the same icons as the compass), Configure(uid, texture, icon) and
+-- Hide().
 local function createPin(kind)
   local f = CreateFrame("Button", nil, UIParent)
   f:SetSize(SIZES[kind], SIZES[kind])
   f:RegisterForClicks("RightButtonUp")
-  f.tex = f:CreateTexture(nil, "ARTWORK")
-  f.tex:SetAllPoints()
-  f.Configure = function(self, uid, texture)
+  ns.badge.build(f)
+  f.Configure = function(self, uid, texture, icon)
     self.uid = uid
-    self.tex:SetTexture(texture)
+    ns.badge.draw(self, icon, SIZES[kind])
   end
   f:SetScript("OnEnter", showTooltip)
   f:SetScript("OnLeave", function() GameTooltip:Hide() end)

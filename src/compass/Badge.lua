@@ -1,7 +1,8 @@
--- Badges: the round icons a waypoint or a guide step is drawn with, on the compass, in the guide's step list and on
--- the world map's preview pin. A badge is a dark disc with a coloured rim and a symbol in the same colour: text for
--- ! and ?, the kind's icon for the rest. An icon with no entry in Style.badge (TomTom's dot, RXP's arrow, the raid
--- markers) is drawn plain, at the full size. The look is Style.badge; this file only puts it on a frame.
+-- Badges: the round icons a waypoint or a guide step is drawn with, on the compass, in the guide's step list, on the
+-- world map's pins and on its preview pin. A badge is a dark disc with a rim and the kind's icon inside. The quest kinds
+-- (! and ?) are drawn like Blizzard's own quest icons: a dark warm disc, a gold bevelled ring and a gold symbol with a
+-- dark outline. An icon with no entry in Style.badge (TomTom's dot, RXP's arrow, the raid markers) is drawn plain, at
+-- the full size. The look is Style.badge; this file only puts it on a frame.
 local ADDON, ns = ...
 
 local Bd = {}
@@ -19,7 +20,8 @@ function Bd.styleText(fs, size)
   fs:SetShadowOffset(1, -1)
 end
 
--- Adds the badge's parts to a frame: fill, rim, glyph and tex (the icon).
+-- Adds the badge's parts to a frame: fill (the disc), rim, questRing (the quest badge's gold ring), glyphTex (its symbol)
+-- and tex (the icon of the other kinds).
 function Bd.build(f)
   local style = ns.compassStyle
   f.fill = f:CreateTexture(nil, "BACKGROUND")
@@ -29,56 +31,55 @@ function Bd.build(f)
   f.rim = f:CreateTexture(nil, "BORDER")
   f.rim:SetTexture(style.textures.markerRim)
   f.rim:SetAllPoints()
-  f.glyph = f:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
-  f.glyph:SetPoint("CENTER", f, "CENTER", 0, style.badge.glyphOffsetY)
+  f.questRing = f:CreateTexture(nil, "BORDER")
+  f.questRing:SetTexture(style.textures.questRing)
+  f.questRing:SetAllPoints()
+  f.questRing:Hide()
+  f.glyphTex = f:CreateTexture(nil, "OVERLAY")
+  f.glyphTex:SetPoint("CENTER", f, "CENTER", 0, 0)
+  f.glyphTex:Hide()
   f.tex = f:CreateTexture(nil, "ARTWORK")
   f.tex:SetAllPoints()
 end
 
 -- Draws the badge for an icon name (a key of ns.ICONS) at a size in pixels (the frame's own size is the caller's).
 function Bd.draw(f, icon, size)
-  local badge = ns.compassStyle.badge
+  local style = ns.compassStyle
+  local badge = style.badge
   local kind = badge.kinds[icon]
   f.tex:SetTexture(ns.ICONS[icon] or ns.ICONS[ns.DEFAULT_ICON])
   f.tex:ClearAllPoints()
   if not kind then
     f.fill:Hide()
     f.rim:Hide()
-    f.glyph:Hide()
+    f.questRing:Hide()
+    f.glyphTex:Hide()
     f.tex:SetAllPoints(f)
     f.tex:Show()
     return
   end
-  -- Usual badge: dark disc, coloured rim and symbol. Flipped: a solid disc in the colour, a dark symbol.
-  local color, dark = kind.color, badge.fillColor
-  if kind.flip then
-    f.fill:SetVertexColor(color[1], color[2], color[3], 1)
-    f.rim:SetVertexColor(color[1] * badge.flipRim, color[2] * badge.flipRim, color[3] * badge.flipRim, 1)
-  else
-    f.fill:SetVertexColor(unpack(dark))
-    f.rim:SetVertexColor(color[1], color[2], color[3], 1)
-  end
   f.fill:Show()
-  f.rim:Show()
-  if kind.glyph then
-    local px = math.floor(size * badge.glyphScale + 0.5)
-    if f.glyphSize ~= px then
-      f.glyphSize = px
-      Bd.styleText(f.glyph, px)
-    end
-    f.glyph:SetText(kind.glyph)
-    if kind.flip then
-      f.glyph:SetTextColor(dark[1], dark[2], dark[3], 1)
-    else
-      f.glyph:SetTextColor(color[1], color[2], color[3], 1)
-    end
-    f.glyph:Show()
+  if kind.quest then
+    -- Blizzard's quest icon: warm dark disc, gold bevelled ring, gold symbol.
+    f.fill:SetVertexColor(unpack(badge.questFill))
+    f.rim:Hide()
+    f.questRing:Show()
+    local g = math.floor(size * badge.questGlyphScale + 0.5)
+    f.glyphTex:SetTexture(style.textures[kind.quest])
+    f.glyphTex:SetSize(g, g)
+    f.glyphTex:Show()
     f.tex:Hide()
-  else
-    local icon = math.floor(size * badge.iconScale + 0.5)
-    f.tex:SetPoint("CENTER", f, "CENTER", 0, 0)
-    f.tex:SetSize(icon, icon)
-    f.tex:Show()
-    f.glyph:Hide()
+    return
   end
+  -- The other kinds: a dark disc, a coloured rim, the kind's icon inside.
+  local color = kind.color
+  f.fill:SetVertexColor(unpack(badge.fillColor))
+  f.rim:SetVertexColor(color[1], color[2], color[3], 1)
+  f.rim:Show()
+  f.questRing:Hide()
+  f.glyphTex:Hide()
+  local icon_ = math.floor(size * badge.iconScale + 0.5)
+  f.tex:SetPoint("CENTER", f, "CENTER", 0, 0)
+  f.tex:SetSize(icon_, icon_)
+  f.tex:Show()
 end
