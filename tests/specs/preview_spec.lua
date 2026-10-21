@@ -288,48 +288,52 @@ describe("Pins around the current step on the map", function()
     c:Done()
   end)
 
-  it("draws the last step white and the next two smaller", function()
-    ctx.ns.guidePlayer.jump(1, 3)
-    local ok, ctxPins = pcall(function() return ctx.ns.map end)
-    local shown = {}
+  -- The x (0-100) of each step pin (not a waypoint's) added to the map since call `from`.
+  local function placed(from)
+    local out = {}
+    local calls = ctx.ns.map.lib.AddWorldMapIconMap.calls
+    for i = from + 1, #calls do
+      if calls[i][1] ~= ctx.ns then out[#out + 1] = math.floor(calls[i][4] * 100 + 0.5) end
+    end
+    return out
+  end
+
+  it("draws only the next two steps after the current one, smaller than its pin, and none before it", function()
     local lib = ctx.ns.map.lib
-    expect(lib.AddWorldMapIconMap.calls).toBeTruthy()
-    local n = #lib.AddWorldMapIconMap.calls
-    expect(n).toBeGreaterThan(2)
-    local last = lib.AddWorldMapIconMap.calls[n - 2]
-    local pin = last[2]
-    local w = ctx.ns.compassStyle.context.last.color
-    expect(pin.glyphTex.SetVertexColor).toHaveBeenCalledWith(w[1], w[2], w[3], 1)
-    local small = lib.AddWorldMapIconMap.calls[n][2]
+    ctx.ns.guidePlayer.state()                            -- the plan is built (it draws step 1's next two)
+    local before = #lib.AddWorldMapIconMap.calls
+    ctx.ns.guidePlayer.jump(1, 3)
+    expect(placed(before)).toEqual({ 44, 45 })            -- steps 4 and 5; step 2 (just done) gets no pin
+    local small = lib.AddWorldMapIconMap.calls[#lib.AddWorldMapIconMap.calls][2]
     local S = ctx.ns.compassStyle
     expect(small.SetSize.calls[#small.SetSize.calls][1]).toBe(math.floor(S.pins.world * S.context.next.scale + 0.5))
     expect(small.SetSize.calls[#small.SetSize.calls][1]).toBeLessThan(S.pins.world)
   end)
 
-  it("draws the step the mouse is over opaque, with the steps either side of it fainter", function()
+  it("on hover, draws the step the mouse is over opaque and the next two after it fainter, and nothing before it", function()
     ctx.ns.guideBrowser.toggleDock()
     local d = ctx.ns.guideBrowser.dock()
     local lib = ctx.ns.map.lib
     local before = #lib.AddWorldMapIconMap.calls
     d.rightRows.items[3]:Trigger("OnEnter")
+    expect(placed(before)).toEqual({ 43, 44, 45 })
     local calls = lib.AddWorldMapIconMap.calls
-    expect(#calls).toBe(before + 3)
     local alphas = {}
     for i = before + 1, before + 3 do local a = calls[i][2].SetAlpha.calls alphas[#alphas + 1] = a[#a][1] end
-    expect(alphas[2]).toBe(1)
-    expect(alphas[1]).toBeLessThan(0.9)
+    expect(alphas[1]).toBe(1)
+    expect(alphas[2]).toBeLessThan(0.9)
     expect(alphas[3]).toBeLessThan(0.9)
   end)
 
-  it("draws the step the mouse is over in the panel the same small way", function()
+  it("puts the current step's next two back when the mouse leaves", function()
     ctx.ns.guideBrowser.toggleDock()
     local d = ctx.ns.guideBrowser.dock()
     local lib = ctx.ns.map.lib
-    local before = #lib.AddWorldMapIconMap.calls
     d.rightRows.items[5]:Trigger("OnEnter")
-    expect(#lib.AddWorldMapIconMap.calls).toBe(before + 2)        -- the step before it and the step itself (it is the last)
+    local before = #lib.AddWorldMapIconMap.calls
     d.rightRows.items[5]:Trigger("OnLeave")
     expect(lib.RemoveWorldMapIcon).toHaveBeenCalled()
+    expect(placed(before)).toEqual({ 42, 43 })            -- the current step is the first: steps 2 and 3
   end)
 end)
 
@@ -344,19 +348,34 @@ describe("The dashed line through a hovered step", function()
     WorldMapFrame.GetHeight = function() return 500 end
   end)
 
-  it("runs from the step before to the second step after, in the ribbon's blue", function()
+  -- The x of the first dash's start and of the dot, the line's two ends.
+  local function ends()
+    local lines, _, dot = ctx.ns.map.dashParts()
+    local shown
+    for _, l in ipairs(lines) do if l:IsShown() then shown = l break end end
+    local s = shown.SetStartPoint.calls[#shown.SetStartPoint.calls]
+    local p = dot.SetPoint.calls[#dot.SetPoint.calls]
+    return s[3], p[4]
+  end
+
+  it("runs from the hovered step through the next two, in the ribbon's blue", function()
     ctx.ns.guideBrowser.toggleDock()
     local d = ctx.ns.guideBrowser.dock()
-    d.rightRows.items[2]:Trigger("OnEnter")                -- steps 1 to 4 at x = 10, 30, 50, 70
+    d.rightRows.items[2]:Trigger("OnEnter")                -- steps 2 to 4 at x = 30, 50, 70
     local look = ctx.ns.compassStyle.context.line
     expect(look.color[3]).toBeGreaterThan(look.color[1])
     local lines = ctx.ns.map.dashParts()
     expect(#lines).toBeGreaterThan(10)
-    local first, last = lines[1].SetStartPoint.calls[1], lines[#lines].SetEndPoint.calls[1]
-    expect(first[3]).toBeCloseTo(100, 1)                    -- x = 10% of 1000
-    expect(last[3]).toBeLessThan(701)                        -- not past x = 70%
-    d.rightRows.items[2]:Trigger("OnLeave")
-    expect(lines[1].Hide).toHaveBeenCalled()
+    local a, z = ends()
+    expect(a).toBeCloseTo(300, 1)                          -- x = 30% of 1000
+    expect(z).toBeCloseTo(700, 1)                          -- the dot on step 4
+  end)
+
+  it("runs from the current step through the next two when nothing is hovered", function()
+    ctx.ns.guidePlayer.jump(1, 3)                          -- steps 3 to 5 at x = 50, 70, 90
+    local a, z = ends()
+    expect(a).toBeCloseTo(500, 1)
+    expect(z).toBeCloseTo(900, 1)
   end)
 end)
 
@@ -371,19 +390,39 @@ describe("The dashed line and the map being shown", function()
     WorldMapFrame.GetHeight = function() return 500 end
   end)
 
-  it("is drawn only when the map shown is the one the steps are on", function()
+  it("follows the steps onto the continent's map, and is not drawn on another continent", function()
     ctx.ns.guideBrowser.toggleDock()
     local d = ctx.ns.guideBrowser.dock()
     WorldMapFrame.GetMapID = function() return 1453 end
     d.rightRows.items[2]:Trigger("OnEnter")
-    local lines = ctx.ns.map.dashParts()
-    expect(#lines).toBeGreaterThan(0)
+    local lines, _, dot = ctx.ns.map.dashParts()
     expect(lines[1]:IsShown()).toBe(true)
-    d.rightRows.items[2]:Trigger("OnLeave")
-    WorldMapFrame.GetMapID = function() return 1411 end         -- another zone's map
-    d.rightRows.items[2]:Trigger("OnEnter")
+    WorldMapFrame.GetMapID = function() return 1415 end         -- Eastern Kingdoms, Stormwind's continent
+    ctx.ns.map.redrawLine()                                     -- the map changed: drawn again
+    expect(lines[1]:IsShown()).toBe(true)
+    local x = ctx.ns.client.mapPosition(1453, 70, 50, 1415)
+    local p = dot.SetPoint.calls[#dot.SetPoint.calls]
+    expect(p[4]).toBeCloseTo(x / 100 * 1000, 1)                -- the dot on step 4, where the continent map has it
+    WorldMapFrame.GetMapID = function() return 1414 end         -- Kalimdor
+    ctx.ns.map.redrawLine()
     expect(lines[1]:IsShown()).toBe(false)
     WorldMapFrame.GetMapID = nil
+  end)
+
+  it("passes over a step with no place on the map, joining the icons either side of it", function()
+    local c = Ribbon.Guide("g"):Chapter("Two", { levels = { 3, 4 } })
+    c:Step():Goto(1453, 10, 50):Accept(11)
+    c:Step():Fp("Nowhere")
+    c:Step():Goto(1453, 50, 50):Accept(12)
+    c:Step():Goto(1453, 90, 50):Accept(13)
+    c:Done()
+    ctx.ns.guidePlayer.jump(2, 1)
+    local lines, _, dot = ctx.ns.map.dashParts()
+    local first = lines[1].SetStartPoint.calls[#lines[1].SetStartPoint.calls]
+    local p = dot.SetPoint.calls[#dot.SetPoint.calls]
+    expect(first[3]).toBeCloseTo(100, 1)                        -- from step 1
+    expect(p[4]).toBeCloseTo(900, 1)                            -- through step 3 to step 4: two placed steps after it
+    expect(dot:IsShown()).toBe(true)
   end)
 end)
 
@@ -418,8 +457,8 @@ describe("The dashed line's look", function()
     expect(halos[1].SetColorTexture.calls[1][1]).toBeLessThan(look.color[1])
     expect(halo.SetSize).toHaveBeenCalledWith(look.dot + look.haloWidth, look.dot + look.haloWidth)
     d.rightRows.items[2]:Trigger("OnLeave")
-    expect(dot:IsShown()).toBe(false)
-    expect(halo:IsShown()).toBe(false)
-    expect(halos[1]:IsShown()).toBe(false)
+    -- back to the current step's line: steps 1 to 3, the dot on step 3 at x = 50%
+    local at = dot.SetPoint.calls[#dot.SetPoint.calls]
+    expect(at[4]).toBeCloseTo(500, 1)
   end)
 end)

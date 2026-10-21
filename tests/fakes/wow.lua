@@ -276,6 +276,14 @@ function Fake.install()
         m.tl.first + vec.y * (m.br.first - m.tl.first),
         m.tl.second + vec.x * (m.br.second - m.tl.second))
     end,
+    -- The inverse: world yards (x = first, y = second) to a 0-1 position on uiMapID.
+    GetMapPosFromWorldPos = function(instance, vec, mapID)
+      local m = world.maps[mapID]
+      if not m or m.instance ~= instance then return nil end
+      return mapID, vector(
+        (vec.y - m.tl.second) / (m.br.second - m.tl.second),
+        (vec.x - m.tl.first) / (m.br.first - m.tl.first))
+    end,
     GetMapInfo = function(mapID)
       local m = world.maps[mapID]
       if not m then return nil end

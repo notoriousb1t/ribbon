@@ -38,6 +38,16 @@ function client.toWorld(mapID, x, y)
   if ok and vec and vec.x and vec.y then return vec.x, vec.y, inst end
 end
 
+-- A zone coordinate (0-100) of one map as a coordinate (0-100) of another (a zone onto its continent or a neighbour),
+-- through world yards; nil when the client cannot place it.
+function client.mapPosition(fromMap, x, y, toMap)
+  if type(toMap) ~= "number" or not (C_Map and C_Map.GetMapPosFromWorldPos) then return nil end
+  local first, second, inst = client.toWorld(fromMap, x, y)
+  if not first then return nil end
+  local ok, _, pos = pcall(C_Map.GetMapPosFromWorldPos, inst, CreateVector2D(first, second), toMap)
+  if ok and type(pos) == "table" and pos.x and pos.y then return pos.x * 100, pos.y * 100 end
+end
+
 function client.currentMap()
   local ok, mapID = pcall(C_Map.GetBestMapForUnit, "player")
   if ok then return mapID end

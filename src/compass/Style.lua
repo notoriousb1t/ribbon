@@ -117,13 +117,12 @@ S.pins = { world = 10, mini = 10, ringPad = 4, worldRingPad = 2 }
 -- `zoom` of the way from its smallest to its largest scale, with the step's point in the middle.
 S.preview = { size = 10, zoom = 0.5 }
 
--- Pins of the steps around the current one, drawn on the map smaller than the current step's pins: the step just done
--- in the text colour (white), the next two (and a step the mouse is over in the panel) smaller and fainter.
+-- Pins of the `count` steps after the current one (or after a step the mouse is over in the panel), drawn on the map
+-- smaller and fainter than the current step's pin.
 S.context = {
-  last = { scale = 1.13, alpha = 0.95, color = { 0.93, 0.91, 0.84 } },
   next = { scale = 0.93, alpha = 0.75 },
   count = 2,
-  -- The dashed line through the hovered step and its neighbours: solid, a pale blue core with a dark navy halo so it reads
+  -- The dashed line from the current (or hovered) step through the next ones: solid, a pale blue core with a dark navy halo so it reads
   -- on any map colour (parchment, water, green). The stroke thins from `thickness` at the start to `thin` at the end, which
   -- has a dot of `dot` pixels; the halo is `halo` pixels wider than the core.
   line = { color = { 0.80, 0.93, 1.0 }, halo = { 0.04, 0.11, 0.20 }, alpha = 1, thickness = 3.5, thin = 1.5, haloWidth = 2.5, dot = 9, dash = 9, gap = 7 },

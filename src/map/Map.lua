@@ -328,12 +328,6 @@ local function contextPin(slot, item)
   pin:SetSize(size, size)
   pin:Show()
   ns.badge.draw(pin, item.icon, size, false)
-  -- The step just done is tinted (the colour in the style); the others keep their own.
-  if look.color then
-    local c = look.color
-    pin.glyphTex:SetVertexColor(c[1], c[2], c[3], 1)
-    pin.tex:SetVertexColor(c[1], c[2], c[3], 1)
-  end
   pin:SetAlpha(item.alpha or look.alpha * (item.fade or 1))
   if M.lib then M.lib:AddWorldMapIconMap(contextOwner, pin, item.map, item.x / 100, item.y / 100, _G.HBD_PINS_WORLDMAP_SHOW_CONTINENT) end
   return pin
@@ -347,34 +341,38 @@ local function clearSlot(slot)
   end
 end
 
--- The step just done and the next two, around the player's current step.
-function M.refreshContext()
-  local player = ns.guidePlayer
-  local S = player and player.state()
-  local slots = { "last" }
-  for n = 1, ns.compassStyle.context.count do slots[#slots + 1] = "next" .. n end
-  for _, slot in ipairs(slots) do clearSlot(slot) end
-  if not S or S.finished then return end
-  local function show(slot, mode, offset)
-    local entry = S.flat[S.cursor + offset]
-    if not entry then return end
+-- Steps looked at past `from` for the next ones with a place on the map.
+local ROUTE_LOOKAHEAD = 10
+
+-- The steps a route is drawn through, each { map, x, y, entry }: the step at `from` (false when it has no place on the
+-- map) and the next `count` steps that have one; steps without a place (training, a hearth with no inn) are passed over,
+-- so the line joins every icon drawn.
+local function routeOf(S, from, count)
+  local function at(i)
+    local entry = S.flat[i]
+    if not entry then return nil end
     local map, x, y = ns.guidePlanner.stepLocation(entry.step)
-    if type(map) ~= "number" or type(x) ~= "number" then return end
-    contextPin(slot, { mode = mode, map = map, x = x, y = y, icon = ns.guideText.stepIcon(entry.step) })
+    return (type(map) == "number" and type(x) == "number") and { map = map, x = x, y = y, entry = entry } or false
   end
-  show("last", "last", -1)
-  for n = 1, ns.compassStyle.context.count do show("next" .. n, "next", n) end
+  if not S.flat[from] then return {} end
+  local out = { at(from) }
+  for i = from + 1, from + ROUTE_LOOKAHEAD do
+    if #out > count then break end
+    local p = at(i)
+    if p == nil then break end
+    if p then out[#out + 1] = p end
+  end
+  return out
 end
 
--- A step the mouse is over in the panel: its pin fully opaque, and the one before it and the one after it, a little more
--- transparent. Called with nothing to take them away.
-local HOVER = { { "hoverLast", "last", -1 }, { "hover0", "next", 0 }, { "hover1", "next", 1 } }
 local lines, halos = {}, {}   -- the dashes' cores and the dark halos under them
 local lineDot, lineDotHalo
+local route = {}              -- the steps the line goes through now (routeOf)
 
 function M.dashParts() return lines, halos, lineDot, lineDotHalo end
 
--- Draws a dashed line through points ({ x, y } in 0-100 on the map being shown) on the map canvas.
+-- Draws a dashed line through points ({ x, y } in 0-100 on the map being shown, or false for a point not on it) on the map
+-- canvas: a dash run between each two neighbouring points that are both on it, and a dot on the last one.
 local function dashedLine(points)
   for _, l in ipairs(lines) do l:Hide() end
   for _, l in ipairs(halos) do l:Hide() end
@@ -382,17 +380,22 @@ local function dashedLine(points)
   if lineDotHalo then lineDotHalo:Hide() end
   local sc = WorldMapFrame and WorldMapFrame.ScrollContainer
   local canvas = type(sc) == "table" and sc.Child or WorldMapFrame
-  if not (canvas and canvas.CreateLine) or #points < 2 then return end
+  if not (canvas and canvas.CreateLine) then return end
   local w, h = canvas:GetWidth(), canvas:GetHeight()
   if not (type(w) == "number" and w > 0 and type(h) == "number" and h > 0) then return end
   local look = ns.compassStyle.context.line
-  local used = 0
+  local function segment(i)
+    local a, b = points[i], points[i + 1]
+    if not (a and b) then return nil end
+    return a[1] / 100 * w, a[2] / 100 * h, b[1] / 100 * w, b[2] / 100 * h
+  end
   local total = 0
   for i = 1, #points - 1 do
-    total = total + math.sqrt(((points[i + 1][1] - points[i][1]) / 100 * w) ^ 2 + ((points[i + 1][2] - points[i][2]) / 100 * h) ^ 2)
+    local x1, y1, x2, y2 = segment(i)
+    if x1 then total = total + math.sqrt((x2 - x1) ^ 2 + (y2 - y1) ^ 2) end
   end
   if total <= 0 then return end
-  local done = 0
+  local used, done = 0, 0
   local function dash(x1, y1, x2, y2)
     used = used + 1
     local l, halo = lines[used], halos[used]
@@ -413,23 +416,26 @@ local function dashedLine(points)
       line:Show()
     end
   end
+  local last
   for i = 1, #points - 1 do
-    local x1, y1 = points[i][1] / 100 * w, points[i][2] / 100 * h
-    local x2, y2 = points[i + 1][1] / 100 * w, points[i + 1][2] / 100 * h
-    local len = math.sqrt((x2 - x1) ^ 2 + (y2 - y1) ^ 2)
-    if len > 0 then
-      local ux, uy = (x2 - x1) / len, (y2 - y1) / len
-      local t = 0
-      while t < len do
-        local e = math.min(t + look.dash, len)
-        dash(x1 + ux * t, y1 + uy * t, x1 + ux * e, y1 + uy * e)
-        t = t + look.dash + look.gap
+    local x1, y1, x2, y2 = segment(i)
+    if x1 then
+      local len = math.sqrt((x2 - x1) ^ 2 + (y2 - y1) ^ 2)
+      if len > 0 then
+        local ux, uy = (x2 - x1) / len, (y2 - y1) / len
+        local t = 0
+        while t < len do
+          local e = math.min(t + look.dash, len)
+          dash(x1 + ux * t, y1 + uy * t, x1 + ux * e, y1 + uy * e)
+          t = t + look.dash + look.gap
+        end
       end
+      done = done + len
+      last = points[i + 1]
     end
-    done = done + len
   end
+  if not last then return end
   -- A dot where the line ends.
-  local last = points[#points]
   if not lineDot then
     lineDotHalo = canvas:CreateTexture(nil, "ARTWORK")
     lineDotHalo:SetTexture(ns.compassStyle.textures.markerFill)
@@ -446,43 +452,88 @@ local function dashedLine(points)
   end
 end
 
-function M.hoverStep(chapter, step)
-  for _, h in ipairs(HOVER) do clearSlot(h[1]) end
-  dashedLine({})
+-- Draws the route on the map being shown: each step's point moved onto that map (a zone's point onto its continent, a
+-- neighbouring zone's onto this one), so the line joins every icon the map shows. Called again whenever the map changes.
+function M.redrawLine()
+  local shown = WorldMapFrame and WorldMapFrame.GetMapID and WorldMapFrame:GetMapID()
+  local points = {}
+  for i, p in ipairs(route) do
+    local x, y
+    if p and (type(shown) ~= "number" or p.map == shown) then
+      x, y = p.x, p.y
+    elseif p then
+      x, y = ns.client.mapPosition(p.map, p.x, p.y, shown)
+    end
+    points[i] = (x and x >= 0 and x <= 100 and y >= 0 and y <= 100) and { x, y } or false
+  end
+  dashedLine(points)
+end
+
+-- The pins of a route after its first step (that one has its own pin: the step's waypoint, or the hovered step's pin),
+-- the next ones smaller and fainter.
+local function routePins(prefix, points, fade)
+  for n = 1, ns.compassStyle.context.count do
+    clearSlot(prefix .. n)
+    local p = points[n + 1]
+    if p then contextPin(prefix .. n, { mode = "next", map = p.map, x = p.x, y = p.y, icon = ns.guideText.stepIcon(p.entry.step), fade = fade }) end
+  end
+end
+
+local hovering = false
+
+-- The next two steps after the player's current one, and the line from the current step through them. Hidden while a
+-- step in the panel is hovered (that one shows its own).
+function M.refreshContext()
   local player = ns.guidePlayer
   local S = player and player.state()
-  if not (S and chapter and step) then return end
-  local at = ns.guidePlanner.locate(S.flat, { chapter = chapter, step = step })
-  if not at then return end
-  for _, h in ipairs(HOVER) do
-    local entry = S.flat[at + h[3]]
-    if entry then
-      local map, x, y = ns.guidePlanner.stepLocation(entry.step)
-      if type(map) == "number" and type(x) == "number" then
-        contextPin(h[1], { mode = h[2], map = map, x = x, y = y, icon = ns.guideText.stepIcon(entry.step), fade = ns.compassStyle.context.hoverFade, alpha = h[3] == 0 and 1 or nil })
-      end
-    end
-  end
-  -- The dashed route from the step before to the second step after, over the stretch that is on one map: the one the
-  -- hovered step is on.
-  local shown = {}
-  local home
-  for offset = -1, 2 do
-    local entry = S.flat[at + offset]
-    local map, x, y
-    if entry then map, x, y = ns.guidePlanner.stepLocation(entry.step) end
-    if offset == 0 then home = map end
-    if type(map) == "number" and type(x) == "number" then shown[#shown + 1] = { x, y, map = map } else shown[#shown + 1] = false end
-  end
-  local run = {}
-  for _, p in ipairs(shown) do
-    if p and p.map == home then run[#run + 1] = p else if #run > 0 and p == false then break end end
-  end
-  -- Only on the map being shown: a step on another map has no place on this canvas.
-  local shownMap = WorldMapFrame and WorldMapFrame.GetMapID and WorldMapFrame:GetMapID()
-  if type(shownMap) == "number" and home ~= shownMap then run = {} end
-  dashedLine(run)
+  local count = ns.compassStyle.context.count
+  for n = 1, count do clearSlot("next" .. n) end
+  if hovering then return end
+  route = (S and not S.finished) and routeOf(S, S.cursor, count) or {}
+  routePins("next", route)
+  M.redrawLine()
 end
+
+-- A step the mouse is over in the panel: its pin fully opaque, the next two after it smaller and fainter, and the line
+-- through the three. Called with nothing to go back to the current step's.
+function M.hoverStep(chapter, step)
+  clearSlot("hover0")
+  for n = 1, ns.compassStyle.context.count do clearSlot("hover" .. n) end
+  local player = ns.guidePlayer
+  local S = player and player.state()
+  local at = S and chapter and step and ns.guidePlanner.locate(S.flat, { chapter = chapter, step = step })
+  if not at then
+    hovering = false
+    M.refreshContext()
+    return
+  end
+  hovering = true
+  for n = 1, ns.compassStyle.context.count do clearSlot("next" .. n) end
+  route = routeOf(S, at, ns.compassStyle.context.count)
+  local first = route[1]
+  if first then
+    contextPin("hover0", { mode = "next", map = first.map, x = first.x, y = first.y, icon = ns.guideText.stepIcon(first.entry.step), alpha = 1 })
+  end
+  routePins("hover", route, ns.compassStyle.context.hoverFade)
+  M.redrawLine()
+end
+
+-- The map lays itself out after it opens or changes zone: draw the line again then.
+local function hookMap()
+  if not WorldMapFrame then return end
+  local redraw = function() pcall(M.redrawLine) end
+  if WorldMapFrame.HookScript then
+    pcall(WorldMapFrame.HookScript, WorldMapFrame, "OnShow", redraw)
+    local sc = WorldMapFrame.ScrollContainer
+    local canvas = type(sc) == "table" and sc.Child
+    if canvas and canvas.HookScript then pcall(canvas.HookScript, canvas, "OnSizeChanged", redraw) end
+  end
+  if type(WorldMapFrame.OnMapChanged) == "function" and hooksecurefunc then
+    pcall(hooksecurefunc, WorldMapFrame, "OnMapChanged", redraw)
+  end
+end
+
+ns:On("INIT", hookMap)
 
 ns:On("GUIDE_STEP_CHANGED", function() M.refreshContext() end)
 ns:On("GUIDE_DOCK_CHANGED", function() M.refreshContext() end)
