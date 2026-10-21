@@ -464,6 +464,9 @@ function M.hoverStep(chapter, step)
   for _, p in ipairs(shown) do
     if p and p.map == home then run[#run + 1] = p else if #run > 0 and p == false then break end end
   end
+  -- Only on the map being shown: a step on another map has no place on this canvas.
+  local shownMap = WorldMapFrame and WorldMapFrame.GetMapID and WorldMapFrame:GetMapID()
+  if type(shownMap) == "number" and home ~= shownMap then run = {} end
   dashedLine(run)
 end
 

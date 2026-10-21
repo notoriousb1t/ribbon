@@ -358,6 +358,33 @@ describe("The dashed line through a hovered step", function()
   end)
 end)
 
+describe("The dashed line and the map being shown", function()
+  local ctx = H.use({ boot = true })
+  beforeEach(function()
+    local c = Ribbon.Guide("g", { title = "Test Guide", schema = 1 }):Chapter("One", { levels = { 1, 2 } })
+    for i = 1, 4 do c:Step():Goto(1453, 10 + 20 * (i - 1), 50):Accept(i) end
+    c:Done()
+    WorldMapFrame.ScrollContainer = { Child = WorldMapFrame }
+    WorldMapFrame.GetWidth = function() return 1000 end
+    WorldMapFrame.GetHeight = function() return 500 end
+  end)
+
+  it("is drawn only when the map shown is the one the steps are on", function()
+    ctx.ns.guideBrowser.toggleDock()
+    local d = ctx.ns.guideBrowser.dock()
+    WorldMapFrame.GetMapID = function() return 1453 end
+    d.rightRows.items[2]:Trigger("OnEnter")
+    local lines = ctx.ns.map.dashParts()
+    expect(#lines).toBeGreaterThan(0)
+    expect(lines[1]:IsShown()).toBe(true)
+    d.rightRows.items[2]:Trigger("OnLeave")
+    WorldMapFrame.GetMapID = function() return 1411 end         -- another zone's map
+    d.rightRows.items[2]:Trigger("OnEnter")
+    expect(lines[1]:IsShown()).toBe(false)
+    WorldMapFrame.GetMapID = nil
+  end)
+end)
+
 describe("The dashed line's look", function()
   local ctx = H.use({ boot = true })
   beforeEach(function()
