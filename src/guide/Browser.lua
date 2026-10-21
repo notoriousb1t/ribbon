@@ -923,6 +923,12 @@ function Br.placeDock()
   if not (dock and WorldMapFrame) then return end
   local right, screen = WorldMapFrame:GetRight(), UIParent:GetRight()
   local width = dock:GetWidth() or 0
+  -- The map has a scale of its own (it changes when the map is maximized), so both edges are measured in the map's units.
+  local mapScale = WorldMapFrame.GetEffectiveScale and WorldMapFrame:GetEffectiveScale()
+  local uiScale = UIParent.GetEffectiveScale and UIParent:GetEffectiveScale()
+  if type(mapScale) == "number" and mapScale > 0 and type(uiScale) == "number" and type(screen) == "number" then
+    screen = screen * uiScale / mapScale
+  end
   dock:ClearAllPoints()
   if type(right) == "number" and type(screen) == "number" and screen - right >= width + 8 then
     dock:SetPoint("TOPLEFT", WorldMapFrame, "TOPRIGHT", 4, 0)
@@ -946,6 +952,12 @@ local function buildDock()
     WorldMapFrame:HookScript("OnSizeChanged", Br.placeDock)
   end)
   dock:SetScript("OnShow", Br.placeDock)
+  -- The map settles its size and scale a moment after it is maximized: place the panel again then.
+  local function later() if C_Timer and C_Timer.After then C_Timer.After(0.1, Br.placeDock) end end
+  pcall(function()
+    WorldMapFrame:HookScript("OnShow", later)
+    WorldMapFrame:HookScript("OnSizeChanged", later)
+  end)
 end
 
 -- A step change drops the chapter being browsed, so the panel goes back to the active chapter (the one just clicked,

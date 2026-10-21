@@ -325,6 +325,18 @@ describe("Guide progress", function()
       expect(d.SetFrameLevel.calls[#d.SetFrameLevel.calls][1]).toBeGreaterThan(WorldMapFrame:GetFrameLevel() + 100)
     end)
 
+    it("measures the room in the map's own scale: a map scaled up past the screen's edge has none", function()
+      WorldMapFrame.GetRight = function() return 1000 end          -- 1000 map units at scale 1.8 = 1800 px of 1920
+      WorldMapFrame.GetEffectiveScale = function() return 1.8 end
+      UIParent.GetRight = function() return 1920 end
+      UIParent.GetEffectiveScale = function() return 1 end
+      ctx.ns.map.guideButton:Trigger("OnClick")
+      local d = dockPanel()
+      expect(d.SetPoint).toHaveBeenCalledWith("TOPRIGHT", WorldMapFrame, "TOPRIGHT", -6, -66)
+      WorldMapFrame.GetEffectiveScale = nil
+      UIParent.GetEffectiveScale = nil
+    end)
+
     it("moves when the map moves or resizes", function()
       WorldMapFrame.GetRight = function() return 700 end
       UIParent.GetRight = function() return 1920 end
