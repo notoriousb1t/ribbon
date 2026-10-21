@@ -1,6 +1,8 @@
--- Guide browser: a dialog listing the guide's chapters on the left and the selected chapter's steps on the right.
--- Click a step to jump to it, or "Start chapter" to begin at the chapter's first step. Built on first use, so a
--- player without a guide never has the frames. Rows are built from guide/Planner's outline; this file is the view.
+-- Guide browser: chapter cards with progress bars on the left and the selected chapter's steps on the right.
+-- Click a step to jump to it, or "Start chapter" to begin at the chapter's first step. It comes in two forms with the
+-- same content: a floating dialog (the compass dial, /ribbon guides) and a panel docked to the right side of the world
+-- map (the Ribbon button on the map). Each is built on first use, so a player without a guide never has the frames.
+-- Rows are built from guide/Planner's outline; this file is the view.
 local ADDON, ns = ...
 
 local Br = {}
@@ -11,14 +13,15 @@ local text = ns.guideText
 
 local ROW = 20
 local CARD = 40                          -- height of a chapter card
-local LEFT_W, RIGHT_W, HEIGHT = 230, 400, 400
+local LEFT_W, RIGHT_W, HEIGHT = 230, 400, 400   -- the floating dialog
+local DOCK_LEFT_W, DOCK_RIGHT_W = 190, 230       -- the panel docked to the map
 local TOP = 56                           -- room for the title and the overall bar
 
 local COLORS = {
   done = "|cff808080", current = "|cffe9b949", todo = "|cfff3ead2",
 }
 
-local frame, selected   -- selected: guide chapter index being browsed
+local frame, dock, selected   -- the dialog and the docked panel; selected: guide chapter index being browsed
 
 -- Rows --------------------------------------------------------------------------------
 
@@ -122,34 +125,32 @@ local function makeRow(width)
     b.label:SetPoint("LEFT", b, "LEFT", 4, 0)
     b.label:SetWidth(width - 8)
     b.label:SetJustifyH("LEFT")
+    b.label:SetWordWrap(false)   -- one line per step: a long summary is cut, it does not run into the next row
     b:SetHighlightTexture("Interface\\QuestFrame\\UI-QuestTitleHighlight")
     return b
   end
 end
 
+-- A scrolling column: it runs from under the header to above the buttons, whatever the frame's height.
 local function scroller(parent, name, x, width)
   local scroll = CreateFrame("ScrollFrame", name, parent, "UIPanelScrollFrameTemplate")
   scroll:SetPoint("TOPLEFT", parent, "TOPLEFT", x, -TOP)
-  scroll:SetSize(width - 22, HEIGHT - TOP - 36)
+  scroll:SetPoint("BOTTOMLEFT", parent, "BOTTOMLEFT", x, 36)
+  scroll:SetWidth(width - 22)
   local content = CreateFrame("Frame", nil, scroll)
   content:SetSize(width - 22, 1)
   scroll:SetScrollChild(content)
   return content
 end
 
-function Br.refresh()
-  local player = ns.guidePlayer
-  if not (frame and player.state()) then return end
+-- Fills one panel from the player's state.
+local function fill(f, player)
   local S = player.state()
-  if not selected then
-    local entry = player.current()
-    selected = entry and entry.chapter or (S.view[1] and S.view[1].index)
-  end
   local left, right = Br.rows(player, selected)
 
-  frame.setLeft(#left)
+  f.setLeft(#left)
   for i, row in ipairs(left) do
-    local b = frame.leftRows.items[i]
+    local b = f.leftRows.items[i]
     local place = text.chapterParts(row.label)
     local state = row.chapter == selected and "current" or row.state
     b.label:SetText(colored(state, place))
@@ -157,17 +158,30 @@ function Br.refresh()
     b.bar.set(row.fraction, BAR_COLORS[row.state] or BAR_COLORS.todo)
     b.chapter = row.chapter
   end
-  frame.setRight(#right)
+  f.setRight(#right)
   for i, row in ipairs(right) do
-    local b = frame.rightRows.items[i]
+    local b = f.rightRows.items[i]
     b.label:SetText(colored(row.state, row.label))
     b.chapter, b.step = row.chapter, row.step
   end
   local entry, cursor = player.current()
-  frame.progress:SetText(entry and string.format("Step %d of %d", cursor, #S.flat) or "Guide finished")
+  f.progress:SetText(entry and string.format("Step %d of %d", cursor, #S.flat) or "Guide finished")
   local overall = planner.progress(S.view, S.flat, S.cursor)
-  frame.overall.set(overall.fraction, BAR_COLORS.current)
-  frame.overallText:SetText(string.format("%d%%", math.floor(overall.fraction * 100 + 0.5)))
+  f.overall.set(overall.fraction, BAR_COLORS.current)
+  f.overallText:SetText(string.format("%d%%", math.floor(overall.fraction * 100 + 0.5)))
+end
+
+-- Refreshes every panel that has been built.
+function Br.refresh()
+  local player = ns.guidePlayer
+  if not ((frame or dock) and player.state()) then return end
+  local S = player.state()
+  if not selected then
+    local entry = player.current()
+    selected = entry and entry.chapter or (S.view[1] and S.view[1].index)
+  end
+  if frame then fill(frame, player) end
+  if dock then fill(dock, player) end
 end
 
 -- The second line of a chapter card: "Lv 12-14 - 48%".
@@ -181,39 +195,35 @@ function Br.subtitle(row)
   return "|cffb8c7cc" .. table.concat(parts, " - ") .. "|r"
 end
 
-local function build()
-  frame = CreateFrame("Frame", "RibbonGuideBrowser", UIParent)
-  frame:SetSize(LEFT_W + RIGHT_W + 36, HEIGHT)
-  frame:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
-  frame:SetFrameStrata("DIALOG")
-  frame:SetMovable(true)
-  frame:EnableMouse(true)
-  frame:RegisterForDrag("LeftButton")
-  frame:SetScript("OnDragStart", frame.StartMoving)
-  frame:SetScript("OnDragStop", frame.StopMovingOrSizing)
-  local bg = frame:CreateTexture(nil, "BACKGROUND")
+-- Builds a panel. opts: name, parent, leftW, rightW, buttonW, onClose; floating panels also get a size, a place and
+-- dragging, docked ones are anchored by the caller.
+local function build(opts)
+  local f = CreateFrame("Frame", opts.name, opts.parent or UIParent)
+  local width = opts.leftW + opts.rightW + 36
+  f:SetWidth(width)
+  f:EnableMouse(true)
+  local bg = f:CreateTexture(nil, "BACKGROUND")
   bg:SetAllPoints()
   bg:SetColorTexture(0.051, 0.212, 0.275, 0.95)   -- the logo's dark teal
 
-  local title = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-  title:SetPoint("TOPLEFT", frame, "TOPLEFT", 12, -10)
+  local title = f:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+  title:SetPoint("TOPLEFT", f, "TOPLEFT", 12, -10)
   title:SetText(ns.guide and ns.guide.title or "Guide")
-  frame.title = title
-  frame.progress = frame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-  frame.progress:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -12, -12)
+  f.title = title
+  f.progress = f:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+  f.progress:SetPoint("TOPRIGHT", f, "TOPRIGHT", -12, -12)
 
   -- Overall progress along the whole guide, under the title.
-  local width = LEFT_W + RIGHT_W + 36 - 24 - 40
-  frame.overall = bar(frame, width, 8)
-  frame.overall.track:SetPoint("TOPLEFT", frame, "TOPLEFT", 12, -32)
-  frame.overallText = frame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-  frame.overallText:SetPoint("LEFT", frame.overall.track, "RIGHT", 6, 0)
+  f.overall = bar(f, width - 24 - 40, 8)
+  f.overall.track:SetPoint("TOPLEFT", f, "TOPLEFT", 12, -32)
+  f.overallText = f:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+  f.overallText:SetPoint("LEFT", f.overall.track, "RIGHT", 6, 0)
 
-  frame.leftRows, frame.rightRows = {}, {}
-  local left = scroller(frame, "RibbonGuideChapters", 8, LEFT_W)
-  local right = scroller(frame, "RibbonGuideSteps", LEFT_W + 20, RIGHT_W)
-  local makeLeft, makeRight = makeCard(LEFT_W - 22), makeRow(RIGHT_W - 22)
-  frame.setLeft = pool(left, frame.leftRows, function(parent, i)
+  f.leftRows, f.rightRows = {}, {}
+  local left = scroller(f, opts.name .. "Chapters", 8, opts.leftW)
+  local right = scroller(f, opts.name .. "Steps", opts.leftW + 20, opts.rightW)
+  local makeLeft, makeRight = makeCard(opts.leftW - 22), makeRow(opts.rightW - 22)
+  f.setLeft = pool(left, f.leftRows, function(parent, i)
     local b = makeLeft(parent, i)
     b:SetScript("OnClick", function(self)
       selected = self.chapter
@@ -221,7 +231,7 @@ local function build()
     end)
     return b
   end, CARD)
-  frame.setRight = pool(right, frame.rightRows, function(parent, i)
+  f.setRight = pool(right, f.rightRows, function(parent, i)
     local b = makeRight(parent, i)
     b:SetScript("OnClick", function(self)
       ns.guidePlayer.jump(self.chapter, self.step)
@@ -230,35 +240,61 @@ local function build()
   end)
 
   local function button(label, x, onClick)
-    local b = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
-    b:SetSize(110, 22)
+    local b = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
+    b:SetSize(opts.buttonW, 22)
     b:SetText(label)
-    b:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", x, 8)
+    b:SetPoint("BOTTOMLEFT", f, "BOTTOMLEFT", x, 8)
     b:SetScript("OnClick", onClick)
     return b
   end
-  frame.start = button("Start chapter", 12, function()
+  f.start = button("Start chapter", 12, function()
     if selected then ns.guidePlayer.jumpToChapter(selected) end
   end)
-  frame.skip = button("Skip step", 128, function() ns.guidePlayer.skip() end)
-  frame.close = button("Close", LEFT_W + RIGHT_W + 36 - 122, function() frame:Hide() end)
-
-  if UISpecialFrames then table.insert(UISpecialFrames, "RibbonGuideBrowser") end
-  -- A step change drops the chapter being browsed, so the panel goes back to the active chapter (the one just
-  -- clicked, after a jump).
-  ns:On("GUIDE_STEP_CHANGED", function()
-    selected = nil
-    if frame:IsShown() then Br.refresh() end
-  end)
+  f.skip = button("Skip step", 12 + opts.buttonW + 6, function() ns.guidePlayer.skip() end)
+  f.close = button("Close", width - 12 - opts.buttonW, opts.onClose)
+  return f
 end
 
--- Open the browser on the current chapter, or close it.
+local function buildDialog()
+  frame = build({
+    name = "RibbonGuideBrowser", leftW = LEFT_W, rightW = RIGHT_W, buttonW = 110,
+    onClose = function() frame:Hide() end,
+  })
+  frame:SetHeight(HEIGHT)
+  frame:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
+  frame:SetFrameStrata("DIALOG")
+  frame:SetMovable(true)
+  frame:RegisterForDrag("LeftButton")
+  frame:SetScript("OnDragStart", frame.StartMoving)
+  frame:SetScript("OnDragStop", frame.StopMovingOrSizing)
+  if UISpecialFrames then table.insert(UISpecialFrames, "RibbonGuideBrowser") end
+end
+
+-- The docked panel is a child of the world map, so it shows and hides with the map, and sits over the map's right side.
+local function buildDock()
+  dock = build({
+    name = "RibbonGuideDock", parent = WorldMapFrame, leftW = DOCK_LEFT_W, rightW = DOCK_RIGHT_W, buttonW = 92,
+    onClose = function() Br.setDock(false) end,
+  })
+  dock:SetPoint("TOPRIGHT", WorldMapFrame, "TOPRIGHT", -6, -66)
+  dock:SetPoint("BOTTOMRIGHT", WorldMapFrame, "BOTTOMRIGHT", -6, 6)
+  dock:SetFrameLevel(WorldMapFrame:GetFrameLevel() + 50)
+end
+
+-- A step change drops the chapter being browsed, so the panels go back to the active chapter (the one just clicked,
+-- after a jump).
+ns:On("GUIDE_STEP_CHANGED", function()
+  selected = nil
+  Br.refresh()
+end)
+
+-- Open the floating dialog on the current chapter, or close it.
 function Br.toggle()
   if not ns.guidePlayer.state() then
     ns:Print("no guide installed.")
     return
   end
-  if not frame then build() end
+  if not frame then buildDialog() end
   if frame:IsShown() and frame.opened then
     frame:Hide()
     frame.opened = false
@@ -270,7 +306,33 @@ function Br.toggle()
   Br.refresh()
 end
 
+-- Show or hide the panel docked to the world map, and remember the choice for the next session.
+function Br.setDock(shown)
+  if not ns.guidePlayer.state() then
+    ns:Print("no guide installed.")
+    return
+  end
+  if not WorldMapFrame then return end
+  if not dock then buildDock() end
+  dock:SetShown(shown)
+  if ns.db then ns.db.guideDock = shown and true or false end
+  if shown then
+    selected = nil
+    Br.refresh()
+  end
+end
+
+function Br.toggleDock()
+  Br.setDock(not (dock and dock:IsShown()))
+end
+
+-- Reopen the docked panel at login if it was open when the player last left.
+ns:On("GUIDE_STARTED", function()
+  if ns.db and ns.db.guideDock and WorldMapFrame then Br.setDock(true) end
+end)
+
 function Br.frame() return frame end
+function Br.dock() return dock end
 
 -- /ribbon guides: the same panel as /ribbon guide.
 ns.commands.guides = function() Br.toggle() end
