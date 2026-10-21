@@ -347,10 +347,8 @@ describe("The dashed line through a hovered step", function()
     local d = ctx.ns.guideBrowser.dock()
     d.rightRows.items[2]:Trigger("OnEnter")                -- steps 1 to 4 at x = 10, 30, 50, 70
     local look = ctx.ns.compassStyle.context.line
-    expect(look.alpha).toBeLessThan(1.01)
     expect(look.color[3]).toBeGreaterThan(look.color[1])
-    local lines = {}
-    for _, o in ipairs(ctx.world.objects) do if o.kind == "Line" then lines[#lines + 1] = o end end
+    local lines = ctx.ns.map.dashParts()
     expect(#lines).toBeGreaterThan(10)
     local first, last = lines[1].SetStartPoint.calls[1], lines[#lines].SetEndPoint.calls[1]
     expect(first[3]).toBeCloseTo(100, 1)                    -- x = 10% of 1000
@@ -373,24 +371,26 @@ describe("The dashed line's look", function()
 
   it("is mostly opaque, thins along its length and ends in a dot", function()
     local look = ctx.ns.compassStyle.context.line
-    expect(look.alpha).toBeGreaterThan(0.8)
+    expect(look.alpha).toBe(1)
     ctx.ns.guideBrowser.toggleDock()
     local d = ctx.ns.guideBrowser.dock()
     d.rightRows.items[2]:Trigger("OnEnter")
-    local lines = {}
-    for _, o in ipairs(ctx.world.objects) do if o.kind == "Line" then lines[#lines + 1] = o end end
+    local lines, halos, dot, halo = ctx.ns.map.dashParts()
     local a = lines[1].SetThickness.calls[1][1]
     local z = lines[#lines].SetThickness.calls[1][1]
     expect(a).toBeGreaterThan(z)
     expect(a).toBeLessThan(look.thickness + 0.001)
     expect(z).toBeGreaterThan(look.thin - 0.001)
-    local dots = {}
-    for _, o in ipairs(ctx.world.objects) do
-      if o.kind == "Texture" and #o.SetSize.calls > 0 and o.SetSize.calls[1][1] == look.dot then dots[#dots + 1] = o end
-    end
-    expect(#dots).toBe(1)
-    expect(dots[1]:IsShown()).toBe(true)
+    expect(dot.SetSize).toHaveBeenCalledWith(look.dot, look.dot)
+    expect(dot:IsShown()).toBe(true)
+    -- a dark halo under every dash and under the dot, wider than they are, so it reads on any map colour
+    local h1 = halos[1].SetThickness.calls[1][1]
+    expect(h1).toBeCloseTo(a + look.haloWidth, 4)
+    expect(halos[1].SetColorTexture.calls[1][1]).toBeLessThan(look.color[1])
+    expect(halo.SetSize).toHaveBeenCalledWith(look.dot + look.haloWidth, look.dot + look.haloWidth)
     d.rightRows.items[2]:Trigger("OnLeave")
-    expect(dots[1]:IsShown()).toBe(false)
+    expect(dot:IsShown()).toBe(false)
+    expect(halo:IsShown()).toBe(false)
+    expect(halos[1]:IsShown()).toBe(false)
   end)
 end)

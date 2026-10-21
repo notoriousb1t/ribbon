@@ -355,13 +355,17 @@ end
 -- A step the mouse is over in the panel: its pin fully opaque, and the one before it and the one after it, a little more
 -- transparent. Called with nothing to take them away.
 local HOVER = { { "hoverLast", "last", -1 }, { "hover0", "next", 0 }, { "hover1", "next", 1 } }
-local lines = {}
-local lineDot
+local lines, halos = {}, {}   -- the dashes' cores and the dark halos under them
+local lineDot, lineDotHalo
+
+function M.dashParts() return lines, halos, lineDot, lineDotHalo end
 
 -- Draws a dashed line through points ({ x, y } in 0-100 on the map being shown) on the map canvas.
 local function dashedLine(points)
   for _, l in ipairs(lines) do l:Hide() end
+  for _, l in ipairs(halos) do l:Hide() end
   if lineDot then lineDot:Hide() end
+  if lineDotHalo then lineDotHalo:Hide() end
   local sc = WorldMapFrame and WorldMapFrame.ScrollContainer
   local canvas = type(sc) == "table" and sc.Child or WorldMapFrame
   if not (canvas and canvas.CreateLine) or #points < 2 then return end
@@ -377,18 +381,23 @@ local function dashedLine(points)
   local done = 0
   local function dash(x1, y1, x2, y2)
     used = used + 1
-    local l = lines[used]
+    local l, halo = lines[used], halos[used]
     if not l then
+      halo = canvas:CreateLine(nil, "ARTWORK")
       l = canvas:CreateLine(nil, "OVERLAY")
-      lines[used] = l
+      lines[used], halos[used] = l, halo
     end
     -- thinner along the way: the thickness at the dash's middle
     local mid = done + (math.sqrt((x2 - x1) ^ 2 + (y2 - y1) ^ 2)) / 2
-    l:SetThickness(look.thickness + (look.thin - look.thickness) * math.min(1, (mid + 0) / total))
-    l:SetColorTexture(look.color[1], look.color[2], look.color[3], look.alpha)
-    l:SetStartPoint("TOPLEFT", canvas, x1, -y1)
-    l:SetEndPoint("TOPLEFT", canvas, x2, -y2)
-    l:Show()
+    local thick = look.thickness + (look.thin - look.thickness) * math.min(1, mid / total)
+    for _, part in ipairs({ { halo, thick + look.haloWidth, look.halo }, { l, thick, look.color } }) do
+      local line, width, c = part[1], part[2], part[3]
+      line:SetThickness(width)
+      line:SetColorTexture(c[1], c[2], c[3], look.alpha)
+      line:SetStartPoint("TOPLEFT", canvas, x1, -y1)
+      line:SetEndPoint("TOPLEFT", canvas, x2, -y2)
+      line:Show()
+    end
   end
   for i = 1, #points - 1 do
     local x1, y1 = points[i][1] / 100 * w, points[i][2] / 100 * h
@@ -408,14 +417,19 @@ local function dashedLine(points)
   -- A dot where the line ends.
   local last = points[#points]
   if not lineDot then
+    lineDotHalo = canvas:CreateTexture(nil, "ARTWORK")
+    lineDotHalo:SetTexture(ns.compassStyle.textures.markerFill)
     lineDot = canvas:CreateTexture(nil, "OVERLAY")
     lineDot:SetTexture(ns.compassStyle.textures.markerFill)
   end
-  lineDot:SetVertexColor(look.color[1], look.color[2], look.color[3], look.alpha)
-  lineDot:SetSize(look.dot, look.dot)
-  lineDot:ClearAllPoints()
-  lineDot:SetPoint("CENTER", canvas, "TOPLEFT", last[1] / 100 * w, -(last[2] / 100 * h))
-  lineDot:Show()
+  for _, part in ipairs({ { lineDotHalo, look.dot + look.haloWidth, look.halo }, { lineDot, look.dot, look.color } }) do
+    local dot, size, c = part[1], part[2], part[3]
+    dot:SetVertexColor(c[1], c[2], c[3], look.alpha)
+    dot:SetSize(size, size)
+    dot:ClearAllPoints()
+    dot:SetPoint("CENTER", canvas, "TOPLEFT", last[1] / 100 * w, -(last[2] / 100 * h))
+    dot:Show()
+  end
 end
 
 function M.hoverStep(chapter, step)

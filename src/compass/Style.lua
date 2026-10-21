@@ -114,9 +114,10 @@ S.context = {
   last = { scale = 1.13, alpha = 0.95, color = { 0.93, 0.91, 0.84 } },
   next = { scale = 0.93, alpha = 0.75 },
   count = 2,
-  -- The dashed line through the hovered step and its neighbours (the ribbon's blue, see through).
-  -- Mostly opaque; the stroke thins from `thickness` at the start to `thin` at the end, which has a dot of `dot` pixels.
-  line = { color = { 0.122, 0.478, 0.600 }, alpha = 0.9, thickness = 4, thin = 1.5, dot = 9, dash = 9, gap = 7 },
+  -- The dashed line through the hovered step and its neighbours: solid, a pale blue core with a dark navy halo so it reads
+  -- on any map colour (parchment, water, green). The stroke thins from `thickness` at the start to `thin` at the end, which
+  -- has a dot of `dot` pixels; the halo is `halo` pixels wider than the core.
+  line = { color = { 0.80, 0.93, 1.0 }, halo = { 0.04, 0.11, 0.20 }, alpha = 1, thickness = 3.5, thin = 1.5, haloWidth = 2.5, dot = 9, dash = 9, gap = 7 },
   hoverFade = 0.75,   -- the pins around a step the mouse is over are this much more transparent
 }
 
