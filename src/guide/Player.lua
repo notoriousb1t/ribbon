@@ -28,8 +28,20 @@ local function kills(call)
   return key and S.kills[key] or 0
 end
 
+-- Whether the client saw a Train, Fp or Home call done (S.marks, keyed like the kills). A Home is also done while the
+-- hearthstone is already set at its inn.
+local function marked(call)
+  local key = S.callKey[call]
+  if key and S.marks[key] then return true end
+  if call.kind == "Home" then
+    local bind = ns.client.bindLocation()
+    return bind ~= nil and string.lower(bind) == string.lower(call.node)
+  end
+  return false
+end
+
 local function env()
-  return { quest = ns.client.questStatus, objective = objective, level = S.who.level, xp = S.who.xp, kills = kills }
+  return { quest = ns.client.questStatus, objective = objective, level = S.who.level, xp = S.who.xp, kills = kills, marked = marked }
 end
 
 local function chapterName(entry)
@@ -44,8 +56,9 @@ local function save()
   ns.db.guide = ns.db.guide or {}
   local entry = S.flat[S.cursor]
   local kills = next(S.kills) and S.kills or nil
-  ns.db.guide[S.who.key] = entry and { guide = S.guide.id, chapter = entry.chapter, step = entry.index, kills = kills }
-    or { guide = S.guide.id, finished = true, kills = kills }
+  local marks = next(S.marks) and S.marks or nil
+  ns.db.guide[S.who.key] = entry and { guide = S.guide.id, chapter = entry.chapter, step = entry.index, kills = kills, marks = marks }
+    or { guide = S.guide.id, finished = true, kills = kills, marks = marks }
 end
 
 local function saved()
@@ -165,6 +178,9 @@ local function setCursor(i)
   end
 end
 
+-- Calls whose progress the player keeps: grind kills, and the marks of trainer, flight path and inn calls.
+local KEYED = { Grind = true, Train = true, Fp = true, Home = true }
+
 -- The guide gains chapters while its files load (and the character's class or race can change what is visible), so
 -- the plan is rebuilt lazily: any use of the player first catches up, keeping the saved position.
 local function replan()
@@ -172,12 +188,12 @@ local function replan()
   S.who = ns.client.character()
   S.view = planner.view(S.guide, S.who)
   S.flat = planner.flatten(S.view)
-  -- Grind counts are saved under "chapter:step:group:call", the same guide position the saved cursor uses.
+  -- Grind counts and marks are saved under "chapter:step:group:call", the same guide position the saved cursor uses.
   S.callKey = {}
   for _, entry in ipairs(S.flat) do
     for gi, group in ipairs(entry.step.groups) do
       for ci, call in ipairs(group.calls) do
-        if call.kind == "Grind" then S.callKey[call] = table.concat({ entry.chapter, entry.index, gi, ci }, ":") end
+        if KEYED[call.kind] then S.callKey[call] = table.concat({ entry.chapter, entry.index, gi, ci }, ":") end
       end
     end
   end
@@ -205,6 +221,7 @@ local function stepComplete(i)
   local e = env()
   local done = planner.stepDone(entry.step, e)
   if done == false and planner.grindPassed(S.flat, i, e) then return true end
+  if done ~= true and planner.npcStepPassed(S.flat, i, e) then return true end
   if done ~= nil then return done end
   local located = 0
   for gi, group in ipairs(entry.step.groups) do
@@ -288,8 +305,56 @@ end
 function Pl.reset()
   ensure()
   if not S then return end
-  S.kills = {}
+  S.kills, S.marks = {}, {}
   setCursor(1)
+end
+
+-- Yards within which a flight master's map opening counts for the current Fp step.
+local NEAR = 40
+
+local function near(gi)
+  if S.arrived[gi] then return true end
+  local w = S.waypoints[gi]
+  local wp = w and ns:GetWaypoint(w.uid)
+  return wp ~= nil and wp.dist ~= nil and wp.dist <= NEAR
+end
+
+-- Mark the current step's calls of `kind` that `accept(call, gi)` takes.
+local function mark(kind, accept)
+  ensure()
+  local entry = S.flat[S.cursor]
+  if not entry then return end
+  local changed = false
+  for gi, group in ipairs(entry.step.groups) do
+    for _, call in ipairs(group.calls) do
+      local key = S.callKey[call]
+      if call.kind == kind and key and not S.marks[key] and accept(call, gi) then
+        S.marks[key] = true
+        changed = true
+      end
+    end
+  end
+  if changed then
+    save()
+    Pl.refresh()
+  end
+end
+
+-- Opening the trainer's dialog is the train step (the NPC must be the step's trainer when both are known); a flight
+-- master's map opened at the step, or the "new flight path" message, is the flight path; binding is the inn.
+local function onNpcEvent(event, a, b)
+  if not S then return end
+  if event == "TRAINER_SHOW" then
+    local npc = ns.guideCounter.npcID(ns.client.npcGUID())
+    mark("Train", function(call) return call.npc == nil or npc == nil or call.npc == npc end)
+  elseif event == "TAXIMAP_OPENED" then
+    mark("Fp", function(_, gi) return near(gi) end)
+  elseif event == "UI_INFO_MESSAGE" then
+    -- (messageType, message) on the modern client, (message) on an older one.
+    if ns.client.isNewFlightPath(b) or ns.client.isNewFlightPath(a) then mark("Fp", function() return true end) end
+  elseif event == "HEARTHSTONE_BOUND" then
+    mark("Home", function() return true end)
+  end
 end
 
 -- A kill from the combat log: count it for every open Grind of the current step it is a target of.
@@ -338,9 +403,10 @@ end
 function Pl.start(guide)
   if S then return end
   S = { guide = guide, who = ns.client.character(), view = {}, flat = {}, cursor = 1, waypoints = {}, arrived = {}, unplaced = {},
-    kills = {}, callKey = {}, dirty = true }
+    kills = {}, marks = {}, callKey = {}, dirty = true }
   local mine = saved()
   if mine and type(mine.kills) == "table" then S.kills = mine.kills end
+  if mine and type(mine.marks) == "table" then S.marks = mine.marks end
   if mine and mine.finished then
     S.finished = true
   elseif mine then
@@ -348,6 +414,7 @@ function Pl.start(guide)
   end
   ns:Every(POLL, Pl.refresh)
   ns.client.watchCombatLog(onCombat)
+  ns.client.watchEvents({ "TRAINER_SHOW", "TAXIMAP_OPENED", "UI_INFO_MESSAGE", "HEARTHSTONE_BOUND" }, onNpcEvent)
   Pl.refresh()
   ns:Fire("GUIDE_STARTED", S)
 end

@@ -148,21 +148,24 @@ end
 
 -- Arrival radius in yards for a group's waypoint. Travel points ("get to this zone", search areas) are coarse, so they
 -- accept a wide margin; points where you deal with an NPC (flight path, trainer, inn) get a medium one; every other
--- group keeps the registry default (5 yd) because its quest calls decide completion, not arrival.
-P.RADIUS = { travel = 25, npc = 10 }
+-- group keeps the registry default (5 yd) because its quest calls decide completion, not arrival. A hearth lands by
+-- the inn's hearth point, not on the innkeeper, so it accepts the travel margin.
+P.RADIUS = { travel = 25, npc = 10, hearth = 25 }
 
 local TRAVEL_CALLS = { Travel = true, Enter = true, Subzone = true }
 local NPC_CALLS = { Fp = true, Fly = true, Hearth = true, Home = true, Train = true }
 
 function P.arrivalRadius(group)
   if group.loop then return P.RADIUS.travel end
-  local travel, npc = false, false
+  local travel, npc, hearth = false, false, false
   for _, call in ipairs(group.calls) do
     if TRAVEL_CALLS[call.kind] then travel = true
+    elseif call.kind == "Hearth" then hearth = true
     elseif NPC_CALLS[call.kind] then npc = true
     else return nil end
   end
   if npc then return P.RADIUS.npc end
+  if hearth then return P.RADIUS.hearth end
   if travel then return P.RADIUS.travel end
 end
 
@@ -172,7 +175,8 @@ local QUEST_DONE = { active = true, complete = true, done = true }
 
 -- "done", "open" or "manual" (nothing the client can tell us) for one call.
 -- env: quest(id) -> "none"|"active"|"complete"|"done"; objective(quest, index) -> { have, need, finished } or nil;
---      level -> number; kills(call) -> kills counted for a Grind (optional).
+--      level -> number; kills(call) -> kills counted for a Grind (optional); marked(call) -> whether the client saw a
+--      Train, Fp or Home done (trainer opened, flight path known, hearthstone set; optional).
 local function callState(call, env)
   local kind = call.kind
   if kind == "Accept" then
@@ -194,6 +198,8 @@ local function callState(call, env)
     if call.level then return (env.level or 0) >= call.level and "done" or "open" end
     if call.count and env.kills then return env.kills(call) >= call.count and "done" or "open" end
     return "manual"   -- no counter to ask
+  elseif kind == "Train" or kind == "Fp" or kind == "Home" then
+    if env.marked then return env.marked(call) and "done" or "open" end
   end
   return "manual"
 end
@@ -247,6 +253,45 @@ function P.grindPassed(flat, i, env)
       local done = P.stepDone(step, env)
       if done ~= nil then return done end
     end
+  end
+  return false
+end
+
+-- Steps made only of these calls are passed once the player has done a quest step after them.
+local PASSABLE = { Train = true, Fp = true, Home = true, Hearth = true, Deathwarp = true }
+local QUEST_CALLS = { Accept = true, Turnin = true, Kill = true, Loot = true, Interact = true, Explore = true, Collect = true }
+
+-- How many steps after a passable step are looked at for one the player has done.
+P.LOOKAHEAD = 60
+
+local function passable(step)
+  local any = false
+  for _, g in ipairs(step.groups) do
+    for _, call in ipairs(g.calls) do
+      if not PASSABLE[call.kind] then return false end
+      any = true
+    end
+  end
+  return any
+end
+
+local function questStep(step)
+  for _, g in ipairs(step.groups) do
+    for _, call in ipairs(g.calls) do
+      if QUEST_CALLS[call.kind] and call.quest then return true end
+    end
+  end
+  return false
+end
+
+-- A train, flight path, inn, hearth or deathwarp step the player is past: a quest step within P.LOOKAHEAD steps after
+-- it is done (an accept, objective or turn-in; grinds and level steps do not count).
+function P.npcStepPassed(flat, i, env)
+  local entry = flat[i]
+  if not (entry and passable(entry.step)) then return false end
+  for j = i + 1, math.min(#flat, i + P.LOOKAHEAD) do
+    local step = flat[j].step
+    if questStep(step) and P.stepDone(step, env) == true then return true end
   end
   return false
 end

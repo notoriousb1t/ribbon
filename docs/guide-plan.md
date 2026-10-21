@@ -120,6 +120,10 @@ R:Chapter("1-11 Mulgore (Tauren)", { levels = { 1, 11 }, race = "TAUREN", factio
 - **Display:** away from the area the waypoint is the area centre; inside it the caption becomes the counter ("Greater Plainstrider 23/40").
 - **To verify first:** the combat log API exists in the Forever client (use the local probe tool, which is git-ignored).
 
+### 4b. Trainer, flight path, inn and hearth steps
+- **Train** is done when the trainer's dialog opens (`TRAINER_SHOW`; the NPC must be the step's trainer when the client names it). **Fp** when a flight master's map opens within 40 yd of the step, or the "new flight path" message shows. **Home** on `HEARTHSTONE_BOUND`, or while `GetBindLocation()` is the step's inn. **Hearth** on arrival within 25 yd of the destination innkeeper (the emitter writes the `:Goto`). Marks are kept per step in `RibbonDB` like the kill counts.
+- **Passed by later progress:** a step made only of Train, Fp, Home, Hearth and Deathwarp calls is passed once a quest step (accept, objective, turn-in) within the next 60 steps is done.
+
 ### 5. Travel: a coarse mesh inside Ribbon (after the guide player works)
 - **The guide only names a destination.** `:Travel()` takes its destination from the `:Goto` before it (the emitter already writes that, plus `:Enter(map)` / `:Subzone(name)` when the step names a zone). The guide carries no paths and no walkmesh data.
 - **Ribbon owns a small travel mesh**, a graph with a node at each crossing between zones (road and tunnel entrances, docks, zeppelin towers, tram stations, flight masters, portals). Edges are typed `walk`, `boat`, `zeppelin`, `tram`, `flight`, `portal`, each with a cost.

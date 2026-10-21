@@ -108,6 +108,38 @@ function client.watchCombatLog(fn)
   return true
 end
 
+-- NPC dialogs ------------------------------------------------------------------------
+
+-- Call fn(event, ...) on each of the client events named in `events` the client has: TRAINER_SHOW, TAXIMAP_OPENED,
+-- UI_INFO_MESSAGE, HEARTHSTONE_BOUND. An event the client lacks is left out.
+function client.watchEvents(events, fn)
+  local frame = CreateFrame("Frame")
+  for _, e in ipairs(events) do pcall(frame.RegisterEvent, frame, e) end
+  frame:SetScript("OnEvent", function(_, event, ...)
+    local ok, err = pcall(fn, event, ...)
+    if not ok then geterrorhandler()(err) end
+  end)
+end
+
+-- The GUID of the NPC whose dialog is open (trainer, flight master, innkeeper), or nil.
+function client.npcGUID()
+  if type(UnitGUID) ~= "function" then return nil end
+  local ok, guid = pcall(UnitGUID, "npc")
+  if ok and type(guid) == "string" then return guid end
+end
+
+-- Where the hearthstone is set (the inn's subzone name, "Thunderbrew Distillery"), or nil.
+function client.bindLocation()
+  if type(GetBindLocation) ~= "function" then return nil end
+  local ok, where = pcall(GetBindLocation)
+  if ok and type(where) == "string" and where ~= "" then return where end
+end
+
+-- Whether a UI info message is the "new flight path discovered" one.
+function client.isNewFlightPath(message)
+  return type(message) == "string" and _G.ERR_NEWTAXIPATH ~= nil and message == _G.ERR_NEWTAXIPATH
+end
+
 -- Quest tracking -------------------------------------------------------------------
 
 -- Call tbl[name](...) when both exist; returns ok and the first result.

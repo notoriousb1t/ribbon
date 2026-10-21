@@ -143,7 +143,7 @@ describe("Guide player", function()
       expect(#state.flat).toBe(5)   -- 3 + 2 visible steps
     end)
 
-    it("completes a step the client cannot judge by arriving", function()
+    it("completes a flight point step when the flight master's map opens there, not on arriving", function()
       start()
       ctx.world.quest.done[747] = true
       ctx.world.quest.done[3091] = true
@@ -151,8 +151,9 @@ describe("Guide player", function()
       ctx.world:placePlayer(1453, 60, 60, 0)
       ctx.ns:UpdateGeometry()               -- arrival fires WAYPOINT_ARRIVED
       ctx.ns.guidePlayer.refresh()
-      local entry = ctx.ns.guidePlayer.current()
-      expect(entry.index).toBe(2)
+      expect(ctx.ns.guidePlayer.current().index).toBe(1)
+      ctx.world:fireEvent("TAXIMAP_OPENED")
+      expect(ctx.ns.guidePlayer.current().index).toBe(2)
     end)
 
     it("skip, prev, reset and jump move the cursor and the waypoint", function()

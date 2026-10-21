@@ -307,7 +307,9 @@ function Fake.install()
   -- The player character.
   local c = world.character
   _G.UnitName = function() return c.name end
-  _G.UnitGUID = function() return c.guid end
+  _G.UnitGUID = function(unit) if unit == "npc" then return world.npcGUID end return c.guid end
+  _G.GetBindLocation = function() return world.bind end
+  _G.ERR_NEWTAXIPATH = "New flight path discovered!"
   _G.GetRealmName = function() return c.realm end
   _G.UnitClass = function() return c.class:sub(1, 1) .. c.class:sub(2):lower(), c.class end
   _G.UnitRace = function() return c.race, c.race end
