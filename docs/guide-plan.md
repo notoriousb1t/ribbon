@@ -61,6 +61,7 @@ R:Chapter("1-11 Mulgore (Tauren)", { levels = { 1, 11 }, race = "TAUREN", factio
 ```
 
 - **Located groups:** a `:Goto` (or `:Loop`) starts a group; the calls after it, until the next `:Goto`, happen there. A step holds several groups, so "accept at two NPCs" or "kill here, loot there" is one step.
+- **`flavor`** (chapter option or `:Only{ flavor = }`): `"FOREVER"`, `"CLASSIC"` (Classic Era) or `"RETAIL"`, from `WOW_PROJECT_ID`; chapters of different flavors may share a name. Without it a chapter shows on every client.
 - **`:Only{ class=, race=, faction= }`** directly after `:Step()` locks the whole step. Inside a step it closes the located group before it.
 - **`:Spawns(map, SPAWNS.X)`** attaches the map points to the objective call before it. The points live once in the file's `SPAWNS` table, so objectives with one source share them. At most 60 points per objective, evenly thinned.
 - **Constants:** `GROUP.NAME` references, upper-case names from the store, a numeric suffix when two records share a name (`QUEST.A_HUMBLE_TASK_753`). Flight points and inns have no ids in the store, so `NODE` holds their names as strings.

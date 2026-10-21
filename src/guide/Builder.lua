@@ -127,9 +127,10 @@ function methods:Loop(map, points)
   return self
 end
 
--- Class, race and faction lock. Right after :Step() it locks the whole step; later it locks the located group before it.
+-- Class, race, faction and flavor lock. Right after :Step() it locks the whole step; later it locks the located group
+-- before it.
 function methods:Only(lock)
-  if not need(self, "Only", type(lock) == "table", "needs { class =, race =, faction = }") then return self end
+  if not need(self, "Only", type(lock) == "table", "needs { class =, race =, faction =, flavor = }") then return self end
   local step = currentStep(self, "Only")
   if not step then return self end
   local g = step.groups[#step.groups]
@@ -291,10 +292,15 @@ function methods:Done()
   end
   local chapter = { name = self.name, opts = self.opts, steps = self.steps }
   local replaced = false
-  -- A chapter is identified by its name and faction: both factions' guides can each have, say, "Zephras Isle".
-  local faction = type(self.opts) == "table" and self.opts.faction or nil
+  -- A chapter is identified by its name, faction and flavor: both factions' guides can each have, say, "Zephras Isle",
+  -- and a Forever and a Classic chapter can share a name.
+  local function id(opts)
+    opts = type(opts) == "table" and opts or {}
+    return tostring(opts.faction) .. "/" .. tostring(opts.flavor)
+  end
+  local key = id(self.opts)
   for i, c in ipairs(guide.chapters) do
-    if c.name == self.name and (c.opts and c.opts.faction or nil) == faction then
+    if c.name == self.name and id(c.opts) == key then
       guide.chapters[i] = chapter
       replaced = true
       break

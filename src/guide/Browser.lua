@@ -781,7 +781,8 @@ local function settingsMenu(f)
   gear:SetHighlightTexture(ns.compassStyle.textures.bezelButton, "ADD")
 
   local menu = CreateFrame("Frame", nil, f)
-  menu:SetSize(MENU_W, #settings.OPTIONS * MENU_ROW + 12)
+  local options = settings.available()   -- an option this client cannot do (Classic Era: the in-world marker) is left out
+  menu:SetSize(MENU_W, #options * MENU_ROW + 12)
   menu:SetPoint("BOTTOMLEFT", gear, "TOPRIGHT", 2, 2)
   menu:SetFrameStrata("FULLSCREEN_DIALOG")   -- under the tooltips, which are at TOOLTIP
   menu:EnableMouse(true)
@@ -799,7 +800,7 @@ local function settingsMenu(f)
     menu.edges[n] = line
   end
   menu.rows = {}
-  for i, option in ipairs(settings.OPTIONS) do
+  for i, option in ipairs(options) do
     local row = CreateFrame("Button", nil, menu)
     row:SetSize(MENU_W - 12, MENU_ROW)
     row:SetPoint("TOPLEFT", menu, "TOPLEFT", 6, -6 - (i - 1) * MENU_ROW)

@@ -14,6 +14,11 @@ local function api()
   return map, track
 end
 
+-- Whether this client can set a user waypoint at all (Classic Era cannot).
+function W.supported()
+  return api() ~= nil
+end
+
 local function point(mapID, x, y)
   if type(_G.UiMapPoint) == "table" and type(_G.UiMapPoint.CreateFromCoordinates) == "function" then
     return _G.UiMapPoint.CreateFromCoordinates(mapID, x, y)

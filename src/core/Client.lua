@@ -94,14 +94,57 @@ local function safe(tbl, name, ...)
   return ok, result
 end
 
--- The quest the player is tracking on the map (super-tracked), or nil.
+-- Call the global `name` when it exists; returns ok and all its results.
+local function global(name, ...)
+  local fn = _G[name]
+  if type(fn) ~= "function" then return false end
+  return pcall(fn, ...)
+end
+
+-- The quest log row of a quest (GetQuestLogIndexByID, Classic Era's way), or nil when it is not in the log.
+local function logIndex(questID)
+  local ok, index = global("GetQuestLogIndexByID", questID)
+  if ok and type(index) == "number" and index > 0 then return index end
+end
+
+-- A quest log row: title, isHeader, isComplete (1 done, -1 failed), questID (GetQuestLogTitle).
+local function logRow(index)
+  local ok, title, _, _, isHeader, _, isComplete, _, questID = global("GetQuestLogTitle", index)
+  if ok then return title, isHeader, isComplete, questID end
+end
+
+-- The game's flavor as an upper-case token: "FOREVER", "CLASSIC" (Classic Era) or "RETAIL"; nil for any other client.
+function client.flavor()
+  local id = _G.WOW_PROJECT_ID
+  if id == nil then return nil end
+  if id == _G.WOW_PROJECT_CAMELOT then return "FOREVER" end
+  if id == _G.WOW_PROJECT_CLASSIC then return "CLASSIC" end
+  if id == _G.WOW_PROJECT_MAINLINE then return "RETAIL" end
+end
+
+-- The quest the player is tracking on the map (super-tracked), or nil. A client without super-tracking (Classic Era)
+-- gives the first quest watched in the objective tracker instead.
 function client.superTrackedQuestID()
-  local ok, id = safe(C_SuperTrack, "GetSuperTrackedQuestID")
-  if ok and type(id) == "number" and id > 0 then return id end
+  if type(C_SuperTrack) == "table" then
+    local ok, id = safe(C_SuperTrack, "GetSuperTrackedQuestID")
+    if ok and type(id) == "number" and id > 0 then return id end
+    return
+  end
+  local ok, n = global("GetNumQuestWatches")
+  if not ok or type(n) ~= "number" or n < 1 then return end
+  local okIndex, index = global("GetQuestIndexForWatch", 1)
+  if not okIndex or type(index) ~= "number" then return end
+  local _, _, _, questID = logRow(index)
+  if type(questID) == "number" and questID > 0 then return questID end
 end
 
 function client.questTitle(questID)
   local ok, title = safe(C_QuestLog, "GetTitleForQuestID", questID)
+  if not ok then ok, title = safe(C_QuestLog, "GetQuestInfo", questID) end
+  if not ok then
+    local index = logIndex(questID)
+    if index then ok, title = true, logRow(index) end
+  end
   if ok and type(title) == "string" and title ~= "" then return title end
 end
 
@@ -117,12 +160,77 @@ end
 function client.questStatus(questID)
   local ok, done = safe(C_QuestLog, "IsQuestFlaggedCompleted", questID)
   if ok and done then return "done" end
-  local inLog, index = safe(C_QuestLog, "GetLogIndexForQuestID", questID)
-  if inLog and index then
-    local _, complete = safe(C_QuestLog, "IsComplete", questID)
-    return complete and "complete" or "active"
+  if type(C_QuestLog) == "table" and type(C_QuestLog.GetLogIndexForQuestID) == "function" then
+    local inLog, index = safe(C_QuestLog, "GetLogIndexForQuestID", questID)
+    if inLog and index then
+      local _, complete = safe(C_QuestLog, "IsComplete", questID)
+      return complete and "complete" or "active"
+    end
+    return "none"
+  end
+  -- Classic Era: the quest log by row.
+  local index = logIndex(questID)
+  if index then
+    local _, _, isComplete = logRow(index)
+    return (isComplete == 1 or isComplete == true) and "complete" or "active"
   end
   return "none"
+end
+
+-- Is the quest log entry titled `title` finished? (A quest greeting lists active quests by title only.)
+function client.questLogEntryComplete(title)
+  local ok, n = global("GetNumQuestLogEntries")
+  if not ok or type(n) ~= "number" then return false end
+  for i = 1, n do
+    local t, isHeader, isComplete = logRow(i)
+    if not isHeader and t == title then return isComplete == 1 or isComplete == true end
+  end
+  return false
+end
+
+-- Gossip ---------------------------------------------------------------------------
+
+-- The quests a gossip window lists: { active = { { index, title, complete, questID } }, available = { ... } }.
+-- The Forever client has the old gossip globals (entries carry an index); Classic Era has only C_GossipInfo (entries
+-- carry a questID, which is what its Select functions take).
+function client.gossipQuests()
+  local active, available = {}, {}
+  if type(_G.GetGossipActiveQuests) == "function" or type(_G.GetNumGossipAvailableQuests) == "function" then
+    local _, nActive = global("GetNumGossipActiveQuests")
+    nActive = tonumber(nActive) or 0
+    if nActive > 0 then
+      local list = { global("GetGossipActiveQuests") }
+      if table.remove(list, 1) ~= true then list = {} end
+      local stride = math.floor(#list / nActive)
+      for i = 1, nActive do
+        local isComplete = list[(i - 1) * stride + 4]
+        active[i] = { index = i, title = list[(i - 1) * stride + 1], complete = isComplete == 1 or isComplete == true }
+      end
+    end
+    local _, nAvailable = global("GetNumGossipAvailableQuests")
+    for i = 1, tonumber(nAvailable) or 0 do available[i] = { index = i } end
+    return { active = active, available = available }
+  end
+  local function read(name, out)
+    local ok, list = safe(C_GossipInfo, name)
+    if not ok or type(list) ~= "table" then return end
+    for i, q in ipairs(list) do
+      out[#out + 1] = { index = i, title = q.title, complete = q.isComplete == true, questID = q.questID }
+    end
+  end
+  read("GetActiveQuests", active)
+  read("GetAvailableQuests", available)
+  return { active = active, available = available }
+end
+
+-- Picks a quest from gossipQuests(); kind is "active" or "available".
+function client.selectGossipQuest(kind, entry)
+  if type(entry) ~= "table" then return end
+  if entry.questID then
+    safe(C_GossipInfo, kind == "active" and "SelectActiveQuest" or "SelectAvailableQuest", entry.questID)
+  else
+    global(kind == "active" and "SelectGossipActiveQuest" or "SelectGossipAvailableQuest", entry.index)
+  end
 end
 
 -- The player's class, race and faction as upper-case tokens ("WARRIOR", "NightElf" -> "NIGHTELF" is the guide
@@ -147,6 +255,7 @@ function client.character()
     race = race and string.upper(race) or nil,
     faction = faction and string.upper(faction) or nil,
     level = type(level) == "number" and level or nil,
+    flavor = client.flavor(),
     key = type(guid) == "string" and guid ~= "" and guid or ((name or "player") .. "-" .. (realm or "realm")),
   }
 end

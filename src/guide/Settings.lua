@@ -13,8 +13,19 @@ ns.guideSettings = Set
 Set.OPTIONS = {
   { key = "autoAdvance", label = "Auto-advance", tip = "Move to the next step when the quest log shows the step is done." },
   { key = "autoQuest", label = "Auto accept and turn in", tip = "Accept quests and hand in finished ones that have no reward to choose from. Hold Shift to skip." },
-  { key = "worldPin", label = "In-world marker", tip = "Show the current step's place with the game's own waypoint beacon in the world." },
+  { key = "worldPin", label = "In-world marker", tip = "Show the current step's place with the game's own waypoint beacon in the world.",
+    -- Classic Era has no user waypoints.
+    available = function() return not ns.worldPin or ns.worldPin.supported() end },
 }
+
+-- The options this client can do, in menu order.
+function Set.available()
+  local out = {}
+  for _, option in ipairs(Set.OPTIONS) do
+    if not option.available or option.available() then out[#out + 1] = option end
+  end
+  return out
+end
 
 function Set.get(key)
   local saved = ns.db and ns.db.guideSettings
@@ -49,36 +60,21 @@ local function num(name)
   return type(fn) == "function" and tonumber(fn()) or 0
 end
 
--- Is the quest-log entry titled `title` finished? (A quest greeting lists active quests by title only.)
-local function logComplete(title)
-  if type(_G.GetNumQuestLogEntries) ~= "function" or type(_G.GetQuestLogTitle) ~= "function" then return false end
-  for i = 1, _G.GetNumQuestLogEntries() do
-    local t, _, _, isHeader, _, isComplete = _G.GetQuestLogTitle(i)
-    if not isHeader and t == title then return isComplete == 1 or isComplete == true end
-  end
-  return false
-end
-
 -- A gossip window lists its quests beside any other options; pick a finished quest first, then an offered one.
 -- Each pick opens a quest window, the handlers below finish it; the window shows again afterwards and the next
 -- quest is picked, so an NPC with several quests and other options is worked through in turn.
 local function gossip()
-  local nActive = num("GetNumGossipActiveQuests")
-  if nActive > 0 and type(_G.GetGossipActiveQuests) == "function" then
-    local list = { _G.GetGossipActiveQuests() }
-    local stride = math.floor(#list / nActive)
-    for i = 1, nActive do
-      local isComplete = list[(i - 1) * stride + 4]
-      if isComplete == 1 or isComplete == true then return call("SelectGossipActiveQuest", i) end
-    end
+  local quests = ns.client.gossipQuests()
+  for _, q in ipairs(quests.active) do
+    if q.complete then return ns.client.selectGossipQuest("active", q) end
   end
-  if num("GetNumGossipAvailableQuests") > 0 then return call("SelectGossipAvailableQuest", 1) end
+  if quests.available[1] then return ns.client.selectGossipQuest("available", quests.available[1]) end
 end
 
 local function greeting()
   for i = 1, num("GetNumActiveQuests") do
     local title = type(_G.GetActiveTitle) == "function" and _G.GetActiveTitle(i)
-    if title and logComplete(title) then return call("SelectActiveQuest", i) end
+    if title and ns.client.questLogEntryComplete(title) then return call("SelectActiveQuest", i) end
   end
   if num("GetNumAvailableQuests") > 0 then return call("SelectAvailableQuest", 1) end
 end

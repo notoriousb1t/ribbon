@@ -1,6 +1,6 @@
 # Ribbon
 
-WoW addon for the Forever beta client (build `1.60.1 / 70450 / 16001`): compass ribbon, map and minimap pins, waypoint API, TomTom / RestedXP / tracked-quest bridges. Lua 5.1 semantics (WoW and LuaJIT).
+WoW addon for the Forever beta client (build `1.60.1 / 70450 / 16001`), also Classic Era (1.15.9): compass ribbon, map and minimap pins, waypoint API, TomTom / RestedXP / tracked-quest bridges. Lua 5.1 semantics (WoW and LuaJIT).
 
 ## Layout
 
@@ -58,6 +58,14 @@ Run the specs before every commit and after every change under `src/`.
 - `C_QuestLog.GetQuestsOnMap(mapID)` lists quest points per map as 0-1 fractions; `GetNextWaypoint` returned nothing for the tracked quest probed.
 - TomTom (v4.3.12): every way of setting a waypoint ends in `TomTom:AddWaypoint(m, x, y, opts)` with x and y as 0-1 fractions; a handle is `{ m, x, y, title = ... }`; `RemoveWaypoint` and `ClearAllWaypoints` funnel into `ClearWaypoint`. RXPGuides (v4.11.26): the arrow frame is the global `RXPG_ARROW`, its `element` carries `zone`, `x`, `y` (0-100) for zone targets.
 - Pins use `LibStub("HereBeDragons-Pins-2.0")`. Ribbon embeds LibStub, CallbackHandler-1.0 and HereBeDragons 2.18 under `src/libs` (copied unmodified from RXPGuides; the 7.x migration file is left out). LibStub keeps the newest copy, so when RXPGuides or TomTom ships a newer one theirs wins and Ribbon shares it. The libraries load first in the TOC and are not run by the specs (the fakes stand in).
+
+## Classic Era (API surface from wow-ui-source `classic_era`, 1.15.9; not yet measured in a client)
+
+- Missing there: `C_SuperTrack`, `C_Map.SetUserWaypoint`, `C_QuestLog.GetTitleForQuestID` / `GetLogIndexForQuestID` / `IsComplete`, and the old gossip globals (`GetGossipActiveQuests`, `SelectGossipActiveQuest`, ...).
+- `Client` falls back per API, never per version: title from `C_QuestLog.GetQuestInfo` or the log row, status from `GetQuestLogIndexByID` + `GetQuestLogTitle` (6th return isComplete, 8th questID), tracked quest from the first quest watch, gossip from `C_GossipInfo`, whose Select functions take the questID (Blizzard's GossipFrame sets each button's id to `questInfo.questID`). Forever keeps its own calls: a fallback runs only when the Forever API is absent.
+- `client.flavor()` is `FOREVER` (`WOW_PROJECT_CAMELOT`), `CLASSIC` or `RETAIL`; it is on `client.character()`, so a chapter's `flavor` option and `:Only{ flavor = }` filter like faction. A guide without flavors shows on every client.
+- Options a client cannot do are left out of the settings menu (`guideSettings.available()`; the in-world marker on Classic Era).
+- `world:classicEra()` in `tests/fakes/wow.lua` turns the fake into this API surface; `tests/specs/classic_spec.lua` runs the guide on it.
 
 ## Test suite
 

@@ -6,7 +6,7 @@
 
 Ribbon shows where your destination is on a compass bar at the top of your screen, and on the world map and minimap. It works with your quests, RestedXP, TomTom and your own waypoints, and other addons can send it waypoints too.
 
-Built for the Forever beta client.
+Built for the Forever beta client; also runs on Classic Era (1.15), where the in-world marker is unavailable (the client has no user waypoints) and the tracked quest is the first one watched in the quest tracker.
 
 <p align="center">
   <img src="assets/screenshot.png" alt="Ribbon in game: a caption with the quest step above a teal ribbon bar, a waypoint marker and an off-screen arrow at each end, and a compass dial below" width="720">

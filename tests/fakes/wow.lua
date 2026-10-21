@@ -118,6 +118,55 @@ function World:removeApi(path)
   obj[key] = nil
 end
 
+-- Turn the client into Classic Era (1.15.9, Blizzard_APIDocumentationGenerated on wow-ui-source's classic_era branch):
+-- no C_SuperTrack and no user waypoints; C_QuestLog without GetTitleForQuestID, GetLogIndexForQuestID or IsComplete,
+-- the quest log read by row instead (rows in quest id order; `watched` lists the tracker's quests); gossip through
+-- C_GossipInfo only, its Select functions taking a questID. world.gossip = { active = { info }, available = { info } }
+-- with info = { title, questID, isComplete }; world.gossipPicked records each pick.
+function World:classicEra()
+  local world = self
+  _G.WOW_PROJECT_ID = _G.WOW_PROJECT_CLASSIC
+  _G.C_SuperTrack = nil
+  _G.C_Map.SetUserWaypoint, _G.C_Map.ClearUserWaypoint = nil, nil
+  local q = world.quest
+  q.watched = q.watched or {}
+  _G.C_QuestLog = {
+    GetQuestInfo = function(id) return q.titles[id] end,
+    GetQuestsOnMap = function(mapID) return q.points[mapID] or {} end,
+    GetQuestObjectives = function(id) return q.objectives[id] or {} end,
+    IsQuestFlaggedCompleted = function(id) return q.done[id] == true end,
+    IsOnQuest = function(id) return q.log[id] ~= nil end,
+  }
+  local function rows()
+    local ids = {}
+    for id in pairs(q.log) do ids[#ids + 1] = id end
+    table.sort(ids)
+    return ids
+  end
+  _G.GetNumQuestLogEntries = function() return #rows() end
+  _G.GetQuestLogIndexByID = function(id)
+    for i, r in ipairs(rows()) do if r == id then return i end end
+    return 0
+  end
+  _G.GetQuestLogTitle = function(i)
+    local id = rows()[i]
+    if not id then return nil end
+    return q.titles[id], 10, 0, false, false, q.log[id].complete and 1 or nil, 1, id
+  end
+  _G.GetNumQuestWatches = function() return #q.watched end
+  _G.GetQuestIndexForWatch = function(i) local id = q.watched[i] return id and _G.GetQuestLogIndexByID(id) or nil end
+  for _, n in ipairs({ "GetNumGossipActiveQuests", "GetGossipActiveQuests", "GetNumGossipAvailableQuests",
+      "SelectGossipActiveQuest", "SelectGossipAvailableQuest" }) do _G[n] = nil end
+  world.gossip = { active = {}, available = {} }
+  world.gossipPicked = {}
+  _G.C_GossipInfo = {
+    GetActiveQuests = function() return world.gossip.active end,
+    GetAvailableQuests = function() return world.gossip.available end,
+    SelectActiveQuest = function(id) world.gossipPicked[#world.gossipPicked + 1] = { "active", id } end,
+    SelectAvailableQuest = function(id) world.gossipPicked[#world.gossipPicked + 1] = { "available", id } end,
+  }
+end
+
 -- Fire a client event at every frame registered for it.
 function World:fireEvent(event, ...)
   for _, o in ipairs(self.objects) do
@@ -192,6 +241,10 @@ function Fake.install()
   _G.GameTooltip = world:newObject("GameTooltip")
   _G.Minimap = world:newObject("Frame")
   _G.WorldMapFrame = world:newObject("Frame")
+
+  -- The game flavor: the Forever client unless a spec calls world:classicEra().
+  _G.WOW_PROJECT_MAINLINE, _G.WOW_PROJECT_CLASSIC, _G.WOW_PROJECT_CAMELOT = 1, 2, 99
+  _G.WOW_PROJECT_ID = _G.WOW_PROJECT_CAMELOT
 
   -- Player and map APIs
   _G.GetPlayerFacing = function() return world.player.facing end

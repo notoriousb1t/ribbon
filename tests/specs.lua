@@ -44,4 +44,5 @@ return {
   "backbutton",
   "settings",
   "worldpin",
+  "classic",
 }

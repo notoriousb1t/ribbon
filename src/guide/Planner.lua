@@ -19,9 +19,10 @@ local function race(s)
   return RACE_ALIAS[n] or n
 end
 
-local NORMALISE = { class = P.norm, race = race, faction = P.norm }
+local NORMALISE = { class = P.norm, race = race, faction = P.norm, flavor = P.norm }
 
--- Does `who` ({ class, race, faction }) satisfy `lock` ({ class =, race =, faction = }, each a token or a list)?
+-- Does `who` ({ class, race, faction, flavor }) satisfy `lock` ({ class =, race =, faction =, flavor = }, each a token
+-- or a list)? `flavor` is the game: "FOREVER", "CLASSIC" (Classic Era) or "RETAIL".
 -- A lock on something the client did not report cannot be shown to match.
 function P.matches(lock, who)
   if not lock then return true end
@@ -59,7 +60,7 @@ function P.view(guide, who)
   local out = {}
   for ci, ch in ipairs(guide.chapters) do
     local opts = ch.opts or {}
-    if P.matches({ race = opts.race, faction = opts.faction }, who) then
+    if P.matches({ race = opts.race, faction = opts.faction, flavor = opts.flavor }, who) then
       local steps = {}
       for si, step in ipairs(ch.steps) do
         local visible = P.filterStep(step, who)
