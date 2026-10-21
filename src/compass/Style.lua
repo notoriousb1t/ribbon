@@ -11,26 +11,22 @@ ns.compassStyle = S
 local DIR = "Interface\\AddOns\\Ribbon\\textures\\"
 
 S.textures = {
-  capLeft = DIR .. "ribbon-cap-left",
-  capRight = DIR .. "ribbon-cap-right",
   dial = DIR .. "compass-dial",
   needle = DIR .. "compass-needle",
   edgeArrow = DIR .. "edge-arrow",   -- points right; the view flips it for the left end
   focusRing = DIR .. "focus-ring",   -- gold ring drawn around the focused marker
+  markerFill = DIR .. "marker-fill",   -- the filled disc behind a marker's symbol (white, tinted dark by the view)
+  markerRim = DIR .. "marker-rim",     -- the ring on its edge (white, tinted per kind of waypoint)
 }
 
 -- Texture file names (without extension) under src/textures; the specs check they exist.
-S.textureFiles = { "ribbon-cap-left", "ribbon-cap-right", "compass-dial", "compass-needle", "edge-arrow", "focus-ring" }
-
--- Swallowtail end caps, in display pixels. The left cap's box starts `leftEdge` pixels left of the
--- bar; the right cap's box mirrors it, so it starts `rightEdge` pixels left of the bar's right edge.
-S.cap = { width = 32, height = 40, leftEdge = 18, rightEdge = 14 }
+S.textureFiles = { "compass-dial", "compass-needle", "edge-arrow", "focus-ring", "marker-fill", "marker-rim" }
 
 -- The dial sits centred on the bar and is taller than it, so it stands out above and below. It covers the tick marks
 -- (the individual degrees) and the direction names; only the waypoint markers are drawn over it. The caption above the bar
 -- is lifted by the dial's overhang so the two never touch.
 -- `offsetY` nudges it (pixels, negative = down): it reads a pixel or two high against the icons at its centre.
-S.dial = { size = 46, offsetY = -1 }
+S.dial = { size = 60, offsetY = 0 }
 S.band = { highlight = 2, shadow = 2 }
 
 -- Waypoint markers grow as you get close and shrink with distance (pixels). At `nearYd` yards or
@@ -41,7 +37,7 @@ S.band = { highlight = 2, shadow = 2 }
 -- A marker for a waypoint outside the view is held near the end of the bar, `edgeAlpha` opaque, with an
 -- arrow `arrow` pixels wide pointing the way; `pad` pixels keep marker and arrow off the ribbon's tail.
 S.marker = {
-  min = 18, max = 38, nearYd = 15, farYd = 1200, default = 20, focusBoost = 4,
+  min = 16, max = 30, nearYd = 15, farYd = 1200, default = 20, focusBoost = 4,
   pad = 3, arrow = 14, edgeAlpha = 0.7,
   -- Inside `settleYd` yards the bearing is eased toward the centre (scaled by distance / settleYd). The bearing of
   -- a point a few yards away swings wildly with every step, which made the marker shake on arrival.
@@ -49,7 +45,29 @@ S.marker = {
 }
 
 -- The focused marker gets a ring `pad` pixels larger than the marker itself.
-S.focusRing = { pad = 10 }
+S.focusRing = { pad = 8 }
+
+-- A marker is a badge like the objective tracker's: a dark filled disc with a coloured rim and, inside, a symbol in
+-- the same colour. `!` and `?` are drawn as text (crisp at any size); the other kinds put their icon in the disc. An icon
+-- not listed here (TomTom's dot, RXP's arrow, the raid markers) is drawn plain, at the marker's full size.
+S.badge = {
+  fillColor = { 0.05, 0.16, 0.20, 0.92 },
+  glyphScale = 0.80,    -- the text's height, as a fraction of the marker
+  glyphOffsetY = -1,    -- the font's "?" sits a little high in its line
+  iconScale = 0.60,     -- the icon's size, as a fraction of the marker
+  kinds = {
+    accept = { color = { 0.98, 0.82, 0.30 }, glyph = "!" },
+    turnin = { color = { 0.98, 0.82, 0.30 }, glyph = "?" },
+    ding = { color = { 0.98, 0.82, 0.30 } },
+    kill = { color = { 0.90, 0.30, 0.28 } },
+    grind = { color = { 0.95, 0.55, 0.20 } },
+    loot = { color = { 0.85, 0.65, 0.40 } },
+    poi = { color = { 0.62, 0.82, 0.88 } },
+    fp = { color = { 0.45, 0.75, 0.95 } },
+    hearth = { color = { 0.95, 0.75, 0.40 } },
+    train = { color = { 0.60, 0.85, 0.50 } },
+  },
+}
 
 -- A thin bar along the bottom of the ribbon while the player is in combat.
 S.combat = { height = 3 }

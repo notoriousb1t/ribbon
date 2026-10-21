@@ -33,4 +33,5 @@ return {
   "guideplanner",
   "guideplayer",
   "guideui",
+  "badge",
 }

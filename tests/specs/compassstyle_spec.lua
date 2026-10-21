@@ -9,12 +9,11 @@ describe("Compass view style", function()
     S = ctx.ns.compassStyle
   end)
 
-  it("draws the swallowtail caps with the cap textures, at the bar's ends", function()
-    expect(parts.capLeft.SetTexture).toHaveBeenCalledWith(S.textures.capLeft)
-    expect(parts.capRight.SetTexture).toHaveBeenCalledWith(S.textures.capRight)
-    expect(parts.capLeft.SetPoint).toHaveBeenCalledWith("TOPLEFT", parts.frame, "TOPLEFT", -S.cap.leftEdge, 0)
-    expect(parts.capRight.SetPoint).toHaveBeenCalledWith("TOPLEFT", parts.frame, "TOPRIGHT", -S.cap.rightEdge, 0)
-    expect(parts.capLeft.SetSize).toHaveBeenCalledWith(S.cap.width, S.cap.height)
+  it("ends the bar square, with no flourishes", function()
+    expect(parts.capLeft).toBeNil()
+    expect(parts.capRight).toBeNil()
+    expect(S.cap).toBeNil()
+    expect(S.textures.capLeft).toBeNil()
   end)
 
   it("centres the compass dial on the bar", function()

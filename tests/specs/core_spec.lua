@@ -116,6 +116,11 @@ describe("Core", function()
       for i = 1, 8 do expect(ctx.ns.ICONS["raid" .. i]).toContain("UI-RaidTargetingIcon_" .. i) end
     end)
 
+    it("have an icon for every kind of marker badge", function()
+      local badge = H.pure({ "compass/Style.lua" }).compassStyle.badge
+      for name in pairs(badge.kinds) do expect(ctx.ns.ICONS[name]).toBeTruthy() end
+    end)
+
     it("include one for every guide icon name", function()
       for _, name in ipairs({ "accept", "turnin", "kill", "loot", "grind", "poi", "fp", "hearth", "train", "ding" }) do
         expect(ctx.ns.ICONS[name]).toBeTruthy()

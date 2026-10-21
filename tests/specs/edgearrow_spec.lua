@@ -77,8 +77,8 @@ describe("Off-screen markers and arrows", function()
   describe("style", function()
     local S = H.pure({ "compass/Style.lua" }).compassStyle
 
-    it("keeps far markers at least 18 px", function()
-      expect(S.marker.min).toBeGreaterThan(17)
+    it("keeps far markers at least 16 px", function()
+      expect(S.marker.min).toBeGreaterThan(15)
     end)
 
     it("has an edge arrow texture", function()
@@ -169,11 +169,11 @@ describe("Off-screen markers and arrows", function()
       expect(parts.markers[1].arrow:IsShown()).toBe(false)
     end)
 
-    it("keeps far markers readable: even a far waypoint is at least 18 px", function()
+    it("keeps far markers readable: even a far waypoint is at least 16 px", function()
       ctx.ns:AddWaypoint(1453, 61.99, 95 - 1000 / YD_PER_Y, { title = "Far" })
       frameTick()
       local m = parts.markers[1]
-      expect(m.SetSize.calls[#m.SetSize.calls][1]).toBeGreaterThan(17)
+      expect(m.SetSize.calls[#m.SetSize.calls][1]).toBeGreaterThan(15)
     end)
   end)
 end)

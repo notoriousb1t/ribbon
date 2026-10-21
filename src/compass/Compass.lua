@@ -98,12 +98,60 @@ local function showCoordinates(owner)
   GameTooltip:Show()
 end
 
+-- Fills a marker's badge for its waypoint and size. A kind with no entry in Style.badge is drawn plain, full size.
+local function drawBadge(m, p)
+  local style = ns.compassStyle
+  local badge = style.badge
+  local kind = badge.kinds[p.wp.icon]
+  m.tex:SetTexture(ns.ICONS[p.wp.icon] or ns.ICONS[ns.DEFAULT_ICON])
+  m.tex:ClearAllPoints()
+  if not kind then
+    m.fill:Hide()
+    m.rim:Hide()
+    m.glyph:Hide()
+    m.tex:SetAllPoints(m)
+    m.tex:Show()
+    return
+  end
+  m.fill:Show()
+  m.rim:SetVertexColor(kind.color[1], kind.color[2], kind.color[3], 1)
+  m.rim:Show()
+  if kind.glyph then
+    local px = math.floor(p.size * badge.glyphScale + 0.5)
+    if m.glyphSize ~= px then
+      m.glyphSize = px
+      styleText(m.glyph, px)
+    end
+    m.glyph:SetText(kind.glyph)
+    m.glyph:SetTextColor(kind.color[1], kind.color[2], kind.color[3], 1)
+    m.glyph:Show()
+    m.tex:Hide()
+  else
+    local icon = math.floor(p.size * badge.iconScale + 0.5)
+    m.tex:SetPoint("CENTER", m, "CENTER", 0, 0)
+    m.tex:SetSize(icon, icon)
+    m.tex:Show()
+    m.glyph:Hide()
+  end
+end
+
 local function marker(i)
   local m = markers[i]
   if m then return m end
   m = CreateFrame("Button", nil, frame)
   m:SetSize(20, 20)
   m:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+  local style = ns.compassStyle
+  -- The badge: a dark disc, a coloured rim, and the symbol (text for ! and ?, an icon for the rest).
+  m.fill = m:CreateTexture(nil, "BACKGROUND")
+  m.fill:SetTexture(style.textures.markerFill)
+  m.fill:SetAllPoints()
+  m.fill:SetVertexColor(unpack(style.badge.fillColor))
+  m.rim = m:CreateTexture(nil, "BORDER")
+  m.rim:SetTexture(style.textures.markerRim)
+  m.rim:SetAllPoints()
+  m.glyph = m:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+  m.glyph:SetPoint("CENTER", m, "CENTER", 0, style.badge.glyphOffsetY)
   m.tex = m:CreateTexture(nil, "ARTWORK")
   m.tex:SetAllPoints()
   -- For a waypoint outside the view: an arrow beside the marker, pointing the way to turn.
@@ -161,19 +209,9 @@ local function build()
   shadow:SetPoint("BOTTOMLEFT")
   shadow:SetPoint("BOTTOMRIGHT")
 
-  -- Swallowtail ends, drawn behind the band.
-  local capLeft = frame:CreateTexture(nil, "BACKGROUND", nil, -1)
-  capLeft:SetTexture(style.textures.capLeft)
-  capLeft:SetSize(style.cap.width, style.cap.height)
-  capLeft:SetPoint("TOPLEFT", frame, "TOPLEFT", -style.cap.leftEdge, 0)
-  local capRight = frame:CreateTexture(nil, "BACKGROUND", nil, -1)
-  capRight:SetTexture(style.textures.capRight)
-  capRight:SetSize(style.cap.width, style.cap.height)
-  capRight:SetPoint("TOPLEFT", frame, "TOPRIGHT", -style.cap.rightEdge, 0)
-
-  -- The ribbon itself can be made see-through; text, ticks, markers, the dial and the caption plate
-  -- stay opaque so they remain easy to read.
-  chrome = { bg, highlight, shadow, capLeft, capRight }
+  -- The ribbon itself can be made see-through; text, ticks, markers and the caption plate stay opaque so they
+  -- remain easy to read.
+  chrome = { bg, highlight, shadow }
 
   -- Combat cue: a red bar along the bottom edge of the band, shown while the player is in combat.
   combatBar = frame:CreateTexture(nil, "OVERLAY")
@@ -237,7 +275,7 @@ local function build()
 
   C.parts = { frame = frame, dial = dial, needle = needle, targetText = targetText, detailText = detailText,
     captionPlate = captionPlate, ticks = ticks, labels = labels, markers = markers, combatBar = combatBar,
-    capLeft = capLeft, capRight = capRight }
+  }
 
   for i = 1, layout.TICK_COUNT do
     local t = frame:CreateTexture(nil, "ARTWORK")
@@ -322,7 +360,7 @@ function C.Update()
   for i, p in ipairs(placements) do
     local m = marker(i)
     m.uid = p.wp.uid
-    m.tex:SetTexture(ns.ICONS[p.wp.icon] or ns.ICONS[ns.DEFAULT_ICON])
+    drawBadge(m, p)
     m:ClearAllPoints()
     m:SetPoint("CENTER", frame, "CENTER", p.x, 0)
     m:SetAlpha(p.edge and ns.compassStyle.marker.edgeAlpha or 1)

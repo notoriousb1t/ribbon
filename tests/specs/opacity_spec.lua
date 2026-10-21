@@ -15,7 +15,7 @@ describe("Ribbon opacity", function()
     local ctx = H.use({ boot = true })
     local parts
 
-    -- The textures that make up the ribbon: the band, its two edges and the two caps.
+    -- The textures that make up the ribbon: the band and its two edges.
     local function chromeTextures()
       local out = {}
       for _, o in ipairs(ctx.world.objects) do
@@ -36,9 +36,9 @@ describe("Ribbon opacity", function()
       expect(RibbonDB.compass.opacity).toBe(0.6)
     end)
 
-    it("applies the opacity to the ribbon textures (band, edges and caps)", function()
+    it("applies the opacity to the ribbon textures (band and edges)", function()
       local alphas = chromeTextures()
-      expect(#alphas).toBe(5)
+      expect(#alphas).toBe(3)
       for _, a in ipairs(alphas) do expect(a).toBe(0.6) end
     end)
 
