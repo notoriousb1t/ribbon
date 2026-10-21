@@ -17,10 +17,21 @@ S.textures = {
   focusRing = DIR .. "focus-ring",   -- gold ring drawn around the focused marker
   markerFill = DIR .. "marker-fill",   -- the filled disc behind a marker's symbol (white, tinted dark by the view)
   markerRim = DIR .. "marker-rim",     -- the ring on its edge (white, tinted per kind of waypoint)
+  bezelCorner = DIR .. "bezel-corner",   -- the map panel's blue bezel: a corner (flipped for the others),
+  bezelEdgeH = DIR .. "bezel-edge-h",    -- a horizontal edge and a vertical edge, which tile,
+  bezelEdgeV = DIR .. "bezel-edge-v",
+  bezelButton = DIR .. "bezel-button",   -- and a button in the same bevel
 }
 
 -- Texture file names (without extension) under src/textures; the specs check they exist.
-S.textureFiles = { "compass-dial", "compass-needle", "edge-arrow", "focus-ring", "marker-fill", "marker-rim" }
+S.textureFiles = {
+  "compass-dial", "compass-needle", "edge-arrow", "focus-ring", "marker-fill", "marker-rim",
+  "bezel-corner", "bezel-edge-h", "bezel-edge-v", "bezel-button",
+}
+
+-- The bezel of the guide panel docked to the map, in display pixels: the band's depth, the corner pieces' size, the title
+-- bar's height, and how much of an edge texture is band (28 of its 64 rows or columns).
+S.bezel = { band = 14, corner = 32, title = 26, bandFraction = 28 / 64 }
 
 -- The dial sits centred on the bar and is taller than it, so it stands out above and below. It covers the tick marks
 -- (the individual degrees) and the direction names; only the waypoint markers are drawn over it. The caption above the bar

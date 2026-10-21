@@ -34,4 +34,5 @@ return {
   "guideplayer",
   "guideui",
   "badge",
+  "bezel",
 }

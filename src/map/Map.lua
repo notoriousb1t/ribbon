@@ -54,18 +54,36 @@ local function createClearButton()
   M.clearButton = b
 end
 
--- The guide button: the Ribbon icon beside Clear Pins, shown once a guide is installed.
+-- The guide button: a blue version of the map's own quest log toggle, stacked just above it (or in the map's bottom
+-- right corner when that toggle cannot be found), shown once a guide is installed. It opens and closes the guide panel.
 local function createGuideButton()
   if M.guideButton or not WorldMapFrame or not ns.guide then return end
+  local style = ns.compassStyle
   local b = CreateFrame("Button", "RibbonGuideMapButton", WorldMapFrame)
-  b:SetSize(28, 28)
-  b:SetPoint("TOPRIGHT", WorldMapFrame, "TOPRIGHT", -228, -2)
-  -- No strata of its own: a fixed one can put it behind the map frame. A high level keeps it over the map's header art.
+  b:SetSize(32, 32)
+  local toggle = WorldMapFrame.SidePanelToggle
+  if type(toggle) == "table" and toggle.GetObjectType then
+    b:SetPoint("BOTTOM", toggle, "TOP", 0, 6)
+  else
+    b:SetPoint("BOTTOMRIGHT", WorldMapFrame, "BOTTOMRIGHT", -10, 40)
+  end
+  -- No strata of its own: a fixed one can put it behind the map frame. A high level keeps it over the map's art.
   b:SetFrameLevel(WorldMapFrame:GetFrameLevel() + 100)
+  b.bezel = b:CreateTexture(nil, "BACKGROUND")
+  b.bezel:SetTexture(style.textures.bezelButton)
+  b.bezel:SetAllPoints()
   b.icon = b:CreateTexture(nil, "ARTWORK")
-  b.icon:SetAllPoints()
+  b.icon:SetSize(20, 20)
+  b.icon:SetPoint("CENTER")
   b.icon:SetTexture([[Interface\AddOns\Ribbon\icon]])
-  b:SetHighlightTexture([[Interface\Buttons\ButtonHilight-Square]], "ADD")
+  -- While the panel is open the button wears the bright blue of a selection.
+  b.active = b:CreateTexture(nil, "OVERLAY")
+  b.active:SetTexture(style.textures.focusRing)
+  b.active:SetVertexColor(unpack(style.focusRing.color))
+  b.active:SetPoint("CENTER")
+  b.active:SetSize(36, 36)
+  b.active:Hide()
+  b:SetHighlightTexture(style.textures.bezelButton, "ADD")
   b:SetScript("OnClick", function() ns.guideBrowser.toggleDock() end)
   b:SetScript("OnEnter", function(self)
     GameTooltip:SetOwner(self, "ANCHOR_BOTTOM")
@@ -75,7 +93,13 @@ local function createGuideButton()
   end)
   b:SetScript("OnLeave", function() GameTooltip:Hide() end)
   M.guideButton = b
+  local dock = ns.guideBrowser and ns.guideBrowser.dock()
+  b.active:SetShown(dock and dock:IsShown() and true or false)
 end
+
+ns:On("GUIDE_DOCK_CHANGED", function(shown)
+  if M.guideButton then M.guideButton.active:SetShown(shown and true or false) end
+end)
 
 M.createGuideButton = createGuideButton
 

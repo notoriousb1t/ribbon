@@ -1,17 +1,18 @@
-// Regenerates the shaped textures in src/textures: the compass dial and needle, the marker fill and rim, and the
-// focus ring. Everything else in that folder is an ordinary image file; edit or replace those directly.
+// Regenerates the shaped textures in src/textures: the compass dial and needle, the marker fill and rim, the focus
+// ring, and the blue bezel of the map panel (corner, two edges and a button). Everything else in that folder is an
+// ordinary image file; edit or replace those directly.
 //
 //   node tools/make-textures.js
 //
-// Each texture is 128x128, 32-bit uncompressed TGA with a top-left origin, drawn with 4x4 supersampling so the edges
-// are smooth. They are shown at 60 px and below, so they are only ever scaled down, never up (scaling up is what makes
-// small icons look blurry).
+// 32-bit uncompressed TGA with a top-left origin, drawn with 4x4 supersampling so the edges are smooth. The marker and
+// compass textures are 128x128 and the bezel pieces 64x64; all are shown at half their size or smaller, so they are only
+// ever scaled down, never up (scaling up is what makes small icons look blurry).
 const fs = require("fs");
 const path = require("path");
 
-const N = 128;
-const C = (N - 1) / 2;
 const SS = 4;
+let N = 128;          // the size of the texture being drawn
+let C = (N - 1) / 2;
 
 // Teal and gold from the logo.
 const GOLD = [0xe9, 0xb9, 0x49];
@@ -20,7 +21,9 @@ const CREAM = [0xf3, 0xea, 0xd2];
 const RED = [0xe2, 0x57, 0x4c];
 
 // Renders a texture: `shade(x, y)` returns [r, g, b, a] (a in 0..1) for a point in pixel units, or null for nothing.
-function render(shade) {
+function render(shade, size = 128) {
+  N = size;
+  C = (N - 1) / 2;
   const buf = Buffer.alloc(18 + N * N * 4);
   buf[2] = 2;
   buf.writeUInt16LE(N, 12);
@@ -68,6 +71,28 @@ function inside(poly, x, y) {
 
 const R = 62;
 
+// The bezel: a steel-blue bevel in the logo's blues, drawn as a band 28 px deep (shown at 14 px). depth is the distance
+// in pixels from the outer edge.
+const lerp = (a, b, t) => a.map((v, i) => Math.round(v + (b[i] - v) * t));
+function bandColor(d) {
+  if (d < 2) return [6, 20, 28];                                   // outer line
+  if (d < 5) return lerp([120, 205, 232], [42, 147, 181], (d - 2) / 3);   // bright bevel edge
+  if (d < 19) return lerp([42, 147, 181], [22, 94, 120], (d - 5) / 14);   // face of the band
+  if (d < 23) return [15, 59, 82];                                 // lower shade
+  if (d < 25) return [61, 159, 192];                               // thin inner highlight
+  return [8, 34, 47];                                              // inner shadow
+}
+const BAND = 28;
+
+// A rounded stud for the corners: light blue ball with a dark rim and a highlight.
+function stud(x, y, cx, cy, r) {
+  const d = Math.hypot(x - cx, y - cy);
+  if (d > r) return null;
+  if (d > r - 1.8) return [6, 20, 28, 1];
+  const hl = Math.hypot(x - (cx - r * 0.3), y - (cy - r * 0.3)) / r;
+  return [...lerp([190, 235, 248], [31, 122, 153], Math.min(1, hl * 0.9)), 1];
+}
+
 const textures = {
   // A gold ring around a dark teal face.
   "compass-dial": render((x, y) => {
@@ -99,6 +124,32 @@ const textures = {
     const d = dist(x, y);
     return d <= R && d >= R - 10 ? [255, 255, 255, 1] : null;
   }),
+
+  // The bezel's top-left corner (the view flips it for the others): the band along the top and left edges, mitred,
+  // with a stud where they meet.
+  "bezel-corner": render((x, y) => {
+    const st = stud(x, y, 14, 14, 9);
+    if (st) return st;
+    if (x >= BAND && y >= BAND) return null;
+    return [...bandColor(Math.min(x, y)), 1];
+  }, 64),
+
+  // A horizontal edge: the band in the top 28 rows, the same all along so it tiles.
+  "bezel-edge-h": render((x, y) => (y < BAND ? [...bandColor(y), 1] : null), 64),
+
+  // A vertical edge: the band in the left 28 columns.
+  "bezel-edge-v": render((x, y) => (x < BAND ? [...bandColor(x), 1] : null), 64),
+
+  // A small square button with the same bevel around a dark teal face.
+  "bezel-button": render((x, y) => {
+    const r = 14, half = 31.5;
+    const qx = Math.abs(x - half) - (half - r), qy = Math.abs(y - half) - (half - r);
+    const sdf = Math.hypot(Math.max(qx, 0), Math.max(qy, 0)) + Math.min(Math.max(qx, qy), 0) - r;
+    const depth = -sdf;
+    if (depth < 0) return null;
+    if (depth < 9) return [...bandColor((depth * BAND) / 9), 1];
+    return [13, 54, 70, 0.95];
+  }, 64),
 
   // A thin ring drawn around the focused marker; white so the view can colour it (bright blue).
   "focus-ring": render((x, y) => {
