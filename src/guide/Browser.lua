@@ -968,7 +968,7 @@ function Br.preview(chapter, step)
   for _, row in ipairs(right) do
     if row.chapter == chapter and row.step == step then
       if ns.map then
-        if row.map then ns.map.preview(row.map, row.x, row.y, row.icon) else ns.map.clearPreview() end
+        if row.map then ns.map.preview(row.map, row.x, row.y, row.icon, { chapter = chapter, step = step }) else ns.map.clearPreview() end
       end
       return
     end

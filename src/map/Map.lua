@@ -26,7 +26,7 @@ local SIZES = { world = 20, mini = 15 }   -- a little under the map's own quest 
 local function createPin(kind)
   local f = CreateFrame("Button", nil, UIParent)
   f:SetSize(SIZES[kind], SIZES[kind])
-  f:RegisterForClicks("RightButtonUp")
+  f:RegisterForClicks("LeftButtonUp", "RightButtonUp")
   ns.badge.build(f)
   f.Configure = function(self, uid, texture, icon)
     self.uid = uid
@@ -34,9 +34,14 @@ local function createPin(kind)
   end
   f:SetScript("OnEnter", showTooltip)
   f:SetScript("OnLeave", function() GameTooltip:Hide() end)
-  f:SetScript("OnClick", function(self)
+  -- Left click focuses the step's point on the compass; right click hides the pin.
+  f:SetScript("OnClick", function(self, button)
     GameTooltip:Hide()
-    ns:SetWaypointVisible(self.uid, false)
+    if button == "RightButton" then
+      ns:SetWaypointVisible(self.uid, false)
+    else
+      ns:SetFocus(self.uid)
+    end
   end)
   return f
 end
@@ -250,16 +255,24 @@ end
 
 -- Shows a point of the guide on the map: switches the map to its zone, draws its icon there and centres on it. The map
 -- needs a frame to lay itself out after a zone change, so the centring runs again a moment later.
-function M.preview(map, x, y, icon)
+-- `target` ({ chapter =, step = }) is the step the pin belongs to: clicking the pin makes it the player's current step,
+-- in whichever chapter it is.
+function M.preview(map, x, y, icon, target)
   if not (WorldMapFrame and type(map) == "number" and type(x) == "number" and type(y) == "number") then return end
   M.clearPreview()
   pcall(WorldMapFrame.SetMapID, WorldMapFrame, map)
   if M.lib then
     local size = ns.compassStyle.preview.size
     if not previewPin then
-      previewPin = CreateFrame("Frame", nil, UIParent)
+      previewPin = CreateFrame("Button", nil, UIParent)
       ns.badge.build(previewPin)
+      previewPin:RegisterForClicks("LeftButtonUp")
+      previewPin:SetScript("OnClick", function(self)
+        local t = self.target
+        if t and ns.guidePlayer then ns.guidePlayer.jump(t.chapter, t.step) end
+      end)
     end
+    previewPin.target = target
     previewPin:SetSize(size, size)
     ns.badge.draw(previewPin, icon, size)
     M.lib:AddWorldMapIconMap(previewOwner, previewPin, map, x / 100, y / 100, _G.HBD_PINS_WORLDMAP_SHOW_CONTINENT)
