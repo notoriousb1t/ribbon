@@ -98,6 +98,14 @@ S.focusRing = { pad = 8, color = { 0.25, 0.65, 1.0 } }   -- bright blue, so the 
 -- smallest to its largest scale, with the step's point in the middle.
 S.preview = { size = 32, zoom = 0.5 }
 
+-- Pins of the steps around the current one, drawn on the map smaller than the current step's pins: the step just done
+-- in the text colour (white), the next two (and a step the mouse is over in the panel) smaller and fainter.
+S.context = {
+  last = { scale = 0.85, alpha = 0.95, color = { 0.93, 0.91, 0.84 } },
+  next = { scale = 0.7, alpha = 0.75 },
+  count = 2,
+}
+
 -- A marker is a badge: a dark filled disc with a coloured rim and, inside, the kind's icon. The quest kinds, `!` and
 -- `?`, are drawn like Blizzard's own quest icons (see below). An icon not listed here (TomTom's dot, RXP's arrow, the
 -- raid markers) is drawn plain, at the marker's full size.

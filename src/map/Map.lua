@@ -283,6 +283,74 @@ end
 
 M.previewPin = function() return previewPin end
 
+-- Context pins ----------------------------------------------------------------------------
+
+local contextPins = {}
+local contextOwner = {}
+
+local function contextPin(slot, item)
+  local style = ns.compassStyle.context
+  local look = style[item.mode]
+  local size = math.floor(SIZES.world * look.scale + 0.5)
+  local pin = contextPins[slot]
+  if not pin then
+    pin = CreateFrame("Frame", nil, UIParent)
+    ns.badge.build(pin)
+    contextPins[slot] = pin
+  end
+  if M.lib then M.lib:RemoveWorldMapIcon(contextOwner, pin) end
+  pin:SetSize(size, size)
+  ns.badge.draw(pin, item.icon, size)
+  if look.color then
+    local c = look.color
+    if pin.rim then pin.rim:SetVertexColor(c[1], c[2], c[3], 1) end
+    if pin.questRing then pin.questRing:SetVertexColor(c[1], c[2], c[3], 1) end
+  elseif pin.questRing then
+    pin.questRing:SetVertexColor(1, 1, 1, 1)
+  end
+  pin:SetAlpha(look.alpha)
+  if M.lib then M.lib:AddWorldMapIconMap(contextOwner, pin, item.map, item.x / 100, item.y / 100, _G.HBD_PINS_WORLDMAP_SHOW_CONTINENT) end
+  return pin
+end
+
+local function clearSlot(slot)
+  local pin = contextPins[slot]
+  if pin then
+    if M.lib then M.lib:RemoveWorldMapIcon(contextOwner, pin) end
+    pin:Hide()
+  end
+end
+
+-- The step just done and the next two, around the player's current step.
+function M.refreshContext()
+  local player = ns.guidePlayer
+  local S = player and player.state()
+  local slots = { "last" }
+  for n = 1, ns.compassStyle.context.count do slots[#slots + 1] = "next" .. n end
+  for _, slot in ipairs(slots) do clearSlot(slot) end
+  if not S or S.finished then return end
+  local function show(slot, mode, offset)
+    local entry = S.flat[S.cursor + offset]
+    if not entry then return end
+    local map, x, y = ns.guidePlanner.stepLocation(entry.step)
+    if type(map) ~= "number" or type(x) ~= "number" then return end
+    contextPin(slot, { mode = mode, map = map, x = x, y = y, icon = ns.guideText.stepIcon(entry.step) })
+  end
+  show("last", "last", -1)
+  for n = 1, ns.compassStyle.context.count do show("next" .. n, "next", n) end
+end
+
+-- A step the mouse is over in the panel gets the same small look on the map (nil to take it away).
+function M.hoverStep(map, x, y, icon)
+  clearSlot("hover")
+  if type(map) == "number" and type(x) == "number" and type(y) == "number" then
+    contextPin("hover", { mode = "next", map = map, x = x, y = y, icon = icon })
+  end
+end
+
+ns:On("GUIDE_STEP_CHANGED", function() M.refreshContext() end)
+ns:On("GUIDE_DOCK_CHANGED", function() M.refreshContext() end)
+
 ns:On("INIT", function()
   local lib = LibStub and LibStub("HereBeDragons-Pins-2.0", true)
   M.lib = lib

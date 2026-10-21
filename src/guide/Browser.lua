@@ -337,6 +337,7 @@ local function makeRow(width)
       if not mouseOver(b) then
         b.hover = false
         Br.paintRow(b)
+        if ns.map and ns.map.hoverStep then ns.map.hoverStep() end
       end
     end
     b.icon:SetScript("OnLeave", function()
@@ -347,6 +348,8 @@ local function makeRow(width)
       if b.isHeader then return end
       b.hover = true
       Br.paintRow(b)
+      local row = b.row
+      if row and ns.map and ns.map.hoverStep then ns.map.hoverStep(row.map, row.x, row.y, row.icon) end
     end)
     b:SetScript("OnLeave", unhover)
     return b

@@ -279,3 +279,39 @@ describe("Clicking an icon on the map", function()
     expect(ctx.ns.focus).toBe(uid)
   end)
 end)
+
+describe("Pins around the current step on the map", function()
+  local ctx = H.use({ boot = true })
+  beforeEach(function()
+    local c = Ribbon.Guide("g", { title = "Test Guide", schema = 1 }):Chapter("One", { levels = { 1, 2 } })
+    for i = 1, 5 do c:Step():Goto(1453, 40 + i, 40 + i):Accept(i) end
+    c:Done()
+  end)
+
+  it("draws the last step white and the next two smaller", function()
+    ctx.ns.guidePlayer.jump(1, 3)
+    local ok, ctxPins = pcall(function() return ctx.ns.map end)
+    local shown = {}
+    local lib = ctx.ns.map.lib
+    expect(lib.AddWorldMapIconMap.calls).toBeTruthy()
+    local n = #lib.AddWorldMapIconMap.calls
+    expect(n).toBeGreaterThan(2)
+    local last = lib.AddWorldMapIconMap.calls[n - 2]
+    local pin = last[2]
+    local w = ctx.ns.compassStyle.context.last.color
+    expect(pin.questRing.SetVertexColor).toHaveBeenCalledWith(w[1], w[2], w[3], 1)
+    local small = lib.AddWorldMapIconMap.calls[n][2]
+    expect(small.SetSize.calls[#small.SetSize.calls][1]).toBe(14)
+  end)
+
+  it("draws the step the mouse is over in the panel the same small way", function()
+    ctx.ns.guideBrowser.toggleDock()
+    local d = ctx.ns.guideBrowser.dock()
+    local lib = ctx.ns.map.lib
+    local before = #lib.AddWorldMapIconMap.calls
+    d.rightRows.items[5]:Trigger("OnEnter")
+    expect(#lib.AddWorldMapIconMap.calls).toBe(before + 1)
+    d.rightRows.items[5]:Trigger("OnLeave")
+    expect(lib.RemoveWorldMapIcon).toHaveBeenCalled()
+  end)
+end)
