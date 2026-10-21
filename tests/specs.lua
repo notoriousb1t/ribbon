@@ -40,4 +40,5 @@ return {
   "native",
   "loader",
   "quest_rows",
+  "counter",
 }

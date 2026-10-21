@@ -20,6 +20,7 @@ local CARD = 40                          -- height of a chapter card
 local COLUMN_W = 300                     -- the width of the list
 local BEZEL = ns.compassStyle.bezel
 local SEARCH_H = 26                          -- the search box and the gap under it
+local COUNTER_W = 84                          -- the box with "Steps: 3/80" beside the search box
 local SECTION_H = 24                         -- a chapter's section header in the search results, like the quest log's zone header
 local TOP = BEZEL.band + BEZEL.title + 6 + SEARCH_H + 4   -- room for the bezel, the title bar and the search row
 local BOTTOM = BEZEL.band + 8               -- room for the bezel
@@ -92,8 +93,8 @@ function Br.rows(player, chapter, query)
   end
   -- The steps of the chapter being browsed; while searching, the matching steps of every chapter, each chapter's under a
   -- section header row ({ header = true, chapter =, label =, count =, folded = }) like the quest log's zone header,
-  -- which folds them away (when not searching, the one chapter's header is a frame of its own above the rows). A step row is laid out like a quest in the quest log: a title line ("[3/12] Turn in
-  -- ...": its place in the chapter) and, under it, the rest of what it says as objectives.
+  -- which folds them away (when not searching, the one chapter's header is a frame of its own above the rows). A step row is laid out like a quest in the quest log: a title line (the first thing the step
+  -- says) and, under it, the rest of what it says as objectives.
   local base = 0
   for _, ch in ipairs(S.view) do
     if filtering or ch.index == chapter then
@@ -106,7 +107,7 @@ function Br.rows(player, chapter, query)
           mine[#mine + 1] = {
             chapter = s.chapter, step = s.index, state = outline.steps[base + i],
             label = text.summary(s.step, S.guide.names, env),
-            title = title, objectives = lines, position = i, of = #ch.steps,
+            title = title, objectives = lines,
             icon = text.stepIcon(s.step), map = map, x = x, y = y,
           }
         end
@@ -454,7 +455,7 @@ local function fill(f, player)
       h = SECTION_H
     else
       local titleColor = TITLE_COLORS[row.state] or TITLE_COLORS.todo
-      b.label:SetText(string.format("%s[%d/%d] %s|r", titleColor, row.position, row.of, row.title))
+      b.label:SetText(titleColor .. row.title .. "|r")
       local objectiveColor = row.state == "done" and DONE_OBJECTIVE_COLOR or OBJECTIVE_COLOR
       local lines = {}
       for _, line in ipairs(row.objectives) do lines[#lines + 1] = objectiveColor .. "- " .. line .. "|r" end
@@ -499,6 +500,8 @@ local function fill(f, player)
     end
   end
   f.title:SetText(title)
+  local label, n, total = Br.counter(player, selected, f.page)
+  f.counter.text:SetText(string.format("|cffe9b949%s:|r |cffffffff%d/%d|r", label, n, total))
 end
 
 -- Refreshes the panel if it has been built.
@@ -529,6 +532,30 @@ function Br.subtitle(row)
     return "|cffb8c7cc" .. text .. "|r"
   end
   return ""
+end
+
+-- The count shown beside the search box, like the quest log's "Quests: 1/40": "Steps: 3/80" (the player's step in the
+-- chapter being shown: its number once it is the player's chapter, all of them once done, none yet when still to come)
+-- on a chapter's steps, "Chapters: 4/55" (the player's chapter) on the list. Returns the label and the two numbers.
+function Br.counter(player, chapter, page)
+  local S = player.state()
+  local left = Br.rows(player, chapter)
+  if page == "chapters" then
+    local current = 0
+    for i, row in ipairs(left) do
+      if row.state == "current" then current = i end
+    end
+    if current == 0 and #left > 0 and left[#left].state == "done" then current = #left end
+    return "Chapters", current, #left
+  end
+  for _, row in ipairs(left) do
+    if row.chapter == chapter then
+      local n = 0
+      if row.state == "done" then n = row.total elseif row.state == "current" then n = math.min(row.total, row.done + 1) end
+      return "Steps", n, row.total
+    end
+  end
+  return "Steps", 0, 0
 end
 
 -- How far through the guide the player is, for the map button: the whole guide's fraction, and the current chapter's
@@ -786,12 +813,35 @@ local function build()
   f.back:Hide()
 
   -- The search box, under the title bar.
-  f.search = makeSearch(f, width - 2 * (B + 8) - 30 - (native and 8 or 0))
+  f.search = makeSearch(f, width - 2 * (B + 8) - 30 - COUNTER_W - 6 - (native and 8 or 0))
   if native then
     f.search:SetPoint("TOPLEFT", content, "TOPLEFT", 38, -8)
   else
     f.search:SetPoint("TOPLEFT", f, "TOPLEFT", B + 8 + 30, -(B + style.bezel.title + 6))
   end
+
+  -- The count, in a box of its own at the right of the search row, like the quest log's "Quests: 1/40".
+  f.counter = CreateFrame("Frame", nil, f)
+  f.counter:SetSize(COUNTER_W, 20)
+  if native then
+    f.counter:SetPoint("TOPRIGHT", content, "TOPRIGHT", -10, -8)
+  else
+    f.counter:SetPoint("TOPRIGHT", f, "TOPRIGHT", -(B + 8), -(B + style.bezel.title + 6))
+  end
+  f.counter.bg = f.counter:CreateTexture(nil, "BACKGROUND")
+  f.counter.bg:SetAllPoints()
+  f.counter.bg:SetColorTexture(0.09, 0.07, 0.05, 0.9)
+  f.counter.edges = {}
+  for n, edge in ipairs({ "TOP", "BOTTOM" }) do
+    local line = f.counter:CreateTexture(nil, "BORDER")
+    line:SetColorTexture(style.panel.gold[1], style.panel.gold[2], style.panel.gold[3], 0.4)
+    line:SetHeight(1)
+    line:SetPoint(edge .. "LEFT")
+    line:SetPoint(edge .. "RIGHT")
+    f.counter.edges[n] = line
+  end
+  f.counter.text = f.counter:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+  f.counter.text:SetPoint("CENTER")
 
 
   -- Shown over the lists when a search finds nothing.
