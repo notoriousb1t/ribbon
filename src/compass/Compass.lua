@@ -113,8 +113,16 @@ local function drawBadge(m, p)
     m.tex:Show()
     return
   end
+  -- Usual badge: dark disc, coloured rim and symbol. Flipped: a solid disc in the colour, a dark symbol.
+  local color, dark = kind.color, badge.fillColor
+  if kind.flip then
+    m.fill:SetVertexColor(color[1], color[2], color[3], 1)
+    m.rim:SetVertexColor(color[1] * badge.flipRim, color[2] * badge.flipRim, color[3] * badge.flipRim, 1)
+  else
+    m.fill:SetVertexColor(unpack(dark))
+    m.rim:SetVertexColor(color[1], color[2], color[3], 1)
+  end
   m.fill:Show()
-  m.rim:SetVertexColor(kind.color[1], kind.color[2], kind.color[3], 1)
   m.rim:Show()
   if kind.glyph then
     local px = math.floor(p.size * badge.glyphScale + 0.5)
@@ -123,7 +131,11 @@ local function drawBadge(m, p)
       styleText(m.glyph, px)
     end
     m.glyph:SetText(kind.glyph)
-    m.glyph:SetTextColor(kind.color[1], kind.color[2], kind.color[3], 1)
+    if kind.flip then
+      m.glyph:SetTextColor(dark[1], dark[2], dark[3], 1)
+    else
+      m.glyph:SetTextColor(color[1], color[2], color[3], 1)
+    end
     m.glyph:Show()
     m.tex:Hide()
   else
@@ -163,6 +175,7 @@ local function marker(i)
   -- Ring for the focused marker, behind the icon.
   m.ring = m:CreateTexture(nil, "BACKGROUND")
   m.ring:SetTexture(ns.compassStyle.textures.focusRing)
+  m.ring:SetVertexColor(unpack(ns.compassStyle.focusRing.color))
   m.ring:SetPoint("CENTER")
   m.ring:Hide()
   m:SetScript("OnEnter", showTooltip)

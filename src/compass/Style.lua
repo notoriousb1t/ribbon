@@ -45,7 +45,7 @@ S.marker = {
 }
 
 -- The focused marker gets a ring `pad` pixels larger than the marker itself.
-S.focusRing = { pad = 8 }
+S.focusRing = { pad = 8, color = { 0.25, 0.65, 1.0 } }   -- bright blue, so the selection stands out from the gold badges
 
 -- A marker is a badge like the objective tracker's: a dark filled disc with a coloured rim and, inside, a symbol in
 -- the same colour. `!` and `?` are drawn as text (crisp at any size); the other kinds put their icon in the disc. An icon
@@ -55,9 +55,11 @@ S.badge = {
   glyphScale = 0.80,    -- the text's height, as a fraction of the marker
   glyphOffsetY = -1,    -- the font's "?" sits a little high in its line
   iconScale = 0.60,     -- the icon's size, as a fraction of the marker
+  flipRim = 0.72,       -- a flipped badge's rim is its colour times this, so the edge still reads on the solid disc
   kinds = {
     accept = { color = { 0.98, 0.82, 0.30 }, glyph = "!" },
-    turnin = { color = { 0.98, 0.82, 0.30 }, glyph = "?" },
+    -- Flipped like the quest tracker's ready-to-turn-in "?": a solid gold disc with a dark symbol.
+    turnin = { color = { 0.98, 0.82, 0.30 }, glyph = "?", flip = true },
     ding = { color = { 0.98, 0.82, 0.30 } },
     kill = { color = { 0.90, 0.30, 0.28 } },
     grind = { color = { 0.95, 0.55, 0.20 } },

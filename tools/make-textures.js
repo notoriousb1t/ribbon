@@ -100,10 +100,10 @@ const textures = {
     return d <= R && d >= R - 10 ? [255, 255, 255, 1] : null;
   }),
 
-  // A thin gold ring drawn around the focused marker.
+  // A thin ring drawn around the focused marker; white so the view can colour it (bright blue).
   "focus-ring": render((x, y) => {
     const d = dist(x, y);
-    return d <= R + 1 && d >= R - 8 ? [...GOLD, 1] : null;
+    return d <= R + 1 && d >= R - 8 ? [255, 255, 255, 1] : null;
   }),
 };
 
