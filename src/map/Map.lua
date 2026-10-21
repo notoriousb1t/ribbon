@@ -28,7 +28,7 @@ local allPins = {}
 ns:On("FOCUS_CHANGED", function(uid)
   for _, pin in ipairs(allPins) do
     if pin.uid and pin.icon and pin:IsShown() then
-      ns.badge.draw(pin, pin.icon, pin:GetWidth() or sizes().world, pin.uid == uid, sizes().ringPad)
+      ns.badge.draw(pin, pin.icon, pin:GetWidth() or sizes().world, pin.uid == uid, pin.ringPad)
     end
   end
 end)
@@ -38,12 +38,13 @@ end)
 local function createPin(kind)
   local f = CreateFrame("Button", nil, UIParent)
   f:SetSize(sizes()[kind], sizes()[kind])
+  f.ringPad = kind == "world" and sizes().worldRingPad or sizes().ringPad
   f:RegisterForClicks("LeftButtonUp", "RightButtonUp")
   ns.badge.build(f)
   f.Configure = function(self, uid, texture, icon)
     self.uid = uid
     self.icon = icon
-    ns.badge.draw(self, icon, sizes()[kind], ns.focus == uid, sizes().ringPad)
+    ns.badge.draw(self, icon, sizes()[kind], ns.focus == uid, self.ringPad)
   end
   allPins[#allPins + 1] = f
   f:SetScript("OnEnter", showTooltip)
@@ -299,7 +300,7 @@ function M.preview(map, x, y, icon, target)
     end
     previewPin.target = target
     previewPin:SetSize(size, size)
-    ns.badge.draw(previewPin, icon, size, true, sizes().ringPad)   -- the step being looked at is the tracked one
+    ns.badge.draw(previewPin, icon, size, true, sizes().worldRingPad)   -- the step being looked at is the tracked one
     M.lib:AddWorldMapIconMap(previewOwner, previewPin, map, x / 100, y / 100, _G.HBD_PINS_WORLDMAP_SHOW_CONTINENT)
   end
   centreOn(x, y)

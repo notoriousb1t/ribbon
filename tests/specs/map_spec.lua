@@ -90,6 +90,8 @@ describe("Map pin size", function()
     expect(world.SetSize).toHaveBeenCalledWith(S.pins.world, S.pins.world)
     expect(mini.SetSize).toHaveBeenCalledWith(S.pins.mini, S.pins.mini)
     local ring = world.fill.SetSize.calls[#world.fill.SetSize.calls]
-    expect(ring[1]).toBe(S.pins.world + S.pins.ringPad)
+    expect(ring[1]).toBe(S.pins.world + S.pins.worldRingPad)
+    local miniRing = mini.fill.SetSize.calls[#mini.fill.SetSize.calls]
+    expect(miniRing[1]).toBe(S.pins.mini + S.pins.ringPad)
   end)
 end)
