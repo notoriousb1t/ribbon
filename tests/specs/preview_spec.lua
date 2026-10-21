@@ -316,24 +316,52 @@ describe("Pins around the current step on the map", function()
     local lib = ctx.ns.map.lib
     local before = #lib.AddWorldMapIconMap.calls
     d.rightRows.items[3]:Trigger("OnEnter")
-    expect(placed(before)).toEqual({ 43, 44, 45 })
+    local got = placed(before)
+    table.sort(got)
+    expect(got).toEqual({ 43, 44, 45 })
     local calls = lib.AddWorldMapIconMap.calls
-    local alphas = {}
-    for i = before + 1, before + 3 do local a = calls[i][2].SetAlpha.calls alphas[#alphas + 1] = a[#a][1] end
-    expect(alphas[1]).toBe(1)
-    expect(alphas[2]).toBeLessThan(0.9)
-    expect(alphas[3]).toBeLessThan(0.9)
+    local alpha = {}
+    for i = before + 1, #calls do local a = calls[i][2].SetAlpha.calls alpha[math.floor(calls[i][4] * 100 + 0.5)] = a[#a][1] end
+    expect(alpha[43]).toBe(1)
+    expect(alpha[44]).toBeLessThan(0.9)
+    expect(alpha[45]).toBeLessThan(0.9)
   end)
 
-  it("puts the current step's next two back when the mouse leaves", function()
+  it("keeps the current step's next two on the map while a step is hovered, and takes the hovered ones away after", function()
     ctx.ns.guideBrowser.toggleDock()
     local d = ctx.ns.guideBrowser.dock()
     local lib = ctx.ns.map.lib
-    d.rightRows.items[5]:Trigger("OnEnter")
+    local function shownPins()
+      local seen, out = {}, {}
+      for _, c in ipairs(lib.AddWorldMapIconMap.calls) do
+        local pin = c[2]
+        if c[1] ~= ctx.ns and not seen[pin] and pin:IsShown() then
+          seen[pin] = true
+          out[#out + 1] = math.floor(c[4] * 100 + 0.5)
+        end
+      end
+      table.sort(out)
+      return out
+    end
+    expect(shownPins()).toEqual({ 42, 43 })               -- the current step is the first: steps 2 and 3
+    d.rightRows.items[4]:Trigger("OnEnter")
+    expect(shownPins()).toEqual({ 42, 43, 44, 45 })       -- and the hovered step 4 with step 5 after it
+    d.rightRows.items[4]:Trigger("OnLeave")
+    expect(shownPins()).toEqual({ 42, 43 })
+  end)
+
+  it("passes over a level-up step for the pins: a current step with no place draws the next one's pin", function()
+    local c = Ribbon.Guide("g"):Chapter("Two", { levels = { 3, 4 } })
+    c:Step():Ding(4)
+    for i = 1, 3 do c:Step():Goto(1453, 60 + i, 60):Accept(20 + i) end
+    c:Done()
+    local lib = ctx.ns.map.lib
+    ctx.ns.guidePlayer.state()
     local before = #lib.AddWorldMapIconMap.calls
-    d.rightRows.items[5]:Trigger("OnLeave")
-    expect(lib.RemoveWorldMapIcon).toHaveBeenCalled()
-    expect(placed(before)).toEqual({ 42, 43 })            -- the current step is the first: steps 2 and 3
+    ctx.ns.guidePlayer.jump(2, 1)
+    local got = placed(before)
+    table.sort(got)
+    expect(got).toEqual({ 61, 62, 63 })
   end)
 end)
 
@@ -457,8 +485,36 @@ describe("The dashed line's look", function()
     expect(halos[1].SetColorTexture.calls[1][1]).toBeLessThan(look.color[1])
     expect(halo.SetSize).toHaveBeenCalledWith(look.dot + look.haloWidth, look.dot + look.haloWidth)
     d.rightRows.items[2]:Trigger("OnLeave")
-    -- back to the current step's line: steps 1 to 3, the dot on step 3 at x = 50%
-    local at = dot.SetPoint.calls[#dot.SetPoint.calls]
+    -- the hovered line goes; the current step's stays: steps 1 to 3, the dot on step 3 at x = 50%
+    expect(dot:IsShown()).toBe(false)
+    local _, _, current = ctx.ns.map.dashParts("current")
+    expect(current:IsShown()).toBe(true)
+    local at = current.SetPoint.calls[#current.SetPoint.calls]
     expect(at[4]).toBeCloseTo(500, 1)
+  end)
+
+  it("draws the current step's line and the hovered step's line at once", function()
+    ctx.ns.guideBrowser.toggleDock()
+    local d = ctx.ns.guideBrowser.dock()
+    d.rightRows.items[3]:Trigger("OnEnter")
+    local _, _, hoverDot = ctx.ns.map.dashParts("hover")
+    local _, _, currentDot = ctx.ns.map.dashParts("current")
+    expect(hoverDot:IsShown()).toBe(true)
+    expect(currentDot:IsShown()).toBe(true)
+    expect(hoverDot.SetPoint.calls[#hoverDot.SetPoint.calls][4]).toBeCloseTo(900, 1)       -- steps 3 to 5
+    expect(currentDot.SetPoint.calls[#currentDot.SetPoint.calls][4]).toBeCloseTo(500, 1)   -- steps 1 to 3
+  end)
+
+  it("starts a line at the next step with a place when the step is a level-up", function()
+    local c = Ribbon.Guide("g"):Chapter("Two", { levels = { 3, 4 } })
+    c:Step():Ding(4)
+    for i = 1, 3 do c:Step():Goto(1453, 10 + 20 * i, 50):Accept(20 + i) end
+    c:Done()
+    ctx.ns.guidePlayer.jump(2, 1)
+    local lines, _, dot = ctx.ns.map.dashParts("current")
+    local first
+    for _, l in ipairs(lines) do if l:IsShown() then first = l break end end
+    expect(first.SetStartPoint.calls[#first.SetStartPoint.calls][3]).toBeCloseTo(300, 1)
+    expect(dot.SetPoint.calls[#dot.SetPoint.calls][4]).toBeCloseTo(700, 1)
   end)
 end)
