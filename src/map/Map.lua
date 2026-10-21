@@ -21,7 +21,18 @@ end
 
 local SIZES = { world = 20, mini = 15 }   -- a little under the map's own quest icons
 
--- Pin factory: a button drawn as the waypoint's badge (the same icons as the compass), Configure(uid, texture, icon) and
+-- Every pin made, so the tracked ring follows the focus.
+local allPins = {}
+
+ns:On("FOCUS_CHANGED", function(uid)
+  for _, pin in ipairs(allPins) do
+    if pin.uid and pin.icon and pin:IsShown() then
+      ns.badge.draw(pin, pin.icon, pin:GetWidth() or 20, pin.uid == uid)
+    end
+  end
+end)
+
+-- Pin factory: a button drawn as the waypoint's symbol, without the badge's circle (the same icons as the compass), Configure(uid, texture, icon) and
 -- Hide().
 local function createPin(kind)
   local f = CreateFrame("Button", nil, UIParent)
@@ -30,8 +41,10 @@ local function createPin(kind)
   ns.badge.build(f)
   f.Configure = function(self, uid, texture, icon)
     self.uid = uid
-    ns.badge.draw(self, icon, SIZES[kind])
+    self.icon = icon
+    ns.badge.draw(self, icon, SIZES[kind], ns.focus == uid)
   end
+  allPins[#allPins + 1] = f
   f:SetScript("OnEnter", showTooltip)
   f:SetScript("OnLeave", function() GameTooltip:Hide() end)
   -- Left click focuses the step's point on the compass; right click hides the pin.
@@ -285,7 +298,7 @@ function M.preview(map, x, y, icon, target)
     end
     previewPin.target = target
     previewPin:SetSize(size, size)
-    ns.badge.draw(previewPin, icon, size)
+    ns.badge.draw(previewPin, icon, size, true)   -- the step being looked at is the tracked one
     M.lib:AddWorldMapIconMap(previewOwner, previewPin, map, x / 100, y / 100, _G.HBD_PINS_WORLDMAP_SHOW_CONTINENT)
   end
   centreOn(x, y)
@@ -312,13 +325,12 @@ local function contextPin(slot, item)
   if M.lib then M.lib:RemoveWorldMapIcon(contextOwner, pin) end
   pin:SetSize(size, size)
   pin:Show()
-  ns.badge.draw(pin, item.icon, size)
+  ns.badge.draw(pin, item.icon, size, false)
+  -- The step just done is tinted (the colour in the style); the others keep their own.
   if look.color then
     local c = look.color
-    if pin.rim then pin.rim:SetVertexColor(c[1], c[2], c[3], 1) end
-    if pin.questRing then pin.questRing:SetVertexColor(c[1], c[2], c[3], 1) end
-  elseif pin.questRing then
-    pin.questRing:SetVertexColor(1, 1, 1, 1)
+    pin.glyphTex:SetVertexColor(c[1], c[2], c[3], 1)
+    pin.tex:SetVertexColor(c[1], c[2], c[3], 1)
   end
   pin:SetAlpha(item.alpha or look.alpha * (item.fade or 1))
   if M.lib then M.lib:AddWorldMapIconMap(contextOwner, pin, item.map, item.x / 100, item.y / 100, _G.HBD_PINS_WORLDMAP_SHOW_CONTINENT) end

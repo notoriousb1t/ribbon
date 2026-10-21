@@ -31,8 +31,8 @@ describe("Steps laid out like quests in the quest log", function()
   describe("rows", function()
     it("split a step into a title (its first line, or its quest when it has several objectives) and objectives", function()
       local _, right = ctx.ns.guideBrowser.rows(ctx.ns.guidePlayer, 1)
-      expect(right[1].title).toBe("Accept Coming of Age from Rorian the Dayseeker")
-      expect(#right[1].objectives).toBe(0)
+      expect(right[1].title).toBe("Accept Coming of Age")
+      expect(right[1].objectives).toEqual({ "Rorian the Dayseeker" })   -- the NPC has a line of its own
       expect(right[2].title).toBe("The Hunt")
       expect(right[2].objectives).toEqual({ "Kill Pesky Cirrusfly (0/8)", "Kill Juvenile Vuldren (0/8)" })
     end)
@@ -62,7 +62,7 @@ describe("Steps laid out like quests in the quest log", function()
       local objectives = lastText(d.rightRows.items[2].objectives)           -- the current step
       expect(objectives).toContain("- Kill Juvenile Vuldren (0/8)")
       expect(objectives).toContain("|cffe6e0cf")
-      expect(lastText(d.rightRows.items[1].objectives)).toBe("")
+      expect(lastText(d.rightRows.items[1].objectives)).toContain("- Rorian the Dayseeker")
     end)
 
     it("puts a gold glow behind the icon of the player's step only", function()
@@ -106,7 +106,7 @@ describe("Steps laid out like quests in the quest log", function()
       expect(lastText(row.objectives)).never.toContain("|cffe6e0cf")
       row:Trigger("OnEnter")
       expect(lastText(row.label)).toContain("|cffe9b949")              -- full colour
-      expect(lastText(row.objectives)).toBe("")                        -- (a step with no objectives)
+      expect(lastText(row.objectives)).toContain("- Rorian the Dayseeker")
       row:Trigger("OnLeave")
       expect(lastText(row.label)).toContain("|cff8a6d2c")
     end)
@@ -133,12 +133,12 @@ describe("Steps laid out like quests in the quest log", function()
 
     it("makes a row as tall as its text, never less than its icon needs", function()
       local d = open()
-      local plain, withObjectives = d.rightRows.items[1], d.rightRows.items[2]
+      local plain, withObjectives = d.rightRows.items[3], d.rightRows.items[2]
       plain.label.GetStringHeight = function() return 14 end
       withObjectives.label.GetStringHeight = function() return 28 end            -- a title on two lines
       withObjectives.objectives.GetStringHeight = function() return 24 end       -- two objective lines
       ctx.ns.guideBrowser.refresh()
-      expect(plain.SetHeight.calls[#plain.SetHeight.calls][1]).toBe(34)
+      expect(plain.SetHeight.calls[#plain.SetHeight.calls][1]).toBe(10 + 14 + 12 + 2)   -- a one-line title and the NPC line
       expect(withObjectives.SetHeight.calls[#withObjectives.SetHeight.calls][1]).toBe(10 + 28 + 24 + 2)
     end)
 
@@ -150,8 +150,8 @@ describe("Steps laid out like quests in the quest log", function()
       ctx.ns.guideBrowser.refresh()
       local function y(row) local c = row.SetPoint.calls return c[#c][5] end
       expect(y(d.rightRows.items[1])).toBe(0)                                    -- no header above the steps
-      expect(y(d.rightRows.items[2])).toBe(-34)
-      expect(y(d.rightRows.items[3])).toBe(-(34 + 10 + 28 + 12 + 2))
+      expect(y(d.rightRows.items[2])).toBe(-38)                                  -- title 14 + the NPC line 12 + padding
+      expect(y(d.rightRows.items[3])).toBe(-(38 + 10 + 28 + 12 + 2))
     end)
   end)
 

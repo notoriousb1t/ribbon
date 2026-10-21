@@ -76,7 +76,7 @@ describe("Compass view", function()
       local m = parts.markers[1]
       expect(m:IsShown()).toBe(true)
       expect(lastPoint(m)[4]).toBeCloseTo(0, 1)
-      expect(parts.targetText.SetText).toHaveBeenCalledWith("North - 50 yd")
+      expect(parts.targetText.SetText).toHaveBeenCalledWith("North")
     end)
 
     it("draws a western waypoint on the left of centre", function()
@@ -136,11 +136,11 @@ describe("Compass view", function()
       for _, m in ipairs(parts.markers) do
         if m.uid == a then focused = m else other = m end
       end
-      expect(focused.ring:IsShown()).toBe(true)
-      expect(other.ring:IsShown()).toBe(false)
+      expect(focused.rim:IsShown()).toBe(true)
+      expect(other.rim:IsShown()).toBe(false)
       ctx.ns:SetFocus(nil)
       frameTick()
-      expect(focused.ring:IsShown()).toBe(false)
+      expect(focused.rim:IsShown()).toBe(false)
     end)
 
     it("keeps a marker still while the player's position shivers by a fraction of a degree", function()
@@ -173,10 +173,10 @@ describe("Compass view", function()
       expect(x).toBe(math.floor(x))
     end)
 
-    it("sets the icon texture for the waypoint", function()
+    it("draws the waypoint's symbol", function()
       ctx.ns:AddWaypoint(1453, 61.99, 60, { icon = "kill" })
       frameTick()
-      expect(parts.markers[1].tex.SetTexture).toHaveBeenCalledWith(ctx.ns.ICONS.kill)
+      expect(parts.markers[1].glyphTex.SetTexture).toHaveBeenCalledWith(ctx.ns.compassStyle.textures.glyphKill)
     end)
 
     it("hides markers for hidden waypoints and for waypoints with compass disabled", function()
@@ -208,7 +208,7 @@ describe("Compass view", function()
       local far = ctx.ns:AddWaypoint(1453, 61.99, 70.58 - 80 / YD_PER_Y, { title = "Far" })
       ctx.ns:SetFocus(far)
       frameTick()
-      expect(parts.targetText.SetText).toHaveBeenCalledWith("Far - 80 yd")
+      expect(parts.targetText.SetText).toHaveBeenCalledWith("Far")
     end)
 
     it("shows the tooltip with the title and a hide hint on hover", function()

@@ -299,7 +299,7 @@ describe("Pins around the current step on the map", function()
     local last = lib.AddWorldMapIconMap.calls[n - 2]
     local pin = last[2]
     local w = ctx.ns.compassStyle.context.last.color
-    expect(pin.questRing.SetVertexColor).toHaveBeenCalledWith(w[1], w[2], w[3], 1)
+    expect(pin.glyphTex.SetVertexColor).toHaveBeenCalledWith(w[1], w[2], w[3], 1)
     local small = lib.AddWorldMapIconMap.calls[n][2]
     expect(small.SetSize.calls[#small.SetSize.calls][1]).toBe(19)
   end)

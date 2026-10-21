@@ -84,7 +84,7 @@ describe("Multi-line text", function()
       })
       ctx.world:update(0.04)
       local parts = ctx.ns.compass.parts
-      expect(lastText(parts.targetText)).toBe("Loot [Dirt-stained Map] from Dirt-stained Map to start quest - 320 yd")
+      expect(lastText(parts.targetText)).toBe("Loot [Dirt-stained Map] from Dirt-stained Map to start quest")
       expect(lastText(parts.targetText)).never.toContain("\n")
       expect(lastText(parts.detailText)).toBe("Dirt-stained Map: 0/1\nAccept Attack on Camp Narache")
     end)

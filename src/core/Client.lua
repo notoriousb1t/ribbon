@@ -139,12 +139,15 @@ function client.character()
   local name = call(UnitName, "player")
   local realm = call(GetRealmName)
   local level = call(UnitLevel, "player")
+  -- A character is told apart by its GUID: a character deleted and made again under the same name is a new one, and must
+  -- not inherit the old one's place in the guide.
+  local guid = call(UnitGUID, "player")
   return {
     class = class and string.upper(class) or nil,
     race = race and string.upper(race) or nil,
     faction = faction and string.upper(faction) or nil,
     level = type(level) == "number" and level or nil,
-    key = (name or "player") .. "-" .. (realm or "realm"),
+    key = type(guid) == "string" and guid ~= "" and guid or ((name or "player") .. "-" .. (realm or "realm")),
   }
 end
 

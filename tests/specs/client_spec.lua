@@ -23,6 +23,22 @@ describe("Client adapter", function()
     end)
   end)
 
+  describe("character key", function()
+    local ctx = H.use({ boot = true })
+
+    it("is the GUID, so a recreated character with the same name starts fresh", function()
+      ctx.world.character.guid = "Player-1-AAAA"
+      local first = ctx.ns.client.character().key
+      ctx.world.character.guid = "Player-1-BBBB"
+      expect(ctx.ns.client.character().key).never.toBe(first)
+    end)
+
+    it("falls back to name and realm without a GUID", function()
+      ctx.world.character.guid = nil
+      expect(ctx.ns.client.character().key).toContain("-")
+    end)
+  end)
+
   describe("inCombat", function()
     local ctx = H.use({ boot = true })
 

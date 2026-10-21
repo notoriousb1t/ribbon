@@ -176,8 +176,8 @@ describe("Compass layout", function()
 
   describe("text", function()
     it("formats the target caption", function()
-      expect(L.targetText({ title = "Anvil", dist = 123.7 })).toBe("Anvil - 123 yd")
-      expect(L.targetText({ title = "Anvil", dist = 2, arrived = true })).toBe("Anvil - 2 yd (arrived)")
+      expect(L.targetText({ title = "Anvil", dist = 123.7 })).toBe("Anvil")
+      expect(L.targetText({ title = "Anvil", dist = 2, arrived = true })).toBe("Anvil (arrived)")
     end)
 
     it("is empty without a waypoint or distance", function()

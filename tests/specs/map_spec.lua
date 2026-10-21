@@ -21,7 +21,7 @@ describe("Map wiring", function()
     it("gives the pins the waypoint's icon", function()
       ctx.ns:AddWaypoint(1453, 50, 25, { icon = "kill" })
       local pin = ctx.world.pins.AddWorldMapIconMap.calls[1][2]
-      expect(pin.tex.SetTexture).toHaveBeenCalledWith(ctx.ns.ICONS.kill)
+      expect(pin.glyphTex.SetTexture).toHaveBeenCalledWith(ctx.ns.compassStyle.textures.glyphKill)
     end)
 
     it("removes the icons when the waypoint is hidden and restores them when shown", function()

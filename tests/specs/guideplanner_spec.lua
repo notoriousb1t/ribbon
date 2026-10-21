@@ -163,8 +163,11 @@ describe("Guide planner and text", function()
       objective = function(_, i) return i == 1 and { have = 3, need = 7, finished = false } or nil end,
     }
 
-    it("writes accept and turn-in lines with the NPC", function()
-      expect(T.line(call("Accept", { quest = 747, npc = 2980 }), names)).toBe("Accept The Hunt Begins from Grull Hawkwind")
+    it("writes accept and turn-in lines, with the NPC on a line of its own", function()
+      expect(T.line(call("Accept", { quest = 747, npc = 2980 }), names)).toBe("Accept The Hunt Begins")
+      expect(T.lines({ calls = { call("Accept", { quest = 747, npc = 2980 }) } }, names)).toEqual({ "Accept The Hunt Begins", "Grull Hawkwind" })
+      expect(T.lines({ calls = { call("Accept", { quest = 747, npc = 2980 }), call("Accept", { quest = 5, npc = 2980 }) } }, names))
+        .toEqual({ "Accept The Hunt Begins", "Accept quest 5", "Grull Hawkwind" })
       expect(T.line(call("Turnin", { quest = 747 }), names)).toBe("Turn in The Hunt Begins")
     end)
 

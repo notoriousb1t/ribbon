@@ -8,7 +8,7 @@ local deg = math.deg
 local TRACK_HEIGHT = 28
 
 local db, frame, dial, needle, targetText, detailText, captionPlate, captionTrim, captionIcon, combatBar
-local lastRotation, lastCombat, dragged
+local lastRotation, lastCombat
 local chrome = {}
 local ticks, labels, markers = {}, {}, {}
 local settled = {}   -- uid -> the calmed x the marker was last drawn at (Layout.settle)
@@ -43,7 +43,7 @@ local function setCaption(wp)
   local lead = 0
   if wp and wp.icon then
     lead = cap.iconSize + cap.iconGap
-    ns.badge.draw(captionIcon, wp.icon, cap.iconSize)
+    ns.badge.draw(captionIcon, wp.icon, cap.iconSize, wp.uid ~= nil and wp.uid == ns.focus)
     captionIcon:Show()
   else
     captionIcon:Hide()
@@ -53,11 +53,6 @@ local function setCaption(wp)
   captionPlate:SetSize(math.max(width + lead + cap.padX * 2, cap.minWidth), height)
   captionPlate:Show()
   captionTrim.Show()
-end
-
--- Opens the guide panel when a guide is installed; a click on the ribbon without one does nothing.
-function C.OpenGuide()
-  if ns.guidePlayer and ns.guideBrowser and ns.guidePlayer.state() then ns.guideBrowser.toggle() end
 end
 
 local function savePosition()
@@ -113,7 +108,7 @@ local function marker(i)
   m = CreateFrame("Button", nil, frame)
   m:SetSize(20, 20)
   m:RegisterForClicks("LeftButtonUp", "RightButtonUp")
-  ns.badge.build(m)   -- the badge: a dark disc, a coloured rim, and the symbol (text for ! and ?, an icon for the rest)
+  ns.badge.build(m)   -- the icon: its symbol, with a ring while it is the tracked waypoint
   -- For a waypoint outside the view: an arrow beside the marker, pointing the way to turn.
   local arrowSize = ns.compassStyle.marker.arrow
   m.arrow = m:CreateTexture(nil, "OVERLAY")
@@ -125,12 +120,6 @@ local function marker(i)
   styleText(m.dist, ns.compassStyle.distance.size)
   m.dist:SetTextColor(unpack(ns.compassStyle.colors.cream))
   m.dist:Hide()
-  -- Ring for the focused marker, behind the icon.
-  m.ring = m:CreateTexture(nil, "BACKGROUND")
-  m.ring:SetTexture(ns.compassStyle.textures.focusRing)
-  m.ring:SetVertexColor(unpack(ns.compassStyle.focusRing.color))
-  m.ring:SetPoint("CENTER")
-  m.ring:Hide()
   m:SetScript("OnEnter", showTooltip)
   m:SetScript("OnLeave", function() GameTooltip:Hide() end)
   -- Left-click focuses the waypoint (its name shows under the bar); clicking the focused one again
@@ -221,17 +210,9 @@ local function build()
   dial:SetScript("OnEnter", showCoordinates)
   dial:SetScript("OnLeave", function() GameTooltip:Hide() end)
   dial:SetScript("OnDragStart", function()
-    dragged = true
     if not db.locked then frame:StartMoving() end
   end)
   dial:SetScript("OnDragStop", function() frame:StopMovingOrSizing() savePosition() end)
-  -- A click on the compass dial (not the ribbon) opens the guide panel; the release that ends a drag does not count.
-  dial:RegisterForClicks("LeftButtonUp")
-  dial:SetScript("OnClick", function()
-    local wasDrag = dragged
-    dragged = false
-    if not wasDrag then C.OpenGuide() end
-  end)
 
   -- Caption above the bar: a dark warm plate like the quest log's, fine gold lines top and bottom, the headline (name and distance) and the description.
   local cap = style.caption
@@ -248,13 +229,12 @@ local function build()
   captionTrim = trim(frame, captionPlate)
   captionTrim.Hide()
 
-  targetText = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
-  styleText(targetText, cap.headSize)
+  -- The caption uses the game's quest fonts (shadowed, no outline), like the quest log's titles and objectives.
+  targetText = frame:CreateFontString(nil, "OVERLAY", ns.badge.fontObject("QuestFont", "GameFontNormal"))
   targetText:SetPoint("TOP", captionPlate, "TOP", 0, -cap.padY)
   targetText:SetTextColor(unpack(c.heading))
 
-  detailText = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
-  styleText(detailText, cap.detailSize)
+  detailText = frame:CreateFontString(nil, "OVERLAY", ns.badge.fontObject("QuestFontNormalSmall", "GameFontHighlightSmall"))
   detailText:SetPoint("TOP", targetText, "BOTTOM", 0, -cap.lineGap)
   detailText:SetTextColor(unpack(c.detail))
 
@@ -357,7 +337,7 @@ function C.Update()
     else
       p.x, settled[uid] = layout.settle(settled[uid], p.x, ns.compassStyle.marker.smooth)
     end
-    ns.badge.draw(m, p.wp.icon, p.size)
+    ns.badge.draw(m, p.wp.icon, p.size, p.focused)
     m:ClearAllPoints()
     m:SetPoint("CENTER", frame, "CENTER", p.x, 0)
     m:SetAlpha(p.edge and ns.compassStyle.marker.edgeAlpha or 1)
@@ -388,13 +368,6 @@ function C.Update()
       m.dist:Hide()
     end
     m:SetFrameLevel(frame:GetFrameLevel() + 2 + p.level)
-    if p.focused then
-      local ring = ns.compassStyle.focusRing.pad
-      m.ring:SetSize(p.size + ring, p.size + ring)
-      m.ring:Show()
-    else
-      m.ring:Hide()
-    end
     m:Show()
   end
   for uid in pairs(settled) do

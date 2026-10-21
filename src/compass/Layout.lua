@@ -120,7 +120,7 @@ end
 
 function L.targetText(wp)
   if not wp or not wp.dist then return "" end
-  return string.format("%s - %d yd%s", wp.title, wp.dist, wp.arrived and " (arrived)" or "")
+  return string.format("%s%s", wp.title, wp.arrived and " (arrived)" or "")
 end
 
 -- Text cut to at most max bytes, ending in "..." when something was removed. A cut never leaves half

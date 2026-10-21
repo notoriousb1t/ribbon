@@ -26,15 +26,20 @@ local function list(names, kind, ids)
   return table.concat(out, ", ")
 end
 
+-- The NPC a call is done with (quest giver, turn-in, trainer), kept off the call's own line: it gets a line of its own.
+local WITH_NPC = { Accept = true, Turnin = true, Train = true }
+
+function T.npc(call, names)
+  if WITH_NPC[call.kind] and call.npc then return name(names, "NPC", call.npc, "npc") end
+end
+
 -- One call as a line of text.
 function T.line(call, names, env, group)
   local k = call.kind
   if k == "Accept" then
-    local who = call.npc and (" from " .. name(names, "NPC", call.npc, "npc")) or ""
-    return "Accept " .. name(names, "QUEST", call.quest, "quest") .. who
+    return "Accept " .. name(names, "QUEST", call.quest, "quest")
   elseif k == "Turnin" then
-    local who = call.npc and (" to " .. name(names, "NPC", call.npc, "npc")) or ""
-    return "Turn in " .. name(names, "QUEST", call.quest, "quest") .. who
+    return "Turn in " .. name(names, "QUEST", call.quest, "quest")
   elseif k == "Kill" then
     return "Kill " .. name(names, "CREATURE", call.creature, "creature") .. progress(call, env)
   elseif k == "Loot" then
@@ -66,8 +71,7 @@ function T.line(call, names, env, group)
   elseif k == "Home" then
     return "Set your hearthstone at " .. call.node
   elseif k == "Train" then
-    local who = call.npc and (" from " .. name(names, "NPC", call.npc, "npc")) or ""
-    return "Train " .. table.concat(call.abilities or {}, ", ") .. who
+    return "Train " .. table.concat(call.abilities or {}, ", ")
   elseif k == "Deathwarp" then
     return "Die and respawn at the spirit healer"
   elseif k == "Skip" then
@@ -91,6 +95,15 @@ function T.lines(group, names, env, state)
     -- "Travel" is only a marker; when the group has other calls (Enter, Subzone) they carry the text.
     local marker = call.kind == "Travel" and #group.calls > 1
     if not finished and not marker then out[#out + 1] = T.line(call, names, env, group) end
+  end
+  -- The NPCs the open calls are done with, each once, after the calls' own lines ("Accept A", "Accept B", "Constable Aonda").
+  local seen = {}
+  for _, call in ipairs(group.calls) do
+    local who = T.npc(call, names)
+    if who and not seen[who] and not (state and state(call) == "done") then
+      seen[who] = true
+      out[#out + 1] = who
+    end
   end
   return out
 end

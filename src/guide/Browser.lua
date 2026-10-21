@@ -315,7 +315,7 @@ local function makeRow(width)
     b.label:SetWidth(textWidth)
     b.label:SetJustifyH("LEFT")
     b.label:SetMaxLines(2)       -- a title longer than two lines is cut, it does not run into the next row
-    b.objectives = b:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    b.objectives = b:CreateFontString(nil, "OVERLAY", ns.badge.fontObject("QuestFont", "GameFontHighlightSmall"))
     b.objectives:SetPoint("TOPLEFT", b.label, "BOTTOMLEFT", 6, -2)
     b.objectives:SetWidth(textWidth - 6)
     b.objectives:SetJustifyH("LEFT")
@@ -483,7 +483,7 @@ local function fill(f, player)
       h = SECTION_H
     else
       b.row = row
-      ns.badge.draw(b.icon, row.icon, ICON)
+      ns.badge.draw(b.icon, row.icon, ICON, row.state == "current")
       Br.paintRow(b)
       local lines = row.objectives
       b.sel:SetShown(preview ~= nil and preview.chapter == row.chapter and preview.step == row.step)
@@ -1370,6 +1370,23 @@ function Br.bindLogKey()
   end
 end
 
+-- The quest log button on the micro menu (the bottom bar) gets the same treatment as the key: while a guide runs, a click toggles the panel instead of opening the game's log. The game's own click runs otherwise.
+local intercepted
+
+function Br.interceptQuestLogButton()
+  local button = _G.QuestLogMicroButton
+  if intercepted == button or type(button) ~= "table" or not (button.GetScript and button.SetScript) then return end
+  local original = button:GetScript("OnClick")
+  button:SetScript("OnClick", function(self, ...)
+    if ns.guide and ns.guidePlayer.state() then
+      Br.toggleLog()
+    elseif original then
+      original(self, ...)
+    end
+  end)
+  intercepted = button
+end
+
 local function setUpLogKey()
   if binder then return end
   binder = CreateFrame("Frame", "RibbonGuideLogBinder", UIParent)
@@ -1384,6 +1401,7 @@ end
 ns:On("GUIDE_STARTED", function()
   setUpLogKey()
   Br.bindLogKey()
+  Br.interceptQuestLogButton()
 end)
 
 -- /ribbon guides and /ribbon dock open the panel.

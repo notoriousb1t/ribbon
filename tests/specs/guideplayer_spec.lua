@@ -75,7 +75,7 @@ describe("Guide player", function()
       local entry, cursor = P.current()
       expect(cursor).toBe(1)
       expect(entry.chapter).toBe(1)
-      expect(titles(ctx.ns)).toEqual({ "Accept The Hunt Begins from Grull Hawkwind" })
+      expect(titles(ctx.ns)).toEqual({ "Accept The Hunt Begins" })
     end)
 
     it("starts at login when the guide registered first (the usual order)", function()

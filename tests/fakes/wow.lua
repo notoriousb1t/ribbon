@@ -247,6 +247,7 @@ function Fake.install()
   -- The player character.
   local c = world.character
   _G.UnitName = function() return c.name end
+  _G.UnitGUID = function() return c.guid end
   _G.GetRealmName = function() return c.realm end
   _G.UnitClass = function() return c.class:sub(1, 1) .. c.class:sub(2):lower(), c.class end
   _G.UnitRace = function() return c.race, c.race end

@@ -248,36 +248,38 @@ describe("Guide progress", function()
   describe("compass dial click", function()
     local ctx = H.use({ boot = true })
 
-    it("does nothing without a guide", function()
-      ctx.ns.compass.parts.dial:Trigger("OnClick", "LeftButton")
-      expect(ctx.ns.guideBrowser.dock()).toBeNil()
-    end)
-
-    it("opens the panel on a click on the dial and closes it on the next", function()
+    it("does nothing: the dial only shows its tooltip and drags the ribbon", function()
       build(Ribbon.Guide("g", { schema = 1 }))
-      local dial = ctx.ns.compass.parts.dial
-      dial:Trigger("OnClick", "LeftButton")
+      expect(ctx.ns.compass.parts.dial:GetScript("OnClick")).toBeNil()
+      expect(ctx.ns.compass.OpenGuide).toBeNil()
+    end)
+  end)
+
+  describe("quest log button on the micro menu", function()
+    local ctx = H.use({ boot = true })
+
+    beforeEach(function()
+      _G.QuestLogMicroButton = CreateFrame("Button", "QuestLogMicroButton", UIParent)
+      QuestLogMicroButton.opened = 0
+      QuestLogMicroButton:SetScript("OnClick", function() QuestLogMicroButton.opened = QuestLogMicroButton.opened + 1 end)
+    end)
+    afterEach(function() _G.QuestLogMicroButton = nil end)
+
+    it("toggles the guide panel while a guide runs, and keeps the game's click otherwise", function()
+      build(Ribbon.Guide("g", { schema = 1 }))
+      ctx.ns.guideBrowser.interceptQuestLogButton()
+      QuestLogMicroButton:Trigger("OnClick")
       expect(ctx.ns.guideBrowser.dock():IsShown()).toBe(true)
-      dial:Trigger("OnClick", "LeftButton")
+      expect(QuestLogMicroButton.opened).toBe(0)
+      QuestLogMicroButton:Trigger("OnClick")
       expect(ctx.ns.guideBrowser.dock():IsShown()).toBe(false)
     end)
 
-    it("does not open for a click on the ribbon itself", function()
-      build(Ribbon.Guide("g", { schema = 1 }))
-      ctx.ns.compass.parts.frame:Trigger("OnMouseUp", "LeftButton")
-      expect(ctx.ns.compass.parts.frame:GetScript("OnMouseUp")).toBeNil()
+    it("keeps the game's click without a guide", function()
+      ctx.ns.guideBrowser.interceptQuestLogButton()
+      QuestLogMicroButton:Trigger("OnClick")
+      expect(QuestLogMicroButton.opened).toBe(1)
       expect(ctx.ns.guideBrowser.dock()).toBeNil()
-    end)
-
-    it("ignores the release that ends a drag of the dial", function()
-      build(Ribbon.Guide("g", { schema = 1 }))
-      local dial = ctx.ns.compass.parts.dial
-      dial:Trigger("OnDragStart")
-      dial:Trigger("OnDragStop")
-      dial:Trigger("OnClick", "LeftButton")
-      expect(ctx.ns.guideBrowser.dock()).toBeNil()
-      dial:Trigger("OnClick", "LeftButton")          -- the next click is a click again
-      expect(ctx.ns.guideBrowser.dock():IsShown()).toBe(true)
     end)
   end)
 
