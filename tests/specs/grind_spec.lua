@@ -174,29 +174,34 @@ describe("Grind counter", function()
   describe("passing a gated grind", function()
     local P = H.pure({ "guide/Planner.lua" }).guidePlanner
     local function grind(gate) return { groups = { { calls = { { kind = "Grind", npc = { 1 }, count = 9, gate = gate } } } } } end
-    local accept = { groups = { { calls = { { kind = "Accept", quest = 7 } } } } }
-    local fly = { groups = { { calls = { { kind = "Fp", node = "X" } } } } }
-    local function flat(...) local out = {} for i, s in ipairs({ ... }) do out[i] = { step = s } end return out end
     local function env(level, xp, accepted)
       return { level = level, xp = xp, kills = function() return 0 end, objective = function() end,
         quest = function(id) return id == 7 and accepted and "active" or "none" end }
     end
 
-    it("needs the gate met and the next quest step done", function()
-      local f = flat(grind({ level = 5, xp = 100 }), accept)
-      expect(P.grindPassed(f, 1, env(5, 100, true))).toBe(true)
-      expect(P.grindPassed(f, 1, env(6, 0, true))).toBe(true)
-      expect(P.grindPassed(f, 1, env(5, 99, true))).toBe(false)
-      expect(P.grindPassed(f, 1, env(5, 100, false))).toBe(false)
+    it("is done once the gate is met, whatever the next quest step", function()
+      expect(P.stepDone(grind({ level = 5, xp = 100 }), env(5, 100, false))).toBe(true)
+      expect(P.stepDone(grind({ level = 5, xp = 100 }), env(6, 0, false))).toBe(true)
+      expect(P.stepDone(grind({ level = 5, xp = 100 }), env(5, 99, true))).toBe(false)
+      expect(P.stepDone(grind({ level = 5 }), env(5, 0, false))).toBe(true)
     end)
 
-    it("looks past other grinds and steps the client cannot judge to the next quest step", function()
-      expect(P.grindPassed(flat(grind({ level = 5 }), grind({ level = 9 }), fly, accept), 1, env(5, 0, true))).toBe(true)
+    it("is not done by its count alone, which is an estimate", function()
+      local e = env(5, 0, false)
+      e.kills = function() return 20 end
+      expect(P.stepDone(grind({ level = 6 }), e)).toBe(false)
     end)
 
-    it("never passes a grind without a gate, or a step that is not a grind", function()
-      expect(P.grindPassed(flat(grind(nil), accept), 1, env(60, 0, true))).toBe(false)
-      expect(P.grindPassed(flat(accept, accept), 1, env(60, 0, true))).toBe(false)
+    it("leaves a grind without a gate to its count", function()
+      expect(P.stepDone(grind(nil), env(60, 0, true))).toBe(false)
+    end)
+
+    it("writes the count as an estimate", function()
+      local T = H.pure({ "guide/Text.lua" }).guideText
+      local call = grind({ level = 5 }).groups[1].calls[1]
+      local names = { CREATURE = { [1] = "Plainstrider" } }
+      expect(T.line(call, names, { kills = function() return 12 end })).toBe("Kill Plainstrider (12/~9)")
+      expect(T.line(call, names)).toBe("Kill ~9 Plainstrider")
     end)
   end)
 
@@ -205,7 +210,9 @@ describe("Grind counter", function()
     local function cursor() local _, i = ctx.ns.guidePlayer.current() return i end
     beforeEach(function()
       ctx.world.character.level, ctx.world.character.xp = 2, 50
-      Ribbon.Guide("g", { schema = 1 }):Chapter("Gate")
+      local R = Ribbon.Guide("g", { schema = 1 })
+      R:Names({ CREATURE = { [2955] = "Plainstrider" } })
+      R:Chapter("Gate")
         :Step():Goto(1453, 50.00, 50.00):Grind(1453, 50.00, 50.00, 40, { npc = { 2955 }, count = 9, gate = { level = 2, xp = 100 } })
         :Step():Goto(1453, 52.00, 52.00):Accept(747)
         :Step():Goto(1453, 54.00, 54.00):Turnin(747)
@@ -218,17 +225,25 @@ describe("Grind counter", function()
       expect(cursor()).toBe(1)
     end)
 
-    it("stays on the grind while the next quest step is open, though the gate is met", function()
+    it("passes the grind as soon as the gate is met, mid-grind", function()
+      ctx.world:killXP("Plainstrider")
+      expect(cursor()).toBe(1)
       ctx.world.character.xp = 100
       ctx.ns.guidePlayer.refresh()
-      expect(cursor()).toBe(1)
+      expect(cursor()).toBe(2)
     end)
 
-    it("moves past the grind and the done quest step once both hold", function()
+    it("moves past the grind and a done quest step after it once the gate is met", function()
       ctx.world.character.xp = 100
       ctx.world.quest.log[747] = { complete = false }
       ctx.ns.guidePlayer.refresh()
       expect(cursor()).toBe(3)
+    end)
+
+    it("shows the kills against the estimated count, past it while the gate is not met", function()
+      for _ = 1, 10 do ctx.world:killXP("Plainstrider") end
+      expect(cursor()).toBe(1)
+      expect(title(ctx.ns)).toBe("Kill Plainstrider (10/~9)")
     end)
   end)
 

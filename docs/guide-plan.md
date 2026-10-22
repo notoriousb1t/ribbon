@@ -115,7 +115,7 @@ R:Chapter("1-11 Mulgore (Tauren)", { levels = { 1, 11 }, race = "TAUREN", factio
 ### 4. Grinds with mob counting
 - **Step:** `:Grind(mapID, x, y, radius, { npc = {ids}, count = N })` , `{ level = L }` or `{ level = L, xp = N }` (`until` is a Lua keyword).
 - **Counting:** `COMBAT_LOG_EVENT_UNFILTERED` `PARTY_KILL`; parse the NPC id from the GUID, match against the step's targets, count only kills by the player, the party or a pet. Classic Era only: the Forever client forbids addons the combat log (`ADDON_ACTION_FORBIDDEN`). There the XP-gain chat line counts instead (name only, read with the client's own format string, matched against the guide's creature names).
-- **Gate:** a count grind may carry `gate = { level = L, xp = N }` (the XP the route models after it); once the player has that and the next quest step the client can judge is done, the grind is passed without its kills.
+- **Gate:** a count grind may carry `gate = { level = L, xp = N }` (the XP the route models after it); the grind is done as soon as the player has that, whatever its kills. Its count is the route's estimate: kills are still counted (past the count too) and shown as `(n/~count)`, `Kill ~count ...` without a counter.
 - **Persisted** in `RibbonDB` per step so `/reload` and relog keep it; reset by `/ribbon guide reset`.
 - **Display:** away from the area the waypoint is the area centre; inside it the caption becomes the counter ("Greater Plainstrider 23/40").
 - **To verify first:** the combat log API exists in the Forever client (use the local probe tool, which is git-ignored).

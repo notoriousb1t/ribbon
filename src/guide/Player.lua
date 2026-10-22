@@ -214,13 +214,12 @@ local function ensure()
   if S and S.dirty then replan() end
 end
 
--- The step the client says is finished, a grind the player is past (gate met, the next quest step done), or one whose
--- every located group has been reached when the client can say nothing (travel, flight points, training).
+-- The step the client says is finished (a gated grind once its XP gate is met), or one whose every located group has
+-- been reached when the client can say nothing (travel, flight points, training).
 local function stepComplete(i)
   local entry = S.flat[i]
   local e = env()
   local done = planner.stepDone(entry.step, e)
-  if done == false and planner.grindPassed(S.flat, i, e) then return true end
   if done ~= true and planner.npcStepPassed(S.flat, i, e) then return true end
   if done ~= nil then return done end
   local located = 0
@@ -357,7 +356,8 @@ local function onNpcEvent(event, a, b)
   end
 end
 
--- A credited kill: count it for every open Grind of the current step that `counts(call)` says it is a target of.
+-- A credited kill: count it for every open Grind of the current step that `counts(call)` says it is a target of. A
+-- gated grind's count is an estimate, so its kills keep counting past it.
 local function countKill(counts)
   if not S then return end
   ensure()
@@ -367,7 +367,7 @@ local function countKill(counts)
   for _, group in ipairs(entry.step.groups) do
     for _, call in ipairs(group.calls) do
       local key = S.callKey[call]
-      if key and counts(call) and (S.kills[key] or 0) < call.count then
+      if key and counts(call) and (call.gate or (S.kills[key] or 0) < call.count) then
         S.kills[key] = (S.kills[key] or 0) + 1
         counted = true
       end

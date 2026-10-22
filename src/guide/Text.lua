@@ -59,9 +59,14 @@ function T.line(call, names, env, group)
     if call.level then
       return string.format("Grind %s to level %d", what, call.level)
     end
+    -- A gated grind ends at its XP gate: its count is the route's estimate, marked "~", and the kills may pass it.
+    if call.gate and call.count and env and env.kills then
+      return string.format("Kill %s (%d/~%d)", what, env.kills(call), call.count)
+    end
     if call.count and env and env.kills then
       return string.format("Kill %s (%d/%d)", what, math.min(env.kills(call), call.count), call.count)
     end
+    if call.gate then return string.format("Kill ~%d %s", call.count or 0, what) end
     return string.format("Kill %d %s", call.count or 0, what)
   elseif k == "Ding" then
     return "Reach level " .. call.level
