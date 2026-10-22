@@ -79,7 +79,10 @@ function T.line(call, names, env, group)
   elseif k == "Home" then
     return "Set your hearthstone at " .. call.node
   elseif k == "Train" then
-    return "Train " .. table.concat(call.abilities or {}, ", ")
+    if not call.abilities or #call.abilities == 0 then
+      return "Train new abilities"
+    end
+    return "Train " .. table.concat(call.abilities, ", ")
   elseif k == "Deathwarp" then
     return "Die and respawn at the spirit healer"
   elseif k == "Skip" then

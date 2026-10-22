@@ -239,7 +239,7 @@ end
 
 function methods:Train(npc, abilities)
   if need(self, "Train", npc == nil or isId(npc), "npc must be an id or nil")
-    and need(self, "Train", type(abilities) == "table", "needs a list of ability names") then
+    and need(self, "Train", abilities == nil or type(abilities) == "table", "needs a list of ability names or nil") then
     add(self, "Train", { npc = npc, abilities = abilities })
   end
   return self

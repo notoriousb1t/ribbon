@@ -78,7 +78,7 @@ R:Chapter("1-11 Mulgore (Tauren)", { levels = { 1, 11 }, race = "TAUREN", factio
 | `.complete` with no log line | `:Explore(q, { index, npc })` | find an NPC or place |
 | `.fp` / `.fly` / `.hs` / `.home` | `:Fp(node)` / `:Fly(node)` / `:Hearth(node)` / `:Home(node)` | `node` is a `NODE` name |
 | `.xp L` | `:Ding(level)` | |
-| `.trainer` | `:Train(npc, { "ability", ... })` | |
+| `.trainer` | `:Train(npc[, { "ability", ... }])` | |
 | `.deathskip` | `:Deathwarp()` | |
 | skipped quest | `:Skip(q)`; `:Skippable()` marks an optional step | |
 | `.zone` / `.subzone` | `:Travel()`, `:Enter(map)`, `:Subzone("name")` | routed by Ribbon's travel mesh |
