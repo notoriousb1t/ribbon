@@ -357,11 +357,9 @@ local function onNpcEvent(event, a, b)
   end
 end
 
--- A kill from the combat log: count it for every open Grind of the current step it is a target of.
-local function onCombat(subevent, sourceFlags, destGUID)
+-- A credited kill: count it for every open Grind of the current step that `counts(call)` says it is a target of.
+local function countKill(counts)
   if not S then return end
-  local npc = ns.guideCounter.credit(subevent, sourceFlags, destGUID)
-  if not npc then return end
   ensure()
   local entry = S.flat[S.cursor]
   if not entry then return end
@@ -369,7 +367,7 @@ local function onCombat(subevent, sourceFlags, destGUID)
   for _, group in ipairs(entry.step.groups) do
     for _, call in ipairs(group.calls) do
       local key = S.callKey[call]
-      if key and ns.guideCounter.counts(call, npc) and (S.kills[key] or 0) < call.count then
+      if key and counts(call) and (S.kills[key] or 0) < call.count then
         S.kills[key] = (S.kills[key] or 0) + 1
         counted = true
       end
@@ -379,6 +377,18 @@ local function onCombat(subevent, sourceFlags, destGUID)
     save()
     Pl.refresh()
   end
+end
+
+-- A kill from the combat log, by creature id.
+local function onCombat(subevent, sourceFlags, destGUID)
+  local npc = ns.guideCounter.credit(subevent, sourceFlags, destGUID)
+  if npc then countKill(function(call) return ns.guideCounter.counts(call, npc) end) end
+end
+
+-- A kill from the XP chat line (a client that keeps its combat log from addons), by creature name.
+local function onKillXP(text, format)
+  local name = ns.guideCounter.xpKillName(text, format)
+  if name then countKill(function(call) return ns.guideCounter.countsByName(call, name, S.guide.names) end) end
 end
 
 -- Read-only access for the views.
@@ -413,7 +423,7 @@ function Pl.start(guide)
     S.pos = { chapter = mine.chapter, step = mine.step }
   end
   ns:Every(POLL, Pl.refresh)
-  ns.client.watchCombatLog(onCombat)
+  if not ns.client.watchCombatLog(onCombat) then ns.client.watchKillXP(onKillXP) end
   ns.client.watchEvents({ "TRAINER_SHOW", "TAXIMAP_OPENED", "UI_INFO_MESSAGE", "HEARTHSTONE_BOUND" }, onNpcEvent)
   Pl.refresh()
   ns:Fire("GUIDE_STARTED", S)

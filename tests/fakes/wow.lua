@@ -45,6 +45,11 @@ local function newObject(world, kind)
     GetScript = function(self, name) return self.state.scripts[name] end,
     RegisterEvent = function(self, e)
       if world.unknownEvents and world.unknownEvents[e] then error("Attempt to register unknown event \"" .. e .. "\"") end
+      -- The Forever client keeps the combat log to the Blizzard UI: registering it raises ADDON_ACTION_FORBIDDEN.
+      if e == "COMBAT_LOG_EVENT_UNFILTERED" and _G.WOW_PROJECT_ID == _G.WOW_PROJECT_CAMELOT then
+        world.forbidden[#world.forbidden + 1] = "RegisterEvent(" .. e .. ")"
+        error("ADDON_ACTION_FORBIDDEN")
+      end
       self.state.events[e] = true
     end,
     UnregisterAllEvents = function(self) self.state.events = {} end,
@@ -183,6 +188,11 @@ function World:combatEvent(fields)
   self:fireEvent("COMBAT_LOG_EVENT_UNFILTERED")
 end
 
+-- The XP chat line for a kill of a creature called `name` (`suffix`, such as " (+9 group bonus)", is added after it).
+function World:killXP(name, xp, suffix)
+  self:fireEvent("CHAT_MSG_COMBAT_XP_GAIN", string.format(_G.COMBATLOG_XPGAIN_FIRSTPERSON, name, xp or 45) .. (suffix or ""))
+end
+
 -- Run every OnUpdate script once.
 function World:update(dt)
   for _, o in ipairs(self.objects) do
@@ -221,7 +231,7 @@ function Fake.install()
   for k, v in pairs(_G) do snapshot[k] = v end
 
   local world = setmetatable({
-    objects = {}, maps = {}, libs = {}, printed = {}, errors = {}, unknownEvents = {},
+    objects = {}, maps = {}, libs = {}, printed = {}, errors = {}, unknownEvents = {}, forbidden = {},
     -- tracked: super-tracked questID; points[mapID] = { { questID, x, y (0-1), isQuestStart, inProgress } };
     -- log[id] = { complete = bool } for quests in the log; done[id] = true for quests turned in.
     quest = { tracked = 0, titles = {}, points = {}, objectives = {}, log = {}, done = {} },
@@ -316,6 +326,7 @@ function Fake.install()
   local c = world.character
   _G.UnitName = function() return c.name end
   _G.UnitGUID = function(unit) if unit == "npc" then return world.npcGUID end return c.guid end
+  _G.COMBATLOG_XPGAIN_FIRSTPERSON = "%s dies, you gain %d experience."
   _G.GetBindLocation = function() return world.bind end
   _G.ERR_NEWTAXIPATH = "New flight path discovered!"
   _G.GetRealmName = function() return c.realm end

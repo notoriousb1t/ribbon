@@ -97,10 +97,21 @@ end
 
 -- Combat log -------------------------------------------------------------------------
 
+-- Whether addons may read the combat log. The Forever client (like retail since 12.0) keeps it to the Blizzard UI:
+-- registering COMBAT_LOG_EVENT_UNFILTERED, even inside pcall, raises ADDON_ACTION_FORBIDDEN ("blocked from an action
+-- only available to the Blizzard UI"; taint.log names this RegisterEvent). Classic Era still hands it out. There is
+-- no API to ask, so this goes by flavor; a client of unknown flavor is tried. Without it, kills come from
+-- client.watchKillXP.
+local function combatLogOpen()
+  local flavor = client.flavor()
+  return flavor == nil or flavor == "CLASSIC"
+end
+
 -- Call fn(subevent, sourceFlags, destGUID) for every combat log event. The modern client hands the fields to
 -- CombatLogGetCurrentEventInfo; an older one passes them as the event's arguments. Returns false when the client has
--- no combat log event.
+-- no combat log event or keeps it from addons.
 function client.watchCombatLog(fn)
+  if not combatLogOpen() then return false end
   local frame = CreateFrame("Frame")
   if not pcall(frame.RegisterEvent, frame, "COMBAT_LOG_EVENT_UNFILTERED") then return false end
   frame:SetScript("OnEvent", function(_, _, ...)
@@ -113,6 +124,25 @@ function client.watchCombatLog(fn)
     end
     -- timestamp, subevent, hideCaster, sourceGUID, sourceName, sourceFlags, sourceRaidFlags, destGUID, ...
     local ok, err = pcall(fn, fields[2], fields[6], fields[8])
+    if not ok then geterrorhandler()(err) end
+  end)
+  return true
+end
+
+-- The client's format of the XP chat line for a kill ("%s dies, you gain %d experience.").
+local XP_KILL_FORMAT = "%s dies, you gain %d experience."
+
+-- Call fn(text, format) for each XP chat line (CHAT_MSG_COMBAT_XP_GAIN), with the client's format of the kill line.
+-- The kill source on a client whose combat log addons cannot read: every kill the player earns XP for has a line,
+-- whatever is targeted (chain pulls, damage over time, pet kills), but it names the creature only, and a grey kill
+-- has none. A secret text (12.0 clients in combat) is skipped. Returns false when the client has no such event.
+function client.watchKillXP(fn)
+  local frame = CreateFrame("Frame")
+  if not pcall(frame.RegisterEvent, frame, "CHAT_MSG_COMBAT_XP_GAIN") then return false end
+  frame:SetScript("OnEvent", function(_, _, text)
+    if type(issecretvalue) == "function" and issecretvalue(text) then return end
+    local format = type(_G.COMBATLOG_XPGAIN_FIRSTPERSON) == "string" and _G.COMBATLOG_XPGAIN_FIRSTPERSON or XP_KILL_FORMAT
+    local ok, err = pcall(fn, text, format)
     if not ok then geterrorhandler()(err) end
   end)
   return true

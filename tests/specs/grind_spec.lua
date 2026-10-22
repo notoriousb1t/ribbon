@@ -49,6 +49,26 @@ describe("Grind counter", function()
       expect(K.counts({ kind = "Grind", npc = { 1 }, level = 8 }, 1)).toBe(false)
       expect(K.counts({ kind = "Kill", count = 5 }, 1)).toBe(false)
     end)
+
+    it("reads the creature from an XP kill line, with or without a bonus, by the client's format", function()
+      local EN = "%s dies, you gain %d experience."
+      expect(K.xpKillName("Plainstrider dies, you gain 45 experience.", EN)).toBe("Plainstrider")
+      expect(K.xpKillName("Adult Plainstrider dies, you gain 60 experience. (+12 group bonus)", EN)).toBe("Adult Plainstrider")
+      expect(K.xpKillName("Mr. Smite (Elite) dies, you gain 300 experience. (+150 exp Rested bonus)", EN)).toBe("Mr. Smite (Elite)")
+      expect(K.xpKillName("You gain 120 experience.", EN)).toBeNil()
+      expect(K.xpKillName("Plainstrider dies, you gain 45 experience.", "You gain %d experience.")).toBeNil()
+      expect(K.xpKillName("Kodo stirbt, Ihr bekommt 45 Erfahrung.", "%1$s stirbt, Ihr bekommt %2$d Erfahrung.")).toBe("Kodo")
+      expect(K.xpKillName(nil, EN)).toBeNil()
+    end)
+
+    it("counts a kill by name when the guide names one of the grind's targets so", function()
+      local names = { CREATURE = { [1] = "Plainstrider", [2] = "Adult Plainstrider" } }
+      expect(K.countsByName({ kind = "Grind", npc = { 1, 2 }, count = 5 }, "Adult Plainstrider", names)).toBe(true)
+      expect(K.countsByName({ kind = "Grind", npc = { 1 }, count = 5 }, "Adult Plainstrider", names)).toBe(false)
+      expect(K.countsByName({ kind = "Grind", count = 5 }, "Kodo", names)).toBe(true)
+      expect(K.countsByName({ kind = "Grind", npc = { 1 }, count = 5 }, "Plainstrider", nil)).toBe(false)
+      expect(K.countsByName({ kind = "Grind", npc = { 1 }, level = 8 }, "Plainstrider", names)).toBe(false)
+    end)
   end)
 
   describe("planner and text", function()
@@ -68,8 +88,8 @@ describe("Grind counter", function()
     end)
   end)
 
-  describe("in the player", function()
-    local ctx = H.use({ boot = true })
+  describe("in the player, from the combat log (Classic Era)", function()
+    local ctx = H.use({ boot = true, world = function(w) w:classicEra() end })
     local function kill(npc, flags) ctx.world:combatEvent({ subevent = "PARTY_KILL", sourceFlags = flags or MINE, destGUID = guid(npc) }) end
     local function cursor() local _, i = ctx.ns.guidePlayer.current() return i end
     beforeEach(function() build(Ribbon.Guide("g", { schema = 1 })) end)
@@ -97,7 +117,7 @@ describe("Grind counter", function()
       kill(2955)
       kill(2955)
       local db = RibbonDB
-      local ns = H.load({ boot = true, world = function() RibbonDB = db end })
+      local ns = H.load({ boot = true, world = function(w) w:classicEra() RibbonDB = db end })
       build(Ribbon.Guide("g", { schema = 1 }))
       local _, i = ns.guidePlayer.current()
       expect(i).toBe(1)
@@ -117,6 +137,37 @@ describe("Grind counter", function()
       _G.CombatLogGetCurrentEventInfo = nil
       ctx.world:fireEvent("COMBAT_LOG_EVENT_UNFILTERED", 0, "PARTY_KILL", false, "Player-1-1", "me", MINE, 0, guid(2955), "Plainstrider", 0, 0)
       expect(title(ctx.ns)).toBe("Kill Plainstrider, Adult Plainstrider (1/3)")
+    end)
+  end)
+
+  describe("in the player, from the XP chat line (Forever, combat log kept from addons)", function()
+    local ctx = H.use({ boot = true })
+    local function cursor() local _, i = ctx.ns.guidePlayer.current() return i end
+    beforeEach(function() build(Ribbon.Guide("g", { schema = 1 })) end)
+
+    it("never registers the combat log, which the client forbids", function()
+      expect(#ctx.world.forbidden).toBe(0)
+      expect(#ctx.world:framesWhere(function(o) return o.state.events.COMBAT_LOG_EVENT_UNFILTERED end)).toBe(0)
+    end)
+
+    it("counts each XP line naming a target, and advances at the count", function()
+      ctx.world:killXP("Plainstrider")
+      ctx.world:killXP("Adult Plainstrider", 60, " (+12 group bonus)")
+      expect(title(ctx.ns)).toBe("Kill Plainstrider, Adult Plainstrider (2/3)")
+      ctx.world:killXP("Kodo")                                          -- not a target
+      ctx.world:fireEvent("CHAT_MSG_COMBAT_XP_GAIN", "You gain 120 experience.")   -- quest XP, no kill
+      expect(cursor()).toBe(1)
+      ctx.world:killXP("Plainstrider")
+      expect(cursor()).toBe(2)
+      expect(title(ctx.ns)).toBe("Kill Plainstrider (0/2)")
+      expect(#ctx.world.errors).toBe(0)
+    end)
+
+    it("skips a secret line", function()
+      _G.issecretvalue = function() return true end
+      ctx.world:killXP("Plainstrider")
+      ctx.ns.guidePlayer.refresh()
+      expect(title(ctx.ns)).toBe("Kill Plainstrider, Adult Plainstrider (0/3)")
     end)
   end)
 
@@ -182,7 +233,7 @@ describe("Grind counter", function()
   end)
 
   describe("on a client without the combat log event", function()
-    local ctx = H.use({ boot = true, world = function(w) w.unknownEvents.COMBAT_LOG_EVENT_UNFILTERED = true end })
+    local ctx = H.use({ boot = true, world = function(w) w:classicEra() w.unknownEvents.COMBAT_LOG_EVENT_UNFILTERED = true end })
 
     it("still runs the guide, the grind waiting for a skip", function()
       build(Ribbon.Guide("g", { schema = 1 }))

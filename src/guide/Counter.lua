@@ -1,5 +1,5 @@
--- Grind counter rules: which combat log kills count toward a grind's `count`. Pure: the player feeds it the fields
--- the client reads from the combat log.
+-- Grind counter rules: which kills count toward a grind's `count`. Pure: the player feeds it the fields the client
+-- reads from the combat log, or the XP chat line where the client keeps the combat log from addons.
 local ADDON, ns = ...
 
 local K = {}
@@ -24,12 +24,44 @@ function K.credit(subevent, sourceFlags, destGUID)
   return K.npcID(destGUID)
 end
 
+-- The creature an XP chat line names ("Plainstrider dies, you gain 45 experience."), read with the client's own
+-- format string (COMBATLOG_XPGAIN_FIRSTPERSON, "%s dies, you gain %d experience."). The group, raid and rested lines
+-- add to its end, so it is matched from the start only. nil for any other line (quest and exploration XP name no
+-- creature).
+function K.xpKillName(text, format)
+  if type(text) ~= "string" or type(format) ~= "string" then return nil end
+  local pattern = format:gsub("%%%d*%$?s", "\1"):gsub("%%%d*%$?d", "\2")
+  if not pattern:find("\1", 1, true) then return nil end
+  pattern = pattern:gsub("[%^%$%(%)%%%.%[%]%*%+%-%?]", "%%%0"):gsub("\1", "(.-)"):gsub("\2", "%%d+")
+  local name = text:match("^" .. pattern)
+  if name and name ~= "" then return name end
+end
+
+-- Whether a Grind call takes kills at all (a count grind; a level grind counts nothing).
+local function counting(call)
+  return call.kind == "Grind" and call.count and not call.level
+end
+
 -- Whether a kill of creature `npc` counts for a Grind call: one of its targets, or any creature when it names none.
 function K.counts(call, npc)
-  if call.kind ~= "Grind" or not call.count or call.level then return false end
+  if not counting(call) then return false end
   if not call.npc then return true end
   for _, id in ipairs(call.npc) do
     if id == npc then return true end
+  end
+  return false
+end
+
+-- Whether a kill of a creature called `name` counts for a Grind call: the name the guide gives one of its targets
+-- (`names.CREATURE`), or any creature when it names none. The XP line names the creature only, so every target of
+-- that name matches.
+function K.countsByName(call, name, names)
+  if not counting(call) then return false end
+  if not call.npc then return true end
+  local list = type(names) == "table" and names.CREATURE
+  if type(list) ~= "table" then return false end
+  for _, id in ipairs(call.npc) do
+    if list[id] == name then return true end
   end
   return false
 end
