@@ -9,21 +9,51 @@ Ribbon shows where your destination is on a compass bar at the top of your scree
 Built for the Forever beta client; also runs on Classic Era (1.15), where the in-world marker is unavailable (the client has no user waypoints) and the tracked quest is the first one watched in the quest tracker.
 
 <p align="center">
-  <img src="assets/screenshot.png" alt="Ribbon in game: a caption with the quest step above a teal ribbon bar, a waypoint marker and an off-screen arrow at each end, and a compass dial below" width="720">
+  <img src="assets/screenshot-compass.png" alt="Ribbon in game: a teal ribbon bar with waypoint markers and a compass dial in the middle, and the distance and quest step in a caption under it" width="720">
 </p>
 
-<p align="center"><em>A RestedXP step on the compass: the step text above the bar, the quest target at the right end with an arrow to turn toward it, and the compass dial below.</em></p>
+<p align="center"><em>The compass: waypoint markers on the bar, the compass dial in the middle, the distance and step text under it.</em></p>
+
+<p align="center">
+  <img src="assets/screenshot-map.jpg" alt="The world map with quest pins beside the guide panel, showing the steps of a Dun Morogh chapter with done steps checked off" width="720">
+</p>
+
+<p align="center"><em>The guide panel beside the world map: steps laid out like the quest log, done steps checked, the current step highlighted.</em></p>
+
+<p align="center">
+  <img src="assets/screenshot-guide.png" alt="The Ribbon: Leveling Guide chapter list with levels and a progress bar" width="320">
+</p>
+
+<p align="center"><em>The chapter list, with each chapter's levels and your progress through the guide.</em></p>
 
 ## Features
 
-- **Compass ribbon:** a heading bar with a marker for each waypoint, and a compass dial in the middle of it whose needle always points to due north (hover the dial to see your coordinates, zone and heading; click it to open the guide). The markers pass over the dial; the direction names and the degree ticks stay under it. Above the bar, on a dark plate that stays readable over any scenery, you see the name and distance of the nearest (or focused) waypoint and a short description of what to do there.
+- **Compass ribbon:** a heading bar with a marker for each waypoint, and a compass dial in the middle of it whose needle always points to due north (hover the dial to see your coordinates, zone and heading; click it to open the guide). The markers pass over the dial; the direction names and the degree ticks stay under it. Under the bar, on a dark plate that stays readable over any scenery, you see the name and distance of the nearest (or focused) waypoint and a short description of what to do there.
 - **Distance at a glance:** markers shrink as they get farther and grow as you close in. A waypoint close by is drawn taller than the ribbon itself, a distant one is small (never smaller than 18 px). A waypoint outside your field of view is held inside the end of the bar with an arrow pointing the way to turn. The direction labels (N, NE, ...) are outlined and shadowed so they stand out.
 - **Map and minimap pins:** your waypoints drawn on the world map and minimap.
-- **Tracked quest:** the quest you track in the game shows on the compass: a sword for a kill objective, a bag for an item objective, a quest icon for a turn-in or anything else, and the pick-up icon for a quest you can accept.
+- **Guide player:** step-by-step guides in a searchable chapter and step panel with progress bars, filtered to your class and race. Grind kill counts persist through reloads (see `/ribbon guides` below).
+- **Guide options:** auto-advance, auto accept and turn-in (hold Shift to skip), objective dots and an in-world marker. All are on by default (see Guide player below).
+- **Tracked quest:** the quest you track in the game shows on the compass as a diamond badge: a sword for a kill objective, a bag for an item objective, a quest icon for a turn-in or anything else, and the pick-up icon for a quest you can accept.
 - **RestedXP:** the waypoint RXPGuides is pointing its arrow at shows on the compass as RXP's navigation arrow. Under the bar you see what the step says to do ("Kill Sharptusk Thornmantle (0/1)") rather than the step number, and it updates as you progress.
 - **TomTom:** waypoints set through TomTom, including `/way`, show on the compass using the map dot from your TomTom theme.
 
 RestedXP and TomTom keep drawing their own arrows and map icons. Ribbon only reads what they point at, so nothing changes for them.
+
+## Guide player
+
+Open it with `/ribbon guides`, the Ribbon button above the map, or by clicking the compass dial. The cog in the search row holds the options, all on by default:
+
+- **Auto-advance:** moves to the next step when the quest log shows the step is done.
+- **Auto accept and turn in:** accepts quests and hands in finished ones that have no reward to choose from. Hold Shift to skip.
+- **Objective locations:** red dots on the map and minimap where the current step's creatures and objects are.
+- **In-world marker:** the current step's badge in the 3D view, smaller and higher the farther it is. It lifts by the height difference when the step carries a height.
+
+What the player does for you:
+
+- **Route on the map:** pins for the next two steps with a dashed line through them. The line stays while you hover a step and passes over level-up steps.
+- **Steps that complete themselves:** a trainer step when the trainer window opens, a flight path step when you open a nearby flight master's map or learn the path, an inn step when your hearthstone is bound there, a hearth step when you reach the innkeeper.
+- **Grinds:** kills are counted from the XP chat line and survive a reload. A grind with an XP gate ends as soon as you reach its level and XP, and shows the route's estimate, like "Kill Avala (3/~8)".
+- **Panel placement:** it docks beside a quest or gossip window, else the open map, else the left of the screen, and hides while other game panels are open. The quest log key opens it.
 
 ## Install
 
@@ -58,6 +88,7 @@ Ribbon works on its own: it bundles HereBeDragons for map pins (a newer copy fro
 ### Troubleshooting
 
 - `/ribbon debug` prints your position as the addon reads it.
+- `/ribbon probe` reports which client APIs Ribbon found and how the map layers. Include it in a bug report.
 - `/ribbon tomtom` and `/ribbon rxp` show whether TomTom or RestedXP was found and what Ribbon is mirroring from it.
 - If Ribbon says it is dormant, the game client is missing an API it needs; the message names it.
 
@@ -81,6 +112,7 @@ Ribbon:SetWaypointVisible(uid, false)
 Ribbon:SetFocus(uid)              -- caption this waypoint instead of the nearest
 ```
 
+- A guide's `:Goto(map, x, y[, z])` takes an optional height `z` in yards (three decimals allowed on `x` and `y`); only the in-world marker uses it.
 - `x` and `y` are 0-100 zone coordinates, and zones are `uiMapID`s (for example `1453` Stormwind City, `1439` Darkshore).
 - Every call checks its arguments and returns `nil` (or does nothing) on bad input; it never raises an error.
 - `on_arrive` fires once when the player comes within `arrival_distance` yards and again after they leave and return. Arrival ignores height.
