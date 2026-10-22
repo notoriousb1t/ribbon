@@ -53,9 +53,11 @@ Cursor.__index = function(_, name)
   if methods[name] then return methods[name] end
   -- Lower-case names are the cursor's own fields (bad, last): unset ones are nil, not calls.
   if type(name) ~= "string" or not name:match("^%u") then return nil end
-  -- A misspelt call must not raise: record it and keep the chain alive.
+  -- A call from a newer guide format is ignored, not an error (fail open): the chapter keeps every call this Ribbon
+  -- knows, and an :At or :Spawns that qualifies the ignored call is ignored with it.
   return function(self)
-    self:fail(name, "is not a guide call")
+    self.ignored[#self.ignored + 1] = string.format("%s, step %d: :%s ignored (not known to this Ribbon)", self.name, #self.steps, name)
+    self.last = { ignored = true }
     return self
   end
 end
@@ -157,6 +159,7 @@ end
 -- The NPC of the accept or turn-in before it.
 function methods:At(npc)
   local last = self.last
+  if last and last.ignored then return self end
   if need(self, "At", last and (last.kind == "Accept" or last.kind == "Turnin"), "must follow :Accept or :Turnin")
     and need(self, "At", isId(npc), "npc must be an id") then
     last.npc = npc
@@ -215,6 +218,7 @@ end
 -- Map points for the objective call before it.
 function methods:Spawns(map, points)
   local last = self.last
+  if last and last.ignored then return self end
   local objective = last and (last.kind == "Kill" or last.kind == "Loot" or last.kind == "Interact" or last.kind == "Grind")
   if need(self, "Spawns", objective, "must follow an objective call")
     and need(self, "Spawns", isId(map), "map must be an id")
@@ -293,7 +297,13 @@ function methods:Done()
     end
     return guide
   end
-  local chapter = { name = self.name, opts = self.opts, steps = self.steps }
+  for _, e in ipairs(self.ignored) do guide.ignored[#guide.ignored + 1] = e end
+  -- A step left with no group held only ignored calls: nothing to show or complete.
+  local steps = {}
+  for _, step in ipairs(self.steps) do
+    if #step.groups > 0 then steps[#steps + 1] = step end
+  end
+  local chapter = { name = self.name, opts = self.opts, steps = steps }
   local replaced = false
   -- A chapter is identified by its name, faction and flavor: both factions' guides can each have, say, "Zephras Isle",
   -- and a Forever and a Classic chapter can share a name.
@@ -320,7 +330,7 @@ local Guide = {}
 Guide.__index = Guide
 
 function Guide:Chapter(name, opts)
-  local cursor = setmetatable({ guide = self, name = tostring(name), opts = opts, steps = {}, errors = {} }, Cursor)
+  local cursor = setmetatable({ guide = self, name = tostring(name), opts = opts, steps = {}, errors = {}, ignored = {} }, Cursor)
   if not isText(name) then cursor:fail("Chapter", "needs a name") end
   if opts ~= nil and type(opts) ~= "table" then cursor:fail("Chapter", "options must be a table") end
   return cursor
@@ -368,7 +378,7 @@ function ns.Guide(id, opts)
     ns:Print(string.format("guide '%s' refused: it uses format %s and this Ribbon reads format %d.", id, tostring(opts.schema), B.SCHEMA))
     return nullGuide()
   end
-  local guide = setmetatable({ id = id, title = isText(opts.title) and opts.title or id, schema = opts.schema, chapters = {}, errors = {},
+  local guide = setmetatable({ id = id, title = isText(opts.title) and opts.title or id, schema = opts.schema, chapters = {}, errors = {}, ignored = {},
     names = { MAP = {}, NPC = {}, CREATURE = {}, OBJECT = {}, ITEM = {}, QUEST = {} } }, Guide)
   ns.guide = guide
   ns:Fire("GUIDE_REGISTERED", guide)

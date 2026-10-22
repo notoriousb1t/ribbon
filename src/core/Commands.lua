@@ -37,12 +37,14 @@ cmds.guide = function(args)
     return
   end
   if string.lower(args or "") == "errors" then
-    if #guide.errors == 0 then ns:Print("no guide errors.") end
+    if #guide.errors == 0 and #guide.ignored == 0 then ns:Print("no guide errors.") end
     for _, e in ipairs(guide.errors) do ns:Print(e) end
+    for _, e in ipairs(guide.ignored) do ns:Print(e) end
     return
   end
-  ns:Print(string.format("%s: %d chapters%s.", guide.title, #guide.chapters,
-    #guide.errors > 0 and string.format(", %d errors (/ribbon guide errors)", #guide.errors) or ""))
+  ns:Print(string.format("%s: %d chapters%s%s.", guide.title, #guide.chapters,
+    #guide.errors > 0 and string.format(", %d errors (/ribbon guide errors)", #guide.errors) or "",
+    #guide.ignored > 0 and string.format(", %d ignored calls (/ribbon guide errors)", #guide.ignored) or ""))
 end
 
 local function help()

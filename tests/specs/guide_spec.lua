@@ -236,9 +236,25 @@ describe("Guide", function()
       expect(guide.errors[1]).toContain("needs :Step() first")
     end)
 
-    it("reports an unknown call instead of raising", function()
-      expect(function() guide:Chapter("typo"):Step():Acept(5):Done() end).never.toThrow()
-      expect(guide.errors[1]).toContain(":Acept is not a guide call")
+    it("ignores an unknown call and keeps the chapter (fail open)", function()
+      expect(function() guide:Chapter("newer"):Step():Goto(1412, 10, 20):Accept(5):Hover(3, { x = 1 }):Turnin(6):Done() end).never.toThrow()
+      expect(#guide.errors).toBe(0)
+      expect(#guide.chapters).toBe(1)
+      local calls = guide.chapters[1].steps[1].groups[1].calls
+      expect(#calls).toBe(2)
+      expect(calls[2].kind).toBe("Turnin")
+      expect(guide.ignored[1]).toContain(":Hover ignored")
+    end)
+
+    it("ignores the :At and :Spawns of an ignored call and drops a step left empty", function()
+      guide:Chapter("newer"):Step():Goto(1412, 10, 20):Accept(5)
+        :Step():Hover(3):At(9):Spawns(1412, { { 1, 1 } })
+        :Step():Goto(1412, 30, 40):Kill(7, 2):Done()
+      expect(#guide.errors).toBe(0)
+      local steps = guide.chapters[1].steps
+      expect(#steps).toBe(2)
+      expect(steps[2].groups[1].calls[1].kind).toBe("Kill")
+      expect(steps[1].groups[1].calls[1].npc).toBe(nil)
     end)
 
     it("reports a missing chapter name", function()
