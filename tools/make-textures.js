@@ -61,6 +61,9 @@ function render(shade, size = 128) {
 
 const dist = (x, y) => Math.hypot(x - C, y - C);
 
+// Perpendicular distance inside a diamond whose points are R from the middle: negative outside, 0 on its edge.
+const diamondDepth = (x, y) => (R - (Math.abs(x - C) + Math.abs(y - C))) / Math.SQRT2;
+
 // Point in a convex or simple polygon (even-odd).
 function inside(poly, x, y) {
   let hit = false;
@@ -334,6 +337,26 @@ const textures = {
     polySdf([[113, 34], [67, 48], [67, 108], [113, 94]], x, y)), y)),
 
   "glyph-ding": render((x, y) => ink(polySdf([[63.5, 12], [112, 62], [84, 62], [84, 112], [43, 112], [43, 62], [15, 62]], x, y), y)),
+
+  // The tracked badge's diamond, like the game's own waypoint: a filled one (white, tinted dark by the view), a thin one
+  // for the edge (white, tinted per kind), and the gold bevelled one the quest kinds use. The points touch the middle of
+  // each side of the texture.
+  "diamond-fill": render((x, y) => (diamondDepth(x, y) >= 0 ? [255, 255, 255, 1] : null)),
+
+  "diamond-rim": render((x, y) => {
+    const d = diamondDepth(x, y);
+    return d >= 0 && d <= 7 ? [255, 255, 255, 1] : null;
+  }),
+
+  "diamond-ring": render((x, y) => {
+    const d = diamondDepth(x, y);   // 0 at the outer edge, growing inwards
+    if (d < 0 || d > 10) return null;
+    if (d < 1.5 || d > 8.5) return [60, 36, 4, 1];
+    const lit = 0.5 + 0.5 * Math.cos(Math.atan2(y - C, x - C) + (3 * Math.PI) / 4);   // 1 at the top left
+    const across = (d - 1.5) / 7;                                                      // 0 outer .. 1 inner
+    const base = lerp([150, 100, 14], [255, 226, 120], 0.2 + 0.8 * lit);
+    return [...lerp(base, [205, 150, 30], Math.abs(across - 0.5) * 0.9), 1];
+  }),
 
   // A thin ring drawn around the focused marker; white so the view can colour it (bright blue).
   "focus-ring": render((x, y) => {

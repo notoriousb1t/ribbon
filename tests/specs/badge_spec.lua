@@ -45,11 +45,13 @@ describe("Marker badges", function()
       expect(m.rim:IsShown()).toBe(false)
     end)
 
-    it("sizes the symbol to the marker, and the ring a little larger", function()
+    it("fits the tracked diamond to the marker, with the symbol inside it", function()
       local m = marker("accept", true)
-      local size = last(m.SetSize)[1]
-      expect(last(m.glyphTex.SetSize)).toEqual({ size, size, n = 2 })
-      expect(last(m.questRing.SetSize)).toEqual({ size + S.focusRing.pad, size + S.focusRing.pad, n = 2 })
+      local size = last(m.SetSize)[1]   -- the diamond is this wide, so it stays inside the band
+      local glyph = math.floor(size / ctx.ns.badge.DIAMOND - 2 + 0.5)
+      expect(last(m.glyphTex.SetSize)).toEqual({ glyph, glyph, n = 2 })
+      local ring = math.floor((glyph + 2) * ctx.ns.badge.DIAMOND + 0.5)
+      expect(last(m.questRing.SetSize)).toEqual({ ring, ring, n = 2 })
     end)
 
     it("is drawn from textures, so it is as crisp as the game's own: no text, no font", function()
@@ -78,7 +80,7 @@ describe("Marker badges", function()
 
   it("draws the other kinds as an inked symbol in their colour, with a ring in the same colour while tracked", function()
     local m = marker("kill", true)
-    local size = last(m.SetSize)[1]
+    local size = math.floor(last(m.SetSize)[1] / ctx.ns.badge.DIAMOND - 2 + 0.5)   -- the symbol that fits the diamond
     expect(m.glyphTex:IsShown()).toBe(true)
     expect(m.tex:IsShown()).toBe(false)
     expect(m.glyphTex.SetTexture).toHaveBeenCalledWith(S.textures.glyphKill)

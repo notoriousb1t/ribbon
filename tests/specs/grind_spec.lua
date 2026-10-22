@@ -84,7 +84,7 @@ describe("Grind counter", function()
     end)
 
     it("shows the count as progress", function()
-      expect(T.line(grind, { CREATURE = { [2955] = "Plainstrider" } }, env(2))).toBe("Kill Plainstrider (2/3)")
+      expect(T.line(grind, { CREATURE = { [2955] = "Plainstrider" } }, env(2))).toBe("Defeat Plainstrider (2/3)")
     end)
   end)
 
@@ -98,19 +98,19 @@ describe("Grind counter", function()
       for _, wp in pairs(ctx.ns.waypoints) do ctx.ns:Fire("WAYPOINT_ARRIVED", wp) end
       ctx.ns.guidePlayer.refresh()
       expect(cursor()).toBe(1)
-      expect(title(ctx.ns)).toBe("Kill Plainstrider, Adult Plainstrider (0/3)")
+      expect(title(ctx.ns)).toBe("Defeat Plainstrider, Adult Plainstrider (0/3)")
     end)
 
     it("counts credited kills of its targets and advances at the count", function()
       kill(2955)
       kill(2956, PARTY)
-      expect(title(ctx.ns)).toBe("Kill Plainstrider, Adult Plainstrider (2/3)")
+      expect(title(ctx.ns)).toBe("Defeat Plainstrider, Adult Plainstrider (2/3)")
       kill(9999)                 -- not a target
       kill(2955, OUTSIDER)       -- someone else's kill
       expect(cursor()).toBe(1)
       kill(2955)
       expect(cursor()).toBe(2)
-      expect(title(ctx.ns)).toBe("Kill Plainstrider (0/2)")
+      expect(title(ctx.ns)).toBe("Defeat Plainstrider (0/2)")
     end)
 
     it("keeps the count across a reload", function()
@@ -121,22 +121,22 @@ describe("Grind counter", function()
       build(Ribbon.Guide("g", { schema = 1 }))
       local _, i = ns.guidePlayer.current()
       expect(i).toBe(1)
-      expect(title(ns)).toBe("Kill Plainstrider, Adult Plainstrider (2/3)")
+      expect(title(ns)).toBe("Defeat Plainstrider, Adult Plainstrider (2/3)")
     end)
 
     it("keeps a step's count when the player goes back to it, and reset clears it", function()
       kill(2955)
       ctx.ns.guidePlayer.skip()
       ctx.ns.guidePlayer.prev()
-      expect(title(ctx.ns)).toBe("Kill Plainstrider, Adult Plainstrider (1/3)")
+      expect(title(ctx.ns)).toBe("Defeat Plainstrider, Adult Plainstrider (1/3)")
       ctx.ns.guidePlayer.reset()
-      expect(title(ctx.ns)).toBe("Kill Plainstrider, Adult Plainstrider (0/3)")
+      expect(title(ctx.ns)).toBe("Defeat Plainstrider, Adult Plainstrider (0/3)")
     end)
 
     it("reads the event's arguments on a client without CombatLogGetCurrentEventInfo", function()
       _G.CombatLogGetCurrentEventInfo = nil
       ctx.world:fireEvent("COMBAT_LOG_EVENT_UNFILTERED", 0, "PARTY_KILL", false, "Player-1-1", "me", MINE, 0, guid(2955), "Plainstrider", 0, 0)
-      expect(title(ctx.ns)).toBe("Kill Plainstrider, Adult Plainstrider (1/3)")
+      expect(title(ctx.ns)).toBe("Defeat Plainstrider, Adult Plainstrider (1/3)")
     end)
   end)
 
@@ -153,13 +153,13 @@ describe("Grind counter", function()
     it("counts each XP line naming a target, and advances at the count", function()
       ctx.world:killXP("Plainstrider")
       ctx.world:killXP("Adult Plainstrider", 60, " (+12 group bonus)")
-      expect(title(ctx.ns)).toBe("Kill Plainstrider, Adult Plainstrider (2/3)")
+      expect(title(ctx.ns)).toBe("Defeat Plainstrider, Adult Plainstrider (2/3)")
       ctx.world:killXP("Kodo")                                          -- not a target
       ctx.world:fireEvent("CHAT_MSG_COMBAT_XP_GAIN", "You gain 120 experience.")   -- quest XP, no kill
       expect(cursor()).toBe(1)
       ctx.world:killXP("Plainstrider")
       expect(cursor()).toBe(2)
-      expect(title(ctx.ns)).toBe("Kill Plainstrider (0/2)")
+      expect(title(ctx.ns)).toBe("Defeat Plainstrider (0/2)")
       expect(#ctx.world.errors).toBe(0)
     end)
 
@@ -167,7 +167,7 @@ describe("Grind counter", function()
       _G.issecretvalue = function() return true end
       ctx.world:killXP("Plainstrider")
       ctx.ns.guidePlayer.refresh()
-      expect(title(ctx.ns)).toBe("Kill Plainstrider, Adult Plainstrider (0/3)")
+      expect(title(ctx.ns)).toBe("Defeat Plainstrider, Adult Plainstrider (0/3)")
     end)
   end)
 
@@ -200,8 +200,8 @@ describe("Grind counter", function()
       local T = H.pure({ "guide/Text.lua" }).guideText
       local call = grind({ level = 5 }).groups[1].calls[1]
       local names = { CREATURE = { [1] = "Plainstrider" } }
-      expect(T.line(call, names, { kills = function() return 12 end })).toBe("Kill Plainstrider (12/~9)")
-      expect(T.line(call, names)).toBe("Kill ~9 Plainstrider")
+      expect(T.line(call, names, { kills = function() return 12 end })).toBe("Defeat Plainstrider (12/~9)")
+      expect(T.line(call, names)).toBe("Defeat ~9 Plainstrider")
     end)
   end)
 
@@ -243,7 +243,7 @@ describe("Grind counter", function()
     it("shows the kills against the estimated count, past it while the gate is not met", function()
       for _ = 1, 10 do ctx.world:killXP("Plainstrider") end
       expect(cursor()).toBe(1)
-      expect(title(ctx.ns)).toBe("Kill Plainstrider (10/~9)")
+      expect(title(ctx.ns)).toBe("Defeat Plainstrider (10/~9)")
     end)
   end)
 

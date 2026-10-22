@@ -187,8 +187,22 @@ describe("Guide", function()
       bad(function(c) return c:Goto(1412, 101, 5) end, ":Goto")
     end)
 
-    it("rejects a coordinate with a third decimal", function()
-      bad(function(c) return c:Goto(1412, 44.123, 5) end, "two decimals")
+    it("rejects a coordinate with a fourth decimal", function()
+      bad(function(c) return c:Goto(1412, 44.1234, 5) end, "three decimals")
+    end)
+
+    it("accepts three decimals and trimmed ones (44.123, 62.5, 47)", function()
+      guide:Chapter("ok"):Step():Goto(1412, 44.123, 62.5):Goto(1412, 47, 5.007):Done()
+      expect(#guide.errors).toBe(0)
+    end)
+
+    it("keeps the optional height of a :Goto, and leaves out one that is not a number", function()
+      guide:Chapter("z"):Step():Goto(1412, 44.1, 62.5, 39.039):Goto(1412, 1, 2, "high"):Goto(1412, 3, 4):Done()
+      expect(#guide.errors).toBe(0)
+      local groups = guide.chapters[1].steps[1].groups
+      expect(groups[1].at.z).toBe(39.039)
+      expect(groups[2].at.z).toBeNil()
+      expect(groups[3].at.z).toBeNil()
     end)
 
     it("accepts two decimals despite floating point (42.2, 77.7)", function()

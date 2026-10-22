@@ -20,9 +20,14 @@ ns.guideBuilder = B
 
 local function isId(v) return type(v) == "number" and v >= 1 and v == math.floor(v) end
 
--- 0-100 with at most two decimals.
+-- 0-100 with at most three decimals (guides from before three decimals were allowed have at most two, which pass too).
 local function isCoord(v)
-  return type(v) == "number" and v >= 0 and v <= 100 and math.abs(v * 100 - math.floor(v * 100 + 0.5)) < 1e-6
+  return type(v) == "number" and v >= 0 and v <= 100 and math.abs(v * 1000 - math.floor(v * 1000 + 0.5)) < 1e-6
+end
+
+-- A world height in yards (the optional z of :Goto).
+local function isHeight(v)
+  return type(v) == "number" and v == v and v > -20000 and v < 20000
 end
 
 local function isText(v) return type(v) == "string" and v ~= "" end
@@ -113,10 +118,11 @@ function methods:Step()
   return self
 end
 
-function methods:Goto(map, x, y)
-  if need(self, "Goto", isId(map), "map must be an id") and need(self, "Goto", isCoord(x) and isCoord(y), "x and y must be 0-100 with at most two decimals") then
+function methods:Goto(map, x, y, z)
+  if need(self, "Goto", isId(map), "map must be an id") and need(self, "Goto", isCoord(x) and isCoord(y), "x and y must be 0-100 with at most three decimals") then
     local step = currentStep(self, "Goto")
-    if step then step.groups[#step.groups + 1] = { at = { map = map, x = x, y = y }, calls = {} } end
+    -- z is optional and never an error: a value that is not a height is left out, as if the guide gave none.
+    if step then step.groups[#step.groups + 1] = { at = { map = map, x = x, y = y, z = isHeight(z) and z or nil }, calls = {} } end
   end
   return self
 end
@@ -143,6 +149,17 @@ end
 function methods:Skippable()
   local step = currentStep(self, "Skippable")
   if step then step.skippable = true end
+  return self
+end
+
+-- Expected seconds of the step: `travel` since the previous step (to its :Goto) and `activity` for the step itself.
+-- A chapter with any :Time has timing data (chapter.timed); a step without one counts as 0.
+function methods:Time(travel, activity)
+  local function seconds(v) return type(v) == "number" and v >= 0 and v <= 86400 end
+  if need(self, "Time", seconds(travel) and seconds(activity), "travel and activity must be seconds, 0-86400") then
+    local step = currentStep(self, "Time")
+    if step then step.time = { travel = travel, activity = activity } end
+  end
   return self
 end
 
@@ -269,7 +286,7 @@ end
 
 function methods:Grind(map, x, y, radius, opts)
   if not (need(self, "Grind", isId(map), "map must be an id")
-    and need(self, "Grind", isCoord(x) and isCoord(y), "x and y must be 0-100 with at most two decimals")
+    and need(self, "Grind", isCoord(x) and isCoord(y), "x and y must be 0-100 with at most three decimals")
     and need(self, "Grind", isId(radius), "radius must be a positive integer")
     and need(self, "Grind", type(opts) == "table", "needs { npc =, count =, level =, xp =, gate = }")) then
     return self
@@ -304,6 +321,9 @@ function methods:Done()
     if #step.groups > 0 then steps[#steps + 1] = step end
   end
   local chapter = { name = self.name, opts = self.opts, steps = steps }
+  for _, step in ipairs(steps) do
+    if step.time then chapter.timed = true break end
+  end
   local replaced = false
   -- A chapter is identified by its name, faction and flavor: both factions' guides can each have, say, "Zephras Isle",
   -- and a Forever and a Classic chapter can share a name.

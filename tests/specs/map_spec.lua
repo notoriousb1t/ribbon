@@ -90,8 +90,9 @@ describe("Map pin size", function()
     expect(world.SetSize).toHaveBeenCalledWith(S.pins.world, S.pins.world)
     expect(mini.SetSize).toHaveBeenCalledWith(S.pins.mini, S.pins.mini)
     local ring = world.fill.SetSize.calls[#world.fill.SetSize.calls]
-    expect(ring[1]).toBe(S.pins.world + S.pins.worldRingPad)
+    local D = ctx.ns.badge.DIAMOND   -- the tracked ring is a diamond, drawn larger than a disc
+    expect(ring[1]).toBe(math.floor((S.pins.world + S.pins.worldRingPad) * D + 0.5))
     local miniRing = mini.fill.SetSize.calls[#mini.fill.SetSize.calls]
-    expect(miniRing[1]).toBe(S.pins.mini + S.pins.ringPad)
+    expect(miniRing[1]).toBe(math.floor((S.pins.mini + S.pins.ringPad) * D + 0.5))
   end)
 end)

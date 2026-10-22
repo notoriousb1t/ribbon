@@ -43,6 +43,12 @@ describe("Registry", function()
       expect(wp.icon).toBe("poi")
     end)
 
+    it("keeps an optional world height, and none when it is missing or not a number", function()
+      expect(ctx.ns:GetWaypoint(ctx.ns:AddWaypoint(1453, 50, 50, { z = 39.5 })).z).toBe(39.5)
+      expect(ctx.ns:GetWaypoint(ctx.ns:AddWaypoint(1453, 50, 50, {})).z).toBeNil()
+      expect(ctx.ns:GetWaypoint(ctx.ns:AddWaypoint(1453, 50, 50, { z = "high" })).z).toBeNil()
+    end)
+
     it("converts the zone coordinate to world yards through the client", function()
       spyOn(ctx.ns.client, "toWorld"):andReturn(10, 20, 0)
       local wp = ctx.ns:GetWaypoint(ctx.ns:AddWaypoint(1453, 50, 50))

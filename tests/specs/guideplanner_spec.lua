@@ -172,13 +172,19 @@ describe("Guide planner and text", function()
     end)
 
     it("shows quest log progress on objectives", function()
-      expect(T.line(call("Kill", { creature = 2955, count = 7, quest = 747, index = 1 }), names, env)).toBe("Kill Plainstrider (3/7)")
+      expect(T.line(call("Kill", { creature = 2955, count = 7, quest = 747, index = 1 }), names, env)).toBe("Defeat Plainstrider (3/7)")
       expect(T.line(call("Loot", { item = 4739, count = 7, quest = 747, index = 2 }), names, env)).toBe("Collect Plainstrider Meat (0/7)")
     end)
 
     it("shows 0 of the required count before the quest is accepted, like the quest tracker", function()
       local none = { quest = function() return "none" end, objective = function() end }
-      expect(T.line(call("Kill", { creature = 2955, count = 7, quest = 747, index = 1 }), names, none)).toBe("Kill Plainstrider (0/7)")
+      expect(T.line(call("Kill", { creature = 2955, count = 7, quest = 747, index = 1 }), names, none)).toBe("Defeat Plainstrider (0/7)")
+    end)
+
+    it("writes a counted objective count-first in the step list, keeping progress for the card", function()
+      expect(T.logLine(call("Loot", { item = 4739, count = 7, quest = 747, index = 2 }), names, env)).toBe("Collect 7 Plainstrider Meat")
+      expect(T.logLine(call("Kill", { creature = 2955, count = 7, quest = 747, index = 1 }), names, env)).toBe("Defeat 7 Plainstrider")
+      expect(T.logLine(call("Loot", { item = 4739, count = 1 }), names)).toBe("Collect Plainstrider Meat")
     end)
 
     it("falls back to the id when a name is missing", function()
@@ -186,7 +192,7 @@ describe("Guide planner and text", function()
     end)
 
     it("writes grind, level, flight and travel lines", function()
-      expect(T.line(call("Grind", { npc = { 2955 }, count = 9 }), names)).toBe("Kill 9 Plainstrider")
+      expect(T.line(call("Grind", { npc = { 2955 }, count = 9 }), names)).toBe("Defeat 9 Plainstrider")
       expect(T.line(call("Grind", { npc = { 2955 }, level = 8 }), names)).toBe("Grind Plainstrider to level 8")
       expect(T.line(call("Ding", { level = 10 }), names)).toBe("Reach level 10")
       expect(T.line(call("Fp", { node = "Camp Taurajo" }), names)).toBe("Get the Camp Taurajo flight path")

@@ -17,6 +17,9 @@ S.textures = {
   focusRing = DIR .. "focus-ring",   -- gold ring drawn around the focused marker
   markerFill = DIR .. "marker-fill",   -- the filled disc behind a marker's symbol (white, tinted dark by the view)
   markerRim = DIR .. "marker-rim",     -- the ring on its edge (white, tinted per kind of waypoint)
+  diamondFill = DIR .. "diamond-fill",   -- the tracked badge's diamond, like the game's waypoint: the dark face,
+  diamondRim = DIR .. "diamond-rim",     -- the thin edge (tinted per kind of waypoint)
+  diamondRing = DIR .. "diamond-ring",   -- and the gold bevelled edge of the quest kinds
   bezelCorner = DIR .. "bezel-corner",   -- the map panel's gold bezel: a corner (flipped for the others),
   bezelEdgeH = DIR .. "bezel-edge-h",    -- a horizontal edge and a vertical edge, which tile,
   bezelEdgeV = DIR .. "bezel-edge-v",
@@ -42,7 +45,7 @@ S.textures = {
 S.textureFiles = {
   "compass-dial", "compass-needle", "edge-arrow", "focus-ring", "marker-fill", "marker-rim",
   "bezel-corner", "bezel-edge-h", "bezel-edge-v", "bezel-button", "panel-toggle", "panel-caret", "panel-needle",
-  "quest-ring", "quest-exclaim", "quest-question",
+  "quest-ring", "quest-exclaim", "quest-question", "diamond-fill", "diamond-rim", "diamond-ring",
   "glyph-kill", "glyph-grind", "glyph-loot", "glyph-interact", "glyph-poi", "glyph-fp", "glyph-hearth", "glyph-train", "glyph-ding",
 }
 
@@ -89,7 +92,7 @@ S.band = { highlight = 2, shadow = 2 }
 -- A marker for a waypoint outside the view is held near the end of the bar, `edgeAlpha` opaque, with an
 -- arrow `arrow` pixels wide pointing the way; `pad` pixels keep marker and arrow off the ribbon's tail.
 S.marker = {
-  min = 16, max = 30, nearYd = 15, farYd = 1200, default = 20, focusBoost = 4,
+  min = 10, max = 24, nearYd = 15, farYd = 1200, default = 20, focusBoost = 4,
   pad = 3, arrow = 14, edgeAlpha = 0.7,
   -- Inside `settleYd` yards the bearing is eased toward the centre (scaled by distance / settleYd). The bearing of
   -- a point a few yards away swings wildly with every step, which made the marker shake on arrival.
@@ -111,21 +114,21 @@ S.focusRing = { pad = 8, color = { 0.25, 0.65, 1.0 } }   -- bright blue, so the 
 -- Map and minimap pins: about the size of the player's arrow on each, with a thinner ring than the compass's while tracked
 -- (`ringPad`, `worldRingPad` on the world map), so a step's pin never covers the player. The world map draws its pins
 -- about twice as large on screen as the minimap does, hence the smaller numbers there.
-S.pins = { world = 10, mini = 10, ringPad = 4, worldRingPad = 2 }
+S.pins = { world = 10, mini = 10, ringPad = 4, worldRingPad = 6 }
 
 -- Previewing a guide step puts a badge of this size on the world map (the size of a tracked pin) and zooms the map to
 -- `zoom` of the way from its smallest to its largest scale, with the step's point in the middle.
 S.preview = { size = 10, zoom = 0.5 }
 
--- Pins of the `count` steps after the current one (or after a step the mouse is over in the panel), drawn on the map
--- smaller and fainter than the current step's pin.
+-- Pins of the `count` steps after the current one, drawn on the map smaller and fainter than the current step's pin; a
+-- step the mouse is over (or that was clicked) in the panel gets pins for every step from the current one to it instead.
 S.context = {
-  next = { scale = 0.93, alpha = 0.75 },
-  count = 2,
+  next = { scale = 1.7, alpha = 0.75 },   -- a symbol about the size of the tracked diamond's, a little smaller than its ring
+  count = 1,
   -- The dashed line from the current (or hovered) step through the next ones: solid, a pale blue core with a dark navy halo so it reads
   -- on any map colour (parchment, water, green). The stroke thins from `thickness` at the start to `thin` at the end, which
-  -- has a dot of `dot` pixels; the halo is `halo` pixels wider than the core.
-  line = { color = { 0.80, 0.93, 1.0 }, halo = { 0.04, 0.11, 0.20 }, alpha = 1, thickness = 3.5, thin = 1.5, haloWidth = 2.5, dot = 9, dash = 9, gap = 7 },
+  -- has a dot of `dot` pixels and, on each segment, a chevron `arrow` pixels long pointing the way the route runs; the halo is `halo` pixels wider than the core.
+  line = { color = { 0.80, 0.93, 1.0 }, halo = { 0.04, 0.11, 0.20 }, alpha = 1, thickness = 3.5, thin = 1.5, haloWidth = 2.5, dot = 9, dash = 9, gap = 7, arrow = 9 },
   hoverFade = 0.75,   -- the pins around a step the mouse is over are this much more transparent
 }
 
@@ -174,7 +177,7 @@ S.oldOpacityDefault = 0.75
 
 -- The caption above the bar: a headline (name and distance) and a short description, on a dark plate
 -- so they stay readable over any scenery. Sizes are font pixels; pad is plate padding.
-S.caption = { edge = { 0.914, 0.725, 0.286, 0.45 }, headSize = 13, detailSize = 11, padX = 16, padY = 7, gap = 6, lineGap = 3, minWidth = 140, maxWidth = 260, iconSize = 24, iconGap = 8 }
+S.caption = { edge = { 0.914, 0.725, 0.286, 0.45 }, headSize = 13, detailSize = 11, padX = 16, padY = 7, gap = 6, lineGap = 3, minWidth = 140, maxWidth = 260, iconSize = 24, iconGap = 14 }
 
 -- r, g, b, a
 S.colors = {

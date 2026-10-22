@@ -23,6 +23,7 @@ local SEARCH_H = 26                          -- the search box and the gap under
 local COUNTER_W = 84                          -- the box with "Steps: 3/80" beside the search box
 local SECTION_H = 24                         -- a chapter's section header in the search results, like the quest log's zone header
 local TOP = BEZEL.band + BEZEL.title + 6 + SEARCH_H + 4   -- room for the bezel, the title bar and the search row
+local TIME_H = 14                           -- the time line above the progress bar
 local BOTTOM = BEZEL.band + 8               -- room for the bezel
 
 local COLORS = {
@@ -103,7 +104,7 @@ function Br.rows(player, chapter, query)
       for i, s in ipairs(ch.steps) do
         if not filtering or search.matches(query, stepText(s.step, S.guide.names)) then
           local map, x, y = planner.stepLocation(s.step)
-          local lines = text.stepLines(s.step, S.guide.names, env)
+          local lines = text.stepLines(s.step, S.guide.names, env, true)
           local title = text.questHeading(s.step, S.guide.names) or table.remove(lines, 1) or "Step"
           mine[#mine + 1] = {
             chapter = s.chapter, step = s.index, state = outline.steps[base + i],
@@ -483,7 +484,13 @@ local function fill(f, player)
       h = SECTION_H
     else
       b.row = row
-      ns.badge.draw(b.icon, row.icon, ICON, row.state == "current")
+      -- The current step's diamond must fit the row and the list's left edge (which clip it): a slightly smaller symbol
+      -- in a ring of about the row's height.
+      if row.state == "current" then
+        ns.badge.draw(b.icon, row.icon, ICON - 6, true, 2)
+      else
+        ns.badge.draw(b.icon, row.icon, ICON, false)
+      end
       Br.paintRow(b)
       local lines = row.objectives
       b.sel:SetShown(preview ~= nil and preview.chapter == row.chapter and preview.step == row.step)
@@ -527,6 +534,11 @@ local function fill(f, player)
   f.title:SetText(title)
   local label, n, total = Br.counter(player, selected, f.page)
   f.counter.text:SetText(string.format("|cffe9b949%s:|r |cffffffff%d/%d|r", label, n, total))
+  local timeLine = Br.timeLine(player, selected, f.page)
+  if f.time then
+    f.time:SetText(timeLine or "")
+    f.time:SetShown(timeLine ~= nil)
+  end
 end
 
 -- Refreshes the panel if it has been built.
@@ -582,6 +594,20 @@ function Br.counter(player, chapter, page)
     end
   end
   return "Steps", 0, 0
+end
+
+-- The time line at the foot of the panel: "Chapter 42m - 18m left" on a chapter's steps, "Guide 31h 10m - 28h 02m left"
+-- on the chapter list. nil when the shown chapter (or the guide) carries no timing.
+function Br.timeLine(player, chapter, page)
+  local S = player.state()
+  if not S then return nil end
+  local times = planner.times(S.view, S.flat, S.cursor)
+  local label, t = "Guide", times
+  if page ~= "chapters" then
+    label, t = "Chapter", times.chapters[chapter]
+  end
+  if not (t and t.timed) then return nil end
+  return string.format("|cffe9b949%s|r |cffffffff%s|r  |cffb8c7cc-|r  |cffffffff%s|r |cffb8c7ccleft|r", label, text.duration(t.total), text.duration(t.left))
 end
 
 -- How far through the guide the player is, for the map button: the whole guide's fraction, and the current chapter's
@@ -864,7 +890,7 @@ local function build()
   if native then
     -- (A real frame has these as frames; anything else is not one.)
     content = type(f.Inset) == "table" and f.Inset.SetPoint and f.Inset or f
-    anchor = { frame = content, x = 8, top = 8 + SEARCH_H + 4, bottom = 8 + style.toggle.loader.height + 4 }
+    anchor = { frame = content, x = 8, top = 8 + SEARCH_H + 4, bottom = 8 + style.toggle.loader.height + 4 + TIME_H }
     -- The title goes through the template's own title text.
     f.title = {
       SetText = function(_, t)
@@ -1015,7 +1041,12 @@ local function build()
   f.fill:SetPoint("BOTTOMLEFT", barParent, "BOTTOMLEFT", barX, barY)
   f.fill:SetHeight(loader.height)
   f.barInset, f.barParent = barX, barParent
-  if not native then anchor = { frame = f, x = B + 6, top = TOP, bottom = BOTTOM + loader.height + 2 } end
+  -- Expected time of the chapter (or the guide) and what is left of it, in a line above the bar.
+  f.time = barParent:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+  f.time:SetPoint("BOTTOM", barParent, "BOTTOM", 0, barY + loader.height + 3)
+  f.time:SetText("")
+  f.time:Hide()
+  if not native then anchor = { frame = f, x = B + 6, top = TOP, bottom = BOTTOM + loader.height + 2 + TIME_H } end
   left, f.leftScroll = scroller(f, "RibbonGuideDockChapters", B + 6, COLUMN_W, anchor)
   right, f.rightScroll = scroller(f, "RibbonGuideDockSteps", B + 6, COLUMN_W, anchor)
   f.rightContent = right
@@ -1254,7 +1285,12 @@ function Br.preview(chapter, step)
   for _, row in ipairs(right) do
     if row.chapter == chapter and row.step == step then
       if ns.map then
-        if row.map then ns.map.preview(row.map, row.x, row.y, row.icon, { chapter = chapter, step = step }) else ns.map.clearPreview() end
+        if row.map then
+          ns.map.preview(row.map, row.x, row.y, row.icon, { chapter = chapter, step = step })
+          if ns.map.selectStep then ns.map.selectStep(chapter, step) end
+        else
+          ns.map.clearPreview()
+        end
       end
       return
     end

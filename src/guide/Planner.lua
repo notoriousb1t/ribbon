@@ -50,7 +50,7 @@ function P.filterStep(step, who)
     if P.matches(g.only, who) then groups[#groups + 1] = g end
   end
   if #step.groups > 0 and #groups == 0 then return nil end
-  return { groups = groups, skippable = step.skippable }
+  return { groups = groups, skippable = step.skippable, time = step.time }
 end
 
 -- The chapters this character can see, each with its visible steps:
@@ -135,6 +135,35 @@ function P.progress(view, flat, cursor)
     local d = math.max(0, math.min(n, done - base))
     out.chapters[ch.index] = { done = d, total = n, fraction = n > 0 and d / n or 0 }
     base = base + n
+  end
+  return out
+end
+
+-- Expected seconds of a step (`:Time`: travel plus activity); 0 for a step with no timing.
+function P.stepSeconds(step)
+  local t = step.time
+  return t and (t.travel + t.activity) or 0
+end
+
+-- Expected time of the route from the steps the character sees:
+--   { total =, left =, timed =, chapters = { [chapter index] = { total =, left =, timed = } } }
+-- `left` counts the current step (flat index `cursor`) and everything after it; nil `cursor` means finished. `timed` is
+-- true when any step carries timing, so the panel can hide a time it has no data for.
+function P.times(view, flat, cursor)
+  local out = { total = 0, left = 0, timed = false, chapters = {} }
+  local base = 0
+  for _, ch in ipairs(view) do
+    local c = { total = 0, left = 0, timed = false }
+    for i, s in ipairs(ch.steps) do
+      local secs = P.stepSeconds(s.step)
+      if s.step.time then c.timed = true end
+      c.total = c.total + secs
+      if cursor ~= nil and base + i >= cursor then c.left = c.left + secs end
+    end
+    out.chapters[ch.index] = c
+    out.total, out.left = out.total + c.total, out.left + c.left
+    out.timed = out.timed or c.timed
+    base = base + #ch.steps
   end
   return out
 end

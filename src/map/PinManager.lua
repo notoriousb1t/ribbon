@@ -12,7 +12,7 @@ PM.__index = PM
 function PM.new(opts)
   return setmetatable({
     pins = opts.pins, ref = opts.ref, factory = opts.factory,
-    icons = opts.icons, defaultIcon = opts.defaultIcon, worldFlag = opts.worldFlag,
+    icons = opts.icons, defaultIcon = opts.defaultIcon, worldFlag = opts.worldFlag, levelFor = opts.levelFor,
     pool = { world = {}, mini = {} },
     active = {},
   }, PM)
@@ -53,7 +53,14 @@ function PM:refresh(wp)
   if wp.worldmap then
     local pin = self:acquire("world")
     pin:Configure(wp.uid, texture, wp.icon)
-    self.pins:AddWorldMapIconMap(self.ref, pin, wp.mapID, x, y, self.worldFlag)
+    -- The tracked waypoint's pin takes a higher frame level type when the client has one, so it draws over the game's own
+    -- waypoint marker at the same spot.
+    local level = self.levelFor and self.levelFor(wp)
+    if level then
+      self.pins:AddWorldMapIconMap(self.ref, pin, wp.mapID, x, y, self.worldFlag, level)
+    else
+      self.pins:AddWorldMapIconMap(self.ref, pin, wp.mapID, x, y, self.worldFlag)
+    end
     entry.world = pin
   end
   if wp.minimap then

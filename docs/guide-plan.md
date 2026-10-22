@@ -61,6 +61,7 @@ R:Chapter("1-11 Mulgore (Tauren)", { levels = { 1, 11 }, race = "TAUREN", factio
 ```
 
 - **Located groups:** a `:Goto` (or `:Loop`) starts a group; the calls after it, until the next `:Goto`, happen there. A step holds several groups, so "accept at two NPCs" or "kill here, loot there" is one step.
+- **`:Goto(map, x, y[, z])`**: x and y are 0-100 with at most three decimals (trailing zeros dropped). The optional `z` is the world height in yards of the spot; when present, the in-world marker lifts by the difference from the player's own height, and without it the marker stays at the ground the client picks. A `z` that is not a number is ignored; older Ribbons ignore the fourth argument.
 - **`flavor`** (chapter option or `:Only{ flavor = }`): `"FOREVER"`, `"CLASSIC"` (Classic Era) or `"RETAIL"`, from `WOW_PROJECT_ID`; chapters of different flavors may share a name. Without it a chapter shows on every client.
 - **`:Only{ class=, race=, faction= }`** directly after `:Step()` locks the whole step. Inside a step it closes the located group before it.
 - **`:Spawns(map, SPAWNS.X)`** attaches the map points to the objective call before it. The points live once in the file's `SPAWNS` table, so objectives with one source share them. At most 60 points per objective, evenly thinned.
@@ -69,7 +70,7 @@ R:Chapter("1-11 Mulgore (Tauren)", { levels = { 1, 11 }, race = "TAUREN", factio
 
 | RXP | Builder | Notes |
 | --- | --- | --- |
-| `.goto Zone,x,y` | `:Goto(mapID, x, y)` | `:Loop(mapID, { {x, y}, ... })` for a search loop |
+| `.goto Zone,x,y` | `:Goto(mapID, x, y[, z])` | `:Loop(mapID, { {x, y}, ... })` for a search loop |
 | `.accept` / `.turnin` | `:Accept(q)` / `:Turnin(q)` + `:At(npc)` | quest and NPC ids |
 | `.collect` + `.use` (item starts a quest) | `:Collect(item, 1, { quest = q })`, `:Use(item)` | |
 | `.complete id,n` (kill) | `:Kill(creature, n, { quest, index })` | |
@@ -81,6 +82,7 @@ R:Chapter("1-11 Mulgore (Tauren)", { levels = { 1, 11 }, race = "TAUREN", factio
 | `.trainer` | `:Train(npc[, { "ability", ... }])` | |
 | `.deathskip` | `:Deathwarp()` | |
 | skipped quest | `:Skip(q)`; `:Skippable()` marks an optional step | |
+| none | `:Time(travel, activity)` | expected seconds of the step: travel since the previous step, then its own activity. A chapter with any `:Time` has timing data (`chapter.timed`); the panel shows the chapter's time and what is left. Optional: older Ribbon ignores it |
 | `.zone` / `.subzone` | `:Travel()`, `:Enter(map)`, `:Subzone("name")` | routed by Ribbon's travel mesh |
 | `<< Class Race` | `:Only{ ... }` | |
 | none | `:Grind(map, x, y, radius, { npc = {...}, count / level / xp })` | counted by Ribbon |

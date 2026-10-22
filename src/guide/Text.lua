@@ -41,7 +41,7 @@ function T.line(call, names, env, group)
   elseif k == "Turnin" then
     return "Turn in " .. name(names, "QUEST", call.quest, "quest")
   elseif k == "Kill" then
-    return "Kill " .. name(names, "CREATURE", call.creature, "creature") .. progress(call, env)
+    return "Defeat " .. name(names, "CREATURE", call.creature, "creature") .. progress(call, env)
   elseif k == "Loot" then
     return "Collect " .. name(names, "ITEM", call.item, "item") .. progress(call, env)
   elseif k == "Collect" then
@@ -61,13 +61,13 @@ function T.line(call, names, env, group)
     end
     -- A gated grind ends at its XP gate: its count is the route's estimate, marked "~", and the kills may pass it.
     if call.gate and call.count and env and env.kills then
-      return string.format("Kill %s (%d/~%d)", what, env.kills(call), call.count)
+      return string.format("Defeat %s (%d/~%d)", what, env.kills(call), call.count)
     end
     if call.count and env and env.kills then
-      return string.format("Kill %s (%d/%d)", what, math.min(env.kills(call), call.count), call.count)
+      return string.format("Defeat %s (%d/%d)", what, math.min(env.kills(call), call.count), call.count)
     end
-    if call.gate then return string.format("Kill ~%d %s", call.count or 0, what) end
-    return string.format("Kill %d %s", call.count or 0, what)
+    if call.gate then return string.format("Defeat ~%d %s", call.count or 0, what) end
+    return string.format("Defeat %d %s", call.count or 0, what)
   elseif k == "Ding" then
     return "Reach level " .. call.level
   elseif k == "Fp" then
@@ -98,14 +98,31 @@ function T.line(call, names, env, group)
   return k
 end
 
+-- One call as a line of the step list (the log): an objective with a count reads "Collect 6 Shimmerweed", the count first
+-- and no progress; the objective card (T.line) keeps "Collect Shimmerweed (0/6)". Every other call reads as T.line.
+local LOG_VERB = { Kill = "Defeat", Loot = "Collect", Interact = "Use" }
+local LOG_KIND = { Kill = {"CREATURE", "creature", "creature"}, Loot = {"ITEM", "item", "item"}, Interact = {"OBJECT", "object", "object"} }
+
+function T.logLine(call, names, env, group)
+  local verb, kind = LOG_VERB[call.kind], LOG_KIND[call.kind]
+  if verb then
+    local what = name(names, kind[1], call[kind[2]], kind[3])
+    if call.count and call.count > 1 then return string.format("%s %d %s", verb, call.count, what) end
+    return verb .. " " .. what
+  end
+  return T.line(call, names, env, group)
+end
+
 -- Lines for a group's calls, leaving out those already done. `state(call)` is "done"/"open"/"manual" (optional).
-function T.lines(group, names, env, state)
+-- `log` writes them as the step list does (T.logLine).
+function T.lines(group, names, env, state, log)
+  local format = log and T.logLine or T.line
   local out = {}
   for _, call in ipairs(group.calls) do
     local finished = state and state(call) == "done"
     -- "Travel" is only a marker; when the group has other calls (Enter, Subzone) they carry the text.
     local marker = call.kind == "Travel" and #group.calls > 1
-    if not finished and not marker then out[#out + 1] = T.line(call, names, env, group) end
+    if not finished and not marker then out[#out + 1] = format(call, names, env, group) end
   end
   -- The NPCs the open calls are done with, each once, after the calls' own lines ("Accept A", "Accept B", "Constable Aonda").
   local seen = {}
@@ -128,11 +145,11 @@ function T.chapterParts(name)
   return name, nil
 end
 
--- Every line a step says, in order, for the step list (the first is the step's title, the rest are its objectives).
-function T.stepLines(step, names, env)
+-- Every line a step says, in order, for the step list (`log` as in T.lines; the first is the step's title, the rest are its objectives).
+function T.stepLines(step, names, env, log)
   local out = {}
   for _, g in ipairs(step.groups or {}) do
-    for _, line in ipairs(T.lines(g, names, env, nil)) do out[#out + 1] = line end
+    for _, line in ipairs(T.lines(g, names, env, nil, log)) do out[#out + 1] = line end
   end
   return out
 end
@@ -141,6 +158,14 @@ end
 -- collect that): the step list titles such a step with the quest and lists the objectives under it, so the first
 -- objective does not read as if it were the whole step. Nil for any other step.
 local OBJECTIVE = { Kill = true, Loot = true, Collect = true, Interact = true, Use = true, Explore = true }
+
+-- Seconds as "<1m", "42m" or "1h 05m" (rounded to the minute).
+function T.duration(seconds)
+  local minutes = math.floor((tonumber(seconds) or 0) / 60 + 0.5)
+  if minutes < 1 then return "<1m" end
+  if minutes < 60 then return string.format("%dm", minutes) end
+  return string.format("%dh %02dm", math.floor(minutes / 60), minutes % 60)
+end
 
 function T.questHeading(step, names)
   local quest, count = nil, 0

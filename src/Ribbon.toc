@@ -29,6 +29,7 @@ compass\Badge.lua
 compass\Compass.lua
 map\PinManager.lua
 map\Map.lua
+map\Spawns.lua
 guide\Builder.lua
 guide\Planner.lua
 guide\Text.lua

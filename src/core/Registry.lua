@@ -56,6 +56,7 @@ function ns:AddWaypoint(mapID, x, y, options)
     lines = type(options.lines) == "table" and options.lines or nil,
     minimap = opt(options.minimap), worldmap = opt(options.worldmap), compass = opt(options.compass),
     radius = tonumber(options.arrival_distance) or 5,
+    z = type(options.z) == "number" and options.z == options.z and options.z or nil,   -- world height in yards, when known
     on_arrive = type(options.on_arrive) == "function" and options.on_arrive or nil,
     visible = true, arrived = false,
   }

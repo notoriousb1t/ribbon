@@ -32,6 +32,12 @@ function client.playerWorld()
   if ok and a and b and not (a == 0 and b == 0) then return a, b, inst end
 end
 
+-- Player world height in yards (the same z the guide gives its steps), or nil.
+function client.playerZ()
+  local ok, a, b, z = pcall(UnitPosition, "player")
+  if ok and a and b and not (a == 0 and b == 0) and type(z) == "number" then return z end
+end
+
 -- Zone coordinate (0-100) to world yards: first, second, instanceID.
 function client.toWorld(mapID, x, y)
   local ok, inst, vec = pcall(C_Map.GetWorldPosFromMapPos, mapID, CreateVector2D(x / 100, y / 100))

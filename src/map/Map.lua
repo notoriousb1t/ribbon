@@ -259,6 +259,7 @@ function M.clearPreview()
     M.lib:RemoveWorldMapIcon(previewOwner, previewPin)
     previewPin:Hide()
   end
+  if M.selectStep then M.selectStep() end
 end
 
 -- Pans the map so a point (0-100) is in the middle, at the style's zoom between the smallest and the largest scale.
@@ -363,13 +364,14 @@ end
 -- and the dark halos under them) and end dot.
 local sets = { current = { lines = {}, halos = {} }, hover = { lines = {}, halos = {} } }
 local routes = { current = {}, hover = {} }
-local hovering = false
+local hovering = false   -- a step is shown from the panel (hovered or clicked): the hover line replaces the current one
+local hoverAt, selectedAt   -- flat index of the step the mouse is over in the panel, and of the one clicked there
 
 -- The parts of a line: its dashes, their halos, its dot and the dot's halo. Without `which`, the hovered step's line
 -- while one is hovered, else the current step's.
 function M.dashParts(which)
   local set = sets[which or (hovering and "hover" or "current")]
-  return set.lines, set.halos, set.dot, set.dotHalo
+  return set.lines, set.halos, set.dot, set.dotHalo, set.chev
 end
 
 -- Draws a dashed line through points ({ x, y } in 0-100 on the map being shown, or false for a point not on it) on the map
@@ -380,12 +382,32 @@ local function dashedLine(set, points)
   for _, l in ipairs(halos) do l:Hide() end
   if set.dot then set.dot:Hide() end
   if set.dotHalo then set.dotHalo:Hide() end
+  set.chev = set.chev or {}
+  for _, l in ipairs(set.chev) do l:Hide() end
   local sc = WorldMapFrame and WorldMapFrame.ScrollContainer
   local canvas = type(sc) == "table" and sc.Child or WorldMapFrame
   if not (canvas and canvas.CreateLine) then return end
   local w, h = canvas:GetWidth(), canvas:GetHeight()
   if not (type(w) == "number" and w > 0 and type(h) == "number" and h > 0) then return end
   local look = ns.compassStyle.context.line
+  -- The line is drawn on a frame of its own just under the map's pins, not on the canvas itself: the fog of war is a pin
+  -- (a frame), so it draws over anything the canvas draws directly and dims and clips the line where unexplored.
+  local layer = M.lineLayer
+  if not layer and type(CreateFrame) == "function" then
+    layer = CreateFrame("Frame", nil, canvas)
+    layer:SetAllPoints(canvas)
+    M.lineLayer = layer
+  end
+  if layer and layer.CreateLine then
+    local level = 2010   -- above the fog of war's 2002 and under the area POI pins' 2023 on this client
+    local manager = WorldMapFrame.pinFrameLevelsManager
+    if type(manager) == "table" and type(manager.GetValidFrameLevel) == "function" then
+      local ok, poi = pcall(manager.GetValidFrameLevel, manager, "PIN_FRAME_LEVEL_AREA_POI")
+      if ok and type(poi) == "number" then level = poi - 1 end
+    end
+    layer:SetFrameLevel(level)
+    canvas = layer
+  end
   local function segment(i)
     local a, b = points[i], points[i + 1]
     if not (a and b) then return nil end
@@ -398,7 +420,7 @@ local function dashedLine(set, points)
   end
   if total <= 0 then return end
   local used, done = 0, 0
-  local function dash(x1, y1, x2, y2)
+  local function dash(x1, y1, x2, y2, offset)
     used = used + 1
     local l, halo = lines[used], halos[used]
     if not l then
@@ -406,8 +428,8 @@ local function dashedLine(set, points)
       l = canvas:CreateLine(nil, "OVERLAY")
       lines[used], halos[used] = l, halo
     end
-    -- thinner along the way: the thickness at the dash's middle
-    local mid = done + (math.sqrt((x2 - x1) ^ 2 + (y2 - y1) ^ 2)) / 2
+    -- thinner along the way: the thickness at the dash's middle, along the whole line
+    local mid = done + offset + (math.sqrt((x2 - x1) ^ 2 + (y2 - y1) ^ 2)) / 2
     local thick = look.thickness + (look.thin - look.thickness) * math.min(1, mid / total)
     for _, part in ipairs({ { halo, thick + look.haloWidth, look.halo }, { l, thick, look.color } }) do
       local line, width, c = part[1], part[2], part[3]
@@ -417,6 +439,34 @@ local function dashedLine(set, points)
       line:SetEndPoint("TOPLEFT", canvas, x2, -y2)
       line:Show()
     end
+  end
+  -- A chevron at the middle of each segment points the way the route runs: two arms back from the tip, each over its own
+  -- dark halo. They share a pool of lines.
+  local arrows = 0
+  local function arm(x1, y1, x2, y2, width, c)
+    arrows = arrows + 1
+    local l = set.chev[arrows]
+    if not l then
+      l = canvas:CreateLine(nil, "OVERLAY", nil, 2)
+      set.chev[arrows] = l
+    end
+    l:SetThickness(width)
+    l:SetColorTexture(c[1], c[2], c[3], look.alpha)
+    l:SetStartPoint("TOPLEFT", canvas, x1, -y1)
+    l:SetEndPoint("TOPLEFT", canvas, x2, -y2)
+    l:Show()
+  end
+  local function chevron(mx, my, ux, uy)
+    local size = look.arrow
+    local tx, ty = mx + ux * size / 2, my + uy * size / 2
+    local core = look.thin + 1
+    local ends = {}
+    for _, side in ipairs({ 1, -1 }) do
+      local c, sn = math.cos(math.rad(35)), side * math.sin(math.rad(35))
+      ends[#ends + 1] = { tx - (ux * c - uy * sn) * size, ty - (uy * c + ux * sn) * size }
+    end
+    for _, e in ipairs(ends) do arm(tx, ty, e[1], e[2], core + look.haloWidth, look.halo) end
+    for _, e in ipairs(ends) do arm(tx, ty, e[1], e[2], core, look.color) end
   end
   local last
   for i = 1, #points - 1 do
@@ -428,9 +478,10 @@ local function dashedLine(set, points)
         local t = 0
         while t < len do
           local e = math.min(t + look.dash, len)
-          dash(x1 + ux * t, y1 + uy * t, x1 + ux * e, y1 + uy * e)
+          dash(x1 + ux * t, y1 + uy * t, x1 + ux * e, y1 + uy * e, t)
           t = t + look.dash + look.gap
         end
+        if len >= look.arrow * 4 then chevron((x1 + x2) / 2, (y1 + y2) / 2, ux, uy) end
       end
       done = done + len
       last = points[i + 1]
@@ -460,7 +511,7 @@ function M.redrawLine()
   local shown = WorldMapFrame and WorldMapFrame.GetMapID and WorldMapFrame:GetMapID()
   for name, set in pairs(sets) do
     local points = {}
-    for i, p in ipairs(name == "hover" and not hovering and {} or routes[name]) do
+    for i, p in ipairs(routes[name]) do
       local x, y
       if type(shown) ~= "number" or p.map == shown then
         x, y = p.x, p.y
@@ -473,44 +524,88 @@ function M.redrawLine()
   end
 end
 
--- Pins for a route's points from `first` on, in slots `prefix .. n` (n counting from `first - 1`), smaller and fainter
--- than a step's own pin; the slots past the route are cleared.
-local function routePins(prefix, points, first, fade)
-  for n = 0, ns.compassStyle.context.count do
-    clearSlot(prefix .. n)
-    local p = n + 1 >= first and points[n + 1]
-    if p then contextPin(prefix .. n, { mode = "next", map = p.map, x = p.x, y = p.y, icon = ns.guideText.stepIcon(p.entry.step), fade = fade }) end
+-- The steps from `from` to `to` (flat indices, either way round) that have a place on the map, in the order walked from
+-- `from`: forward when `to` is ahead, backward when it is behind. Within a chapter only: a step of another chapter than
+-- `from` is drawn alone.
+local function rangeOf(S, from, to)
+  local out = {}
+  local a, b = S.flat[from], S.flat[to]
+  if not b then return out end
+  local step = to >= from and 1 or -1
+  if not a or a.chapter ~= b.chapter then from, step = to, 1 end
+  for i = from, to, step do
+    local entry = S.flat[i]
+    local map, x, y = ns.guidePlanner.stepLocation(entry.step)
+    if type(map) == "number" and type(x) == "number" then out[#out + 1] = { map = map, x = x, y = y, entry = entry, index = i } end
   end
+  return out
 end
 
--- The next two steps after the player's current one and the line from the current step through them, shown always
--- (also while a step in the panel is hovered). A current step with no place on the map (a level-up) has no pin of its own,
--- so the route starts at the next step that has one, and that step gets a pin too.
+-- Pins for a route's points, in slots `prefix .. n` (from 0), smaller and fainter than a step's own pin; `skip(point)`
+-- leaves a point out, `alpha(point)` overrides the fade. The slots past the route are cleared.
+local used = {}
+local function routePins(prefix, points, fade, skip, alpha)
+  local n = 0
+  for _, p in ipairs(points) do
+    if not (skip and skip(p)) then
+      contextPin(prefix .. n, { mode = "next", map = p.map, x = p.x, y = p.y, icon = ns.guideText.stepIcon(p.entry.step), fade = fade, alpha = alpha and alpha(p) })
+      n = n + 1
+    end
+  end
+  for k = n, (used[prefix] or 0) - 1 do clearSlot(prefix .. k) end
+  used[prefix] = n
+end
+
+-- What the map shows of the route, from the player's step:
+--   nothing shown from the panel: the next step's pin and the line from the current step to it (the current step's own
+--   pin is the tracked one);
+--   a step hovered or clicked in the panel: every step from the current one to it, within a chapter, as pins joined by
+--   one line, forward or backward, ending in a dot on that step (the hovered one fully opaque, the rest fainter). A
+--   clicked step also keeps its own larger pin (the preview) and the map stays on it; hovering another step then shows
+--   that one's range as well.
 function M.refreshContext()
   local player = ns.guidePlayer
   local S = player and player.state()
-  routes.current = (S and not S.finished) and routeOf(S, S.cursor, ns.compassStyle.context.count) or {}
-  local start = routes.current[1]
-  routePins("next", routes.current, (start and start.index == S.cursor) and 2 or 1)
+  local live = S and not S.finished
+  local target = hoverAt or selectedAt
+  hovering = (live and target) and true or false
+  if hovering then
+    routes.current = {}
+    routes.hover = rangeOf(S, S.cursor, target)
+    routePins("next", {})
+    routePins("hover", routes.hover, ns.compassStyle.context.hoverFade,
+      function(p) return p.index == S.cursor or p.index == selectedAt end,
+      function(p) return p.index == hoverAt and 1 or nil end)
+  else
+    routes.hover = {}
+    routes.current = live and routeOf(S, S.cursor, ns.compassStyle.context.count) or {}
+    routePins("hover", {})
+    routePins("next", routes.current, nil, function(p) return p.index == S.cursor end)
+  end
+  -- The objective dots of the step shown (the hovered or clicked one, else the current one).
+  if ns.spawnPins then
+    ns.spawnPins.target = hovering and S.flat[target] or nil
+    ns.spawnPins.show(ns.spawnPins.target or (live and S.flat[S.cursor]) or nil)
+  end
   M.redrawLine()
 end
 
--- A step the mouse is over in the panel: its pin fully opaque (or, for a step with no place on the map, the next one
--- that has one), the next two after it smaller and fainter, and the line through the three. Called with nothing to take
--- them away.
+-- A step the mouse is over in the panel; called with nothing to take it away.
 function M.hoverStep(chapter, step)
   local player = ns.guidePlayer
   local S = player and player.state()
-  local at = S and chapter and step and ns.guidePlanner.locate(S.flat, { chapter = chapter, step = step })
-  hovering = at and true or false
-  routes.hover = at and routeOf(S, at, ns.compassStyle.context.count) or {}
-  clearSlot("hover0")
-  routePins("hover", routes.hover, 2, ns.compassStyle.context.hoverFade)
-  local first = routes.hover[1]
-  if first then
-    contextPin("hover0", { mode = "next", map = first.map, x = first.x, y = first.y, icon = ns.guideText.stepIcon(first.entry.step), alpha = 1 })
-  end
-  M.redrawLine()
+  hoverAt = S and chapter and step and ns.guidePlanner.locate(S.flat, { chapter = chapter, step = step }) or nil
+  M.refreshContext()
+end
+
+-- A step clicked in the panel (its pin is the preview); called with nothing to let it go.
+function M.selectStep(chapter, step)
+  local player = ns.guidePlayer
+  local S = player and player.state()
+  local at = S and chapter and step and ns.guidePlanner.locate(S.flat, { chapter = chapter, step = step }) or nil
+  if at == selectedAt then return end
+  selectedAt = at
+  M.refreshContext()
 end
 
 -- The map lays itself out after it opens or changes zone: draw the line again then.
@@ -530,7 +625,10 @@ end
 
 ns:On("INIT", hookMap)
 
-ns:On("GUIDE_STEP_CHANGED", function() M.refreshContext() end)
+ns:On("GUIDE_STEP_CHANGED", function()
+  hoverAt, selectedAt = nil, nil
+  M.refreshContext()
+end)
 ns:On("GUIDE_DOCK_CHANGED", function() M.refreshContext() end)
 
 ns:On("INIT", function()
@@ -541,11 +639,34 @@ ns:On("INIT", function()
     return
   end
 
+  -- The frame level type for the tracked pin: the map's topmost one, if this client's map has it (an unknown type is an
+  -- error inside the map, so it is asked of the map's own frame-level manager first).
+  local function topLevel(wp)
+    if wp.uid ~= ns.focus then return nil end
+    local map = _G.WorldMapFrame
+    local manager = map and map.pinFrameLevelsManager
+    if type(manager) ~= "table" or type(manager.GetValidFrameLevel) ~= "function" then return nil end
+    local ok = pcall(manager.GetValidFrameLevel, manager, "PIN_FRAME_LEVEL_TOPMOST")
+    return ok and "PIN_FRAME_LEVEL_TOPMOST" or nil
+  end
+
   local manager = ns.PinManager.new({
     pins = lib, ref = ns, factory = { create = createPin },
     icons = ns.ICONS, defaultIcon = ns.DEFAULT_ICON, worldFlag = _G.HBD_PINS_WORLDMAP_SHOW_CONTINENT,
+    levelFor = topLevel,
   })
   M.manager = manager
+
+  -- The tracked pin changes level with the focus, so the one that lost it and the one that gained it are re-added.
+  local focused
+  ns:On("FOCUS_CHANGED", function(uid)
+    local before = focused
+    focused = uid
+    for _, id in ipairs({ before or 0, uid or 0 }) do
+      local wp = id ~= 0 and ns:GetWaypoint(id) or nil
+      if wp then manager:refresh(wp) end
+    end
+  end)
 
   ns:On("WAYPOINT_ADDED", function(wp) manager:refresh(wp) end)
   ns:On("WAYPOINT_CHANGED", function(wp) manager:refresh(wp) end)

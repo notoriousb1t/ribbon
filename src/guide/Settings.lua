@@ -1,6 +1,7 @@
--- Guide settings and the quest windows' automation. Three options, all on by default, saved in RibbonDB.guideSettings:
+-- Guide settings and the quest windows' automation. Four options, all on by default, saved in RibbonDB.guideSettings:
 --   autoAdvance: the guide moves on by itself when the quest log says a step is finished (guide/Player.lua reads this).
 --   worldPin:    the step's place is also set as the game's own waypoint, so its beacon shows in the world (guide/WorldPin.lua).
+--   spawnDots:   red dots on the world map and minimap for the places an objective's creatures and objects are (map/Spawns.lua).
 --   autoQuest:   while a guide is running, quest windows are answered for the player: a quest offered is accepted, a quest
 --                whose objectives are done is handed in when it offers no reward to choose from. Gossip and quest-greeting
 --                windows that list quests among other options get the quest picked. Holding Shift leaves a window alone.
@@ -13,6 +14,7 @@ ns.guideSettings = Set
 Set.OPTIONS = {
   { key = "autoAdvance", label = "Auto-advance", tip = "Move to the next step when the quest log shows the step is done." },
   { key = "autoQuest", label = "Auto accept and turn in", tip = "Accept quests and hand in finished ones that have no reward to choose from. Hold Shift to skip." },
+  { key = "spawnDots", label = "Objective locations", tip = "Show red dots on the map and minimap where the current step's creatures and objects are." },
   { key = "worldPin", label = "In-world marker", tip = "Show the current step's place with the game's own waypoint beacon in the world.",
     -- Classic Era has no user waypoints.
     available = function() return not ns.worldPin or ns.worldPin.supported() end },

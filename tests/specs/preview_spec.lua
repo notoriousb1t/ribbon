@@ -298,56 +298,88 @@ describe("Pins around the current step on the map", function()
     return out
   end
 
-  it("draws only the next two steps after the current one, smaller than its pin, and none before it", function()
+  -- The x (0-100) of every step pin (not a waypoint's) now on the map: the last place each pin was put, while it is shown.
+  local function shownPins()
+    local last, order = {}, {}
+    for _, c in ipairs(ctx.ns.map.lib.AddWorldMapIconMap.calls) do
+      if c[1] ~= ctx.ns then
+        if not last[c[2]] then order[#order + 1] = c[2] end
+        last[c[2]] = c
+      end
+    end
+    local out = {}
+    for _, pin in ipairs(order) do
+      if pin:IsShown() then out[#out + 1] = math.floor(last[pin][4] * 100 + 0.5) end
+    end
+    table.sort(out)
+    return out
+  end
+
+  local function alphaOf(x)
+    local found
+    for _, c in ipairs(ctx.ns.map.lib.AddWorldMapIconMap.calls) do
+      if c[1] ~= ctx.ns and math.floor(c[4] * 100 + 0.5) == x and c[2]:IsShown() then
+        local a = c[2].SetAlpha.calls
+        found = a[#a][1]
+      end
+    end
+    return found
+  end
+
+  it("draws only the next step after the current one, smaller than its pin, and none before it", function()
     local lib = ctx.ns.map.lib
-    ctx.ns.guidePlayer.state()                            -- the plan is built (it draws step 1's next two)
-    local before = #lib.AddWorldMapIconMap.calls
+    ctx.ns.guidePlayer.state()                            -- the plan is built
     ctx.ns.guidePlayer.jump(1, 3)
-    expect(placed(before)).toEqual({ 44, 45 })            -- steps 4 and 5; step 2 (just done) gets no pin
+    expect(shownPins()).toEqual({ 44 })                   -- step 4; step 2 (just done) gets no pin, nor does step 5
     local small = lib.AddWorldMapIconMap.calls[#lib.AddWorldMapIconMap.calls][2]
     local S = ctx.ns.compassStyle
     expect(small.SetSize.calls[#small.SetSize.calls][1]).toBe(math.floor(S.pins.world * S.context.next.scale + 0.5))
-    expect(small.SetSize.calls[#small.SetSize.calls][1]).toBeLessThan(S.pins.world)
+    -- smaller than the tracked pin's diamond
+    expect(small.SetSize.calls[#small.SetSize.calls][1]).toBeLessThan((S.pins.world + S.pins.worldRingPad) * ctx.ns.badge.DIAMOND)
   end)
 
-  it("on hover, draws the step the mouse is over opaque and the next two after it fainter, and nothing before it", function()
+  it("on hover, draws every step from the current one to the hovered one, the hovered one opaque and the rest fainter", function()
     ctx.ns.guideBrowser.toggleDock()
     local d = ctx.ns.guideBrowser.dock()
-    local lib = ctx.ns.map.lib
-    local before = #lib.AddWorldMapIconMap.calls
-    d.rightRows.items[3]:Trigger("OnEnter")
-    local got = placed(before)
-    table.sort(got)
-    expect(got).toEqual({ 43, 44, 45 })
-    local calls = lib.AddWorldMapIconMap.calls
-    local alpha = {}
-    for i = before + 1, #calls do local a = calls[i][2].SetAlpha.calls alpha[math.floor(calls[i][4] * 100 + 0.5)] = a[#a][1] end
-    expect(alpha[43]).toBe(1)
-    expect(alpha[44]).toBeLessThan(0.9)
-    expect(alpha[45]).toBeLessThan(0.9)
-  end)
-
-  it("keeps the current step's next two on the map while a step is hovered, and takes the hovered ones away after", function()
-    ctx.ns.guideBrowser.toggleDock()
-    local d = ctx.ns.guideBrowser.dock()
-    local lib = ctx.ns.map.lib
-    local function shownPins()
-      local seen, out = {}, {}
-      for _, c in ipairs(lib.AddWorldMapIconMap.calls) do
-        local pin = c[2]
-        if c[1] ~= ctx.ns and not seen[pin] and pin:IsShown() then
-          seen[pin] = true
-          out[#out + 1] = math.floor(c[4] * 100 + 0.5)
-        end
-      end
-      table.sort(out)
-      return out
-    end
-    expect(shownPins()).toEqual({ 42, 43 })               -- the current step is the first: steps 2 and 3
     d.rightRows.items[4]:Trigger("OnEnter")
-    expect(shownPins()).toEqual({ 42, 43, 44, 45 })       -- and the hovered step 4 with step 5 after it
+    expect(shownPins()).toEqual({ 42, 43, 44 })           -- steps 2 to 4 (the current step 1 has the tracked pin); no step 5
+    expect(alphaOf(44)).toBe(1)
+    expect(alphaOf(42)).toBeLessThan(0.9)
+    expect(alphaOf(43)).toBeLessThan(0.9)
     d.rightRows.items[4]:Trigger("OnLeave")
-    expect(shownPins()).toEqual({ 42, 43 })
+    expect(shownPins()).toEqual({ 42 })                   -- back to the next step
+  end)
+
+  it("draws the steps back to an earlier hovered step too", function()
+    ctx.ns.guidePlayer.jump(1, 4)
+    ctx.ns.guideBrowser.toggleDock()
+    local d = ctx.ns.guideBrowser.dock()
+    d.rightRows.items[2]:Trigger("OnEnter")
+    expect(shownPins()).toEqual({ 42, 43 })               -- steps 2 and 3 between step 4 (current) and the hovered step 2
+  end)
+
+  it("draws a hovered step of another chapter alone", function()
+    Ribbon.Guide("g"):Chapter("Two", { levels = { 3, 4 } }):Step():Goto(1453, 80, 80):Accept(30):Step():Goto(1453, 81, 81):Accept(31):Done()
+    ctx.ns.guideBrowser.toggleDock()
+    ctx.ns.guideBrowser.showSteps(2)
+    local d = ctx.ns.guideBrowser.dock()
+    d.rightRows.items[2]:Trigger("OnEnter")
+    expect(shownPins()).toEqual({ 81 })
+  end)
+
+  it("keeps a clicked step's range on the map when nothing is hovered, and drops it on a step change", function()
+    ctx.ns.guideBrowser.toggleDock()
+    local d = ctx.ns.guideBrowser.dock()
+    ctx.ns.guideBrowser.preview(1, 4)
+    expect(shownPins()).toEqual({ 42, 43, 44 })           -- steps 2 and 3, and the clicked step 4 as the preview pin
+    expect(ctx.ns.map.previewPin():IsShown()).toBe(true)
+    d.rightRows.items[5]:Trigger("OnEnter")
+    expect(shownPins()).toEqual({ 42, 43, 44, 45 })       -- hovering step 5 shows its range; step 4 stays the preview
+    d.rightRows.items[5]:Trigger("OnLeave")
+    expect(shownPins()).toEqual({ 42, 43, 44 })
+    ctx.ns.guidePlayer.jump(1, 2)
+    expect(ctx.ns.map.previewPin():IsShown()).toBe(false)
+    expect(shownPins()).toEqual({ 43 })                   -- just the next step
   end)
 
   it("passes over a level-up step for the pins: a current step with no place draws the next one's pin", function()
@@ -359,9 +391,7 @@ describe("Pins around the current step on the map", function()
     ctx.ns.guidePlayer.state()
     local before = #lib.AddWorldMapIconMap.calls
     ctx.ns.guidePlayer.jump(2, 1)
-    local got = placed(before)
-    table.sort(got)
-    expect(got).toEqual({ 61, 62, 63 })
+    expect(shownPins()).toEqual({ 61, 62 })               -- the first step with a place stands in for the current one
   end)
 end)
 
@@ -386,24 +416,24 @@ describe("The dashed line through a hovered step", function()
     return s[3], p[4]
   end
 
-  it("runs from the hovered step through the next two, in the ribbon's blue", function()
+  it("runs from the current step to the hovered one, in the ribbon's blue", function()
     ctx.ns.guideBrowser.toggleDock()
     local d = ctx.ns.guideBrowser.dock()
-    d.rightRows.items[2]:Trigger("OnEnter")                -- steps 2 to 4 at x = 30, 50, 70
+    d.rightRows.items[4]:Trigger("OnEnter")                -- steps 1 to 4 at x = 10, 30, 50, 70
     local look = ctx.ns.compassStyle.context.line
     expect(look.color[3]).toBeGreaterThan(look.color[1])
     local lines = ctx.ns.map.dashParts()
     expect(#lines).toBeGreaterThan(10)
     local a, z = ends()
-    expect(a).toBeCloseTo(300, 1)                          -- x = 30% of 1000
+    expect(a).toBeCloseTo(100, 1)                          -- x = 10% of 1000: the current step
     expect(z).toBeCloseTo(700, 1)                          -- the dot on step 4
   end)
 
-  it("runs from the current step through the next two when nothing is hovered", function()
-    ctx.ns.guidePlayer.jump(1, 3)                          -- steps 3 to 5 at x = 50, 70, 90
+  it("runs from the current step to the next one when nothing is hovered", function()
+    ctx.ns.guidePlayer.jump(1, 3)                          -- steps 3 and 4 at x = 50, 70
     local a, z = ends()
     expect(a).toBeCloseTo(500, 1)
-    expect(z).toBeCloseTo(900, 1)
+    expect(z).toBeCloseTo(700, 1)
   end)
 end)
 
@@ -422,7 +452,7 @@ describe("The dashed line and the map being shown", function()
     ctx.ns.guideBrowser.toggleDock()
     local d = ctx.ns.guideBrowser.dock()
     WorldMapFrame.GetMapID = function() return 1453 end
-    d.rightRows.items[2]:Trigger("OnEnter")
+    d.rightRows.items[4]:Trigger("OnEnter")
     local lines, _, dot = ctx.ns.map.dashParts()
     expect(lines[1]:IsShown()).toBe(true)
     WorldMapFrame.GetMapID = function() return 1415 end         -- Eastern Kingdoms, Stormwind's continent
@@ -449,7 +479,7 @@ describe("The dashed line and the map being shown", function()
     local first = lines[1].SetStartPoint.calls[#lines[1].SetStartPoint.calls]
     local p = dot.SetPoint.calls[#dot.SetPoint.calls]
     expect(first[3]).toBeCloseTo(100, 1)                        -- from step 1
-    expect(p[4]).toBeCloseTo(900, 1)                            -- through step 3 to step 4: two placed steps after it
+    expect(p[4]).toBeCloseTo(500, 1)                            -- to step 3, the next placed step
     expect(dot:IsShown()).toBe(true)
   end)
 end)
@@ -472,37 +502,37 @@ describe("The dashed line's look", function()
     local d = ctx.ns.guideBrowser.dock()
     d.rightRows.items[2]:Trigger("OnEnter")
     local lines, halos, dot, halo = ctx.ns.map.dashParts()
-    local a = lines[1].SetThickness.calls[1][1]
-    local z = lines[#lines].SetThickness.calls[1][1]
+    local function last(l) return l.SetThickness.calls[#l.SetThickness.calls][1] end
+    local a = last(lines[1])
+    local z = last(lines[#lines])
     expect(a).toBeGreaterThan(z)
     expect(a).toBeLessThan(look.thickness + 0.001)
     expect(z).toBeGreaterThan(look.thin - 0.001)
     expect(dot.SetSize).toHaveBeenCalledWith(look.dot, look.dot)
     expect(dot:IsShown()).toBe(true)
     -- a dark halo under every dash and under the dot, wider than they are, so it reads on any map colour
-    local h1 = halos[1].SetThickness.calls[1][1]
+    local h1 = last(halos[1])
     expect(h1).toBeCloseTo(a + look.haloWidth, 4)
     expect(halos[1].SetColorTexture.calls[1][1]).toBeLessThan(look.color[1])
     expect(halo.SetSize).toHaveBeenCalledWith(look.dot + look.haloWidth, look.dot + look.haloWidth)
     d.rightRows.items[2]:Trigger("OnLeave")
-    -- the hovered line goes; the current step's stays: steps 1 to 3, the dot on step 3 at x = 50%
+    -- the hovered line goes and the current step's returns: steps 1 to 2, the dot on step 2 at x = 30%
     expect(dot:IsShown()).toBe(false)
     local _, _, current = ctx.ns.map.dashParts("current")
     expect(current:IsShown()).toBe(true)
     local at = current.SetPoint.calls[#current.SetPoint.calls]
-    expect(at[4]).toBeCloseTo(500, 1)
+    expect(at[4]).toBeCloseTo(300, 1)
   end)
 
-  it("draws the current step's line and the hovered step's line at once", function()
+  it("replaces the current step's line with the hovered step's while it is hovered", function()
     ctx.ns.guideBrowser.toggleDock()
     local d = ctx.ns.guideBrowser.dock()
     d.rightRows.items[3]:Trigger("OnEnter")
     local _, _, hoverDot = ctx.ns.map.dashParts("hover")
     local _, _, currentDot = ctx.ns.map.dashParts("current")
     expect(hoverDot:IsShown()).toBe(true)
-    expect(currentDot:IsShown()).toBe(true)
-    expect(hoverDot.SetPoint.calls[#hoverDot.SetPoint.calls][4]).toBeCloseTo(900, 1)       -- steps 3 to 5
-    expect(currentDot.SetPoint.calls[#currentDot.SetPoint.calls][4]).toBeCloseTo(500, 1)   -- steps 1 to 3
+    expect(currentDot:IsShown()).toBe(false)
+    expect(hoverDot.SetPoint.calls[#hoverDot.SetPoint.calls][4]).toBeCloseTo(500, 1)       -- steps 1 to 3
   end)
 
   it("starts a line at the next step with a place when the step is a level-up", function()
@@ -515,6 +545,49 @@ describe("The dashed line's look", function()
     local first
     for _, l in ipairs(lines) do if l:IsShown() then first = l break end end
     expect(first.SetStartPoint.calls[#first.SetStartPoint.calls][3]).toBeCloseTo(300, 1)
-    expect(dot.SetPoint.calls[#dot.SetPoint.calls][4]).toBeCloseTo(700, 1)
+    expect(dot.SetPoint.calls[#dot.SetPoint.calls][4]).toBeCloseTo(500, 1)
+  end)
+end)
+
+describe("The dashed line's direction", function()
+  local ctx = H.use({ boot = true })
+  beforeEach(function()
+    local c = Ribbon.Guide("g", { title = "Test Guide", schema = 1 }):Chapter("One", { levels = { 1, 2 } })
+    for i = 1, 4 do c:Step():Goto(1453, 10 + 20 * (i - 1), 50):Accept(i) end
+    c:Done()
+    WorldMapFrame.ScrollContainer = { Child = WorldMapFrame }
+    WorldMapFrame.GetWidth = function() return 1000 end
+    WorldMapFrame.GetHeight = function() return 500 end
+  end)
+
+  -- The shown chevron lines as { tip x, tip y, arm end x, arm end y }.
+  local function arms()
+    local _, _, _, _, chev = ctx.ns.map.dashParts()
+    local out = {}
+    for _, l in ipairs(chev) do
+      if l:IsShown() then
+        local s, e = l.SetStartPoint.calls[#l.SetStartPoint.calls], l.SetEndPoint.calls[#l.SetEndPoint.calls]
+        out[#out + 1] = { s[3], s[4], e[3], e[4] }
+      end
+    end
+    return out
+  end
+
+  it("puts a chevron on each segment with its tip ahead of the middle, pointing forward", function()
+    ctx.ns.guideBrowser.toggleDock()
+    ctx.ns.guideBrowser.dock().rightRows.items[3]:Trigger("OnEnter")      -- steps 1 to 3 at x = 100, 300, 500
+    local a = arms()
+    expect(#a).toBe(8)                                                    -- two segments, two arms each, a halo under each
+    expect(a[1][1]).toBeCloseTo(204.5, 1)                                 -- the tip: the middle (200) plus half the chevron
+    expect(a[1][3]).toBeLessThan(a[1][1])                                 -- the arm trails back toward the start
+  end)
+
+  it("points the other way when the hovered step is behind the current one", function()
+    ctx.ns.guidePlayer.jump(1, 3)
+    ctx.ns.guideBrowser.toggleDock()
+    ctx.ns.guideBrowser.dock().rightRows.items[1]:Trigger("OnEnter")      -- from step 3 back to step 1
+    local a = arms()
+    expect(a[1][1]).toBeCloseTo(395.5, 1)                                 -- the middle of 500 to 300 is 400: the tip leads leftwards
+    expect(a[1][3]).toBeGreaterThan(a[1][1])
   end)
 end)

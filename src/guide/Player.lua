@@ -44,6 +44,11 @@ local function env()
   return { quest = ns.client.questStatus, objective = objective, level = S.who.level, xp = S.who.xp, kills = kills, marked = marked }
 end
 
+-- Whether a call of the current guide is done, open or manual, for the map pins of a step's objectives.
+function Pl.callState(call)
+  return S and planner.callState(call, env()) or "open"
+end
+
 local function chapterName(entry)
   local ch = S.guide.chapters[entry.chapter]
   return ch and ch.name
@@ -76,7 +81,7 @@ local function clearWaypoints()
 end
 
 local function location(group)
-  if group.at then return group.at.map, group.at.x, group.at.y end
+  if group.at then return group.at.map, group.at.x, group.at.y, group.at.z end
   if group.loop then
     local p = group.loop.points[1]
     return group.loop.map, p[1], p[2]
@@ -89,7 +94,7 @@ local function desired(entry)
   local e = env()
   local state = function(call) return planner.callState(call, e) end
   for gi, group in ipairs(entry.step.groups) do
-    local map, x, y = location(group)
+    local map, x, y, z = location(group)
     if map then
       local lines = text.lines(group, S.guide.names, e, state)
       if #lines > 0 then
@@ -97,7 +102,7 @@ local function desired(entry)
         for i = 2, #lines do detail[#detail + 1] = lines[i] end
         local title = lines[1]
         if entry.step.skippable then title = "(skippable) " .. title end
-        out[gi] = { map = map, x = x, y = y, title = title, description = detail, icon = text.icon(group), radius = planner.arrivalRadius(group) }
+        out[gi] = { map = map, x = x, y = y, z = z, title = title, description = detail, icon = text.icon(group), radius = planner.arrivalRadius(group) }
       end
     end
   end
@@ -108,7 +113,7 @@ local function syncWaypoints(entry)
   local want = desired(entry)
   for gi, w in pairs(S.waypoints) do
     local d = want[gi]
-    if not d or d.map ~= w.map or d.x ~= w.x or d.y ~= w.y then
+    if not d or d.map ~= w.map or d.x ~= w.x or d.y ~= w.y or d.z ~= w.z then
       ns:RemoveWaypoint(w.uid)
       S.waypoints[gi] = nil
     end
@@ -127,11 +132,11 @@ local function syncWaypoints(entry)
       end
     else
       local uid = ns:AddWaypoint(d.map, d.x, d.y, {
-        title = d.title, description = d.description, icon = d.icon, arrival_distance = d.radius,
+        title = d.title, description = d.description, icon = d.icon, arrival_distance = d.radius, z = d.z,
         lines = { "Guide: " .. (chapterName(entry) or S.guide.title) },
       })
       if uid then
-        S.waypoints[gi] = { uid = uid, map = d.map, x = d.x, y = d.y }
+        S.waypoints[gi] = { uid = uid, map = d.map, x = d.x, y = d.y, z = d.z }
       else
         -- The client could not place it (unknown map, no world position). Say so once, or the step just stalls.
         local key = string.format("%d:%d:%s:%s", S.cursor, gi, tostring(d.map), tostring(d.x))

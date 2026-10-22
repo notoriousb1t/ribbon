@@ -29,6 +29,71 @@ cmds.debug = function()
   end
 end
 
+-- Reports which client APIs a screen-space beam at the waypoint would need. Also saved to the saved variables.
+cmds.probe = function()
+  local function has(tbl, name)
+    local t = _G[tbl]
+    return type(t) == "table" and type(t[name]) == "function"
+  end
+  local report = {
+    ["C_Map.SetUserWaypoint"] = has("C_Map", "SetUserWaypoint"),
+    ["C_SuperTrack.SetSuperTrackedUserWaypoint"] = has("C_SuperTrack", "SetSuperTrackedUserWaypoint"),
+    ["C_Navigation.GetFrame"] = has("C_Navigation", "GetFrame"),
+    ["C_Navigation.GetDistance"] = has("C_Navigation", "GetDistance"),
+    ["C_Navigation.GetTargetState"] = has("C_Navigation", "GetTargetState"),
+    ["SuperTrackedFrame"] = type(_G.SuperTrackedFrame) == "table",
+  }
+  local frame
+  if report["C_Navigation.GetFrame"] then
+    local ok, f = pcall(_G.C_Navigation.GetFrame)
+    frame = ok and f or nil
+  end
+  report["navFrame (needs an active waypoint)"] = frame ~= nil
+  local names = {}
+  for k in pairs(report) do names[#names + 1] = k end
+  table.sort(names)
+  for _, k in ipairs(names) do ns:Print(string.format("%s: %s", k, report[k] and "yes" or "no")) end
+  local pin = ns.worldPin and ns.worldPin.status and ns.worldPin.status()
+  if pin then
+    local keys = {}
+    for k in pairs(pin) do keys[#keys + 1] = k end
+    table.sort(keys)
+    for _, k in ipairs(keys) do ns:Print(string.format("worldPin.%s: %s", k, tostring(pin[k]))) end
+    report.worldPin = pin
+  end
+  -- Map layering (open the world map first): the frame levels of the fog of war and of Ribbon's pins.
+  local map = _G.WorldMapFrame
+  if map and type(map.EnumeratePinsByTemplate) == "function" and map:IsShown() then
+    local layers = {}
+    for _, template in ipairs({ "MapExplorationPinTemplate", "HereBeDragonsPinsTemplate" }) do
+      local lo, hi, n = nil, nil, 0
+      local ok = pcall(function()
+        for pin in map:EnumeratePinsByTemplate(template) do
+          local level = pin.icon and pin.icon:GetFrameLevel() or pin:GetFrameLevel()
+          lo = lo and math.min(lo, level) or level
+          hi = hi and math.max(hi, level) or level
+          n = n + 1
+        end
+      end)
+      layers[template] = ok and string.format("%d pins, levels %s-%s", n, tostring(lo), tostring(hi)) or "unavailable"
+      ns:Print(string.format("map %s: %s", template, layers[template]))
+    end
+    -- Which frame-level types this map knows, and the level each gives.
+    local manager = map.pinFrameLevelsManager
+    if type(manager) == "table" and type(manager.GetValidFrameLevel) == "function" then
+      for _, t in ipairs({ "PIN_FRAME_LEVEL_AREA_POI", "PIN_FRAME_LEVEL_WAYPOINT_LOCATION", "PIN_FRAME_LEVEL_SUPER_TRACKED_CONTENT", "PIN_FRAME_LEVEL_GLOBAL_PING", "PIN_FRAME_LEVEL_TOPMOST" }) do
+        local ok, level = pcall(manager.GetValidFrameLevel, manager, t)
+        layers[t] = ok and tostring(level) or "unknown"
+        ns:Print(string.format("map %s: %s", t, layers[t]))
+      end
+    else
+      ns:Print("map pinFrameLevelsManager: not available")
+    end
+    report.mapLayers = layers
+  end
+  if ns.db then ns.db.lastProbe = report end
+end
+
 -- Status of the registered guide. The command exists always but is not advertised until a guide is registered.
 cmds.guide = function(args)
   local guide = ns.guide

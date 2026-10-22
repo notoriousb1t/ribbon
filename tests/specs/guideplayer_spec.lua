@@ -93,7 +93,7 @@ describe("Guide player", function()
       ctx.ns.guidePlayer.refresh()
       local _, cursor = ctx.ns.guidePlayer.current()
       expect(cursor).toBe(2)
-      expect(titles(ctx.ns)).toEqual({ "Kill Plainstrider (0/7)" })
+      expect(titles(ctx.ns)).toEqual({ "Defeat Plainstrider (0/7)" })
     end)
 
     it("shows quest log progress in place, keeping the same waypoint", function()
@@ -106,11 +106,11 @@ describe("Guide player", function()
       ctx.ns.guidePlayer.refresh()
       local uid
       for id in pairs(ctx.ns.waypoints) do uid = id end
-      expect(ctx.ns:GetWaypoint(uid).title).toBe("Kill Plainstrider (3/7)")
+      expect(ctx.ns:GetWaypoint(uid).title).toBe("Defeat Plainstrider (3/7)")
       expect(ctx.ns:GetWaypoint(uid).description).toEqual({ "Collect Plainstrider Meat (0/7)" })
       ctx.world.quest.objectives[747][1] = { numFulfilled = 5, numRequired = 7, finished = false }
       ctx.ns.guidePlayer.refresh()
-      expect(ctx.ns:GetWaypoint(uid).title).toBe("Kill Plainstrider (5/7)")
+      expect(ctx.ns:GetWaypoint(uid).title).toBe("Defeat Plainstrider (5/7)")
       expect(count(ctx.ns.waypoints)).toBe(1)
     end)
 

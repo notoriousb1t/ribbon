@@ -134,9 +134,9 @@ describe("Classic Era", function()
       expect(ctx.ns.worldPin.supported()).toBe(false)
       local keys = {}
       for _, o in ipairs(ctx.ns.guideSettings.available()) do keys[#keys + 1] = o.key end
-      expect(keys).toEqual({ "autoAdvance", "autoQuest" })
+      expect(keys).toEqual({ "autoAdvance", "autoQuest", "spawnDots" })
       ctx.ns.guideBrowser.toggleDock()
-      expect(#ctx.ns.guideBrowser.dock().menu.rows).toBe(2)
+      expect(#ctx.ns.guideBrowser.dock().menu.rows).toBe(3)
     end)
   end)
 
@@ -177,7 +177,7 @@ describe("Classic Era", function()
     it("keeps the in-world marker when the client has user waypoints", function()
       _G.C_Map.SetUserWaypoint = function() end
       _G.C_Map.ClearUserWaypoint = function() end
-      expect(#ctx.ns.guideSettings.available()).toBe(3)
+      expect(#ctx.ns.guideSettings.available()).toBe(4)
     end)
 
     it("still picks gossip quests through the old globals, by index", function()

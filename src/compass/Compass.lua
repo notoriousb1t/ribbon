@@ -43,7 +43,11 @@ local function setCaption(wp)
   local lead = 0
   if wp and wp.icon then
     lead = cap.iconSize + cap.iconGap
-    ns.badge.draw(captionIcon, wp.icon, cap.iconSize, wp.uid ~= nil and wp.uid == ns.focus)
+    if wp.uid ~= nil and wp.uid == ns.focus then
+      ns.badge.drawFitted(captionIcon, wp.icon, cap.iconSize)
+    else
+      ns.badge.draw(captionIcon, wp.icon, cap.iconSize, false)
+    end
     captionIcon:Show()
   else
     captionIcon:Hide()
@@ -373,7 +377,11 @@ function C.Update()
     else
       p.x, settled[uid] = layout.settle(settled[uid], p.x, ns.compassStyle.marker.smooth)
     end
-    ns.badge.draw(m, p.wp.icon, p.size, p.focused)
+    if p.focused then
+      ns.badge.drawFitted(m, p.wp.icon, p.size)   -- the diamond is p.size across, so it stays inside the band
+    else
+      ns.badge.draw(m, p.wp.icon, p.size, false)
+    end
     m:ClearAllPoints()
     m:SetPoint("CENTER", frame, "CENTER", p.x, 0)
     m:SetAlpha(p.edge and ns.compassStyle.marker.edgeAlpha or 1)
