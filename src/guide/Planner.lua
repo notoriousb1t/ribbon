@@ -304,3 +304,79 @@ function P.npcStepPassed(flat, i, env)
   end
   return false
 end
+
+-- Choosing among several guides ---------------------------------------------------------------------------------------
+
+local function listOf(v)
+  if v == nil then return nil end
+  return type(v) == "table" and v or { v }
+end
+
+-- How well a guide fits `who` ({ class, race, faction, flavor }): nil when it is for someone else (a class, race,
+-- faction or flavor it names does not match), otherwise a number, higher is better. A guide that names the character's
+-- class scores 1000 minus the number of classes it names (a guide for one class beats a guide for two); naming the
+-- character's race adds 100 minus the number of races, so a race only breaks ties between guides for the same class
+-- (or none). A guide that names nothing is for everyone and scores 0.
+function P.guideScore(guide, who)
+  local lock = guide and guide.only
+  if not lock then return 0 end
+  if not P.matches(lock, who) then return nil end
+  local score = 0
+  local classes, races = listOf(lock.class), listOf(lock.race)
+  if classes then score = score + 1000 - math.min(#classes, 99) end
+  if races then score = score + 100 - math.min(#races, 99) end
+  return score
+end
+
+-- The guides in order of fit for `who`: { { guide =, score =, eligible = } }, best first; guides for someone else last
+-- (score nil). Equal scores keep registration order.
+function P.rankGuides(guides, who)
+  local out = {}
+  for i, g in ipairs(guides or {}) do
+    local score = P.guideScore(g, who)
+    out[#out + 1] = { guide = g, score = score, eligible = score ~= nil, order = i }
+  end
+  table.sort(out, function(a, b)
+    if a.eligible ~= b.eligible then return a.eligible end
+    if a.score ~= b.score then return (a.score or 0) > (b.score or 0) end
+    return a.order < b.order
+  end)
+  return out
+end
+
+-- The guide to use: the one the player chose (`preferredId`) if it is registered, otherwise the best fit; when no guide
+-- fits the character the first registered one (a lone guide is used whatever it names). Second result: the best fit
+-- ignoring the player's choice, which the picker marks as recommended.
+function P.chooseGuide(guides, who, preferredId)
+  local ranked = P.rankGuides(guides, who)
+  local best = ranked[1] and (ranked[1].eligible and ranked[1].guide or guides[1]) or nil
+  if preferredId ~= nil then
+    for _, g in ipairs(guides or {}) do
+      if g.id == preferredId then return g, best end
+    end
+  end
+  return best, best
+end
+
+local function words(list, title)
+  local out = {}
+  for _, v in ipairs(list) do
+    out[#out + 1] = title(tostring(v))
+  end
+  return table.concat(out, ", ")
+end
+
+local function pretty(s)
+  return (s:lower():gsub("_", " "):gsub("(%a)(%w*)", function(a, b) return a:upper() .. b end))
+end
+
+-- "Hunter, Warlock - Human, Gnome" for a guide's lock; "" for a guide for everyone.
+function P.lockText(lock)
+  if not lock then return "" end
+  local parts = {}
+  for _, key in ipairs({ "class", "race", "faction" }) do
+    local list = listOf(lock[key])
+    if list then parts[#parts + 1] = words(list, pretty) end
+  end
+  return table.concat(parts, " - ")
+end

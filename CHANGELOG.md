@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- **Several guides:** more than one guide can be registered (for example one per class). A guide may name who it is for (`Ribbon.Guide(id, { schema = 1, class = "HUNTER", race = { "HUMAN", "GNOME" } })`; also `faction`, `flavor`). Ribbon follows the guide that fits the character best, class first and race as the tie-breaker, and keeps your place in each guide. Pick another with `/ribbon guide use <guide|auto>`. An older Ribbon still refuses a second guide id.
+- **Guide version check:** a guide can name the oldest Ribbon it was written for (`Ribbon.Guide(id, { schema = 1, ribbon = "1.2.0" })`). An older Ribbon loads it anyway and prints a warning.
+
 ## 1.2.0
 
 ### Added

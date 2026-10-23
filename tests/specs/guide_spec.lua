@@ -63,12 +63,29 @@ describe("Guide", function()
       expect(b).toBe(a)
     end)
 
-    it("refuses a second guide and lets its calls run harmlessly", function()
+    it("registers a second guide beside the first (guideselect_spec chooses between them)", function()
       Ribbon.Guide("one", { schema = 1 })
       local other = Ribbon.Guide("two", { schema = 1 })
       expect(ctx.ns.guide.id).toBe("one")
+      expect(#ctx.ns.guides).toBe(2)
       expect(function() mulgore(other) end).never.toThrow()
-      expect(ctx.world:output()).toContain("already registered")
+      expect(#other.chapters).toBe(1)
+    end)
+
+    it("warns, and still loads, when Ribbon is older than the guide asks", function()
+      ctx.ns.client.addonVersion = function() return "1.2.0" end
+      Ribbon.Guide("old", { schema = 1, ribbon = "1.10.0" })
+      expect(ctx.ns.guide.id).toBe("old")
+      expect(ctx.world:output()).toContain("needs Ribbon 1.10.0 or newer; this is 1.2.0")
+    end)
+
+    it("stays quiet when Ribbon is new enough, the version is unknown, or the guide asks for none", function()
+      ctx.ns.client.addonVersion = function() return "1.2.0" end
+      Ribbon.Guide("same", { schema = 1, ribbon = "1.2.0" })
+      expect(ctx.world:output()).never.toContain("needs Ribbon")
+      expect(ctx.ns.guideBuilder.versionOlder("1.2", "1.2.1")).toBe(true)
+      expect(ctx.ns.guideBuilder.versionOlder("1.2.0", "garbage")).toBe(false)
+      expect(ctx.ns.guideBuilder.versionOlder(nil, "1.0")).toBe(false)
     end)
 
     it("refuses a format it does not read", function()

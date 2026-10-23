@@ -6,7 +6,7 @@ Ribbon plays the Forever Guide. The Forever Guide generator emits the route as L
 
 - **Generator owns the route.** Grouping, order, and spawn lists are computed in Forever Guide (`rust/build`). Ribbon never plans the quest route; it only routes travel between zones with its own coarse mesh.
 - **Ribbon plays and counts.** It loads the data, filters it for the character, tracks progress, and feeds `ns:AddWaypoint` and the pin manager. The compass and map views do not change.
-- **Nothing shows without a guide.** No frames, tickers, events, commands or saved data for the guide layer until `Ribbon:RegisterGuide` succeeds. One guide at a time; a second registration is refused.
+- **Nothing shows without a guide.** No frames, tickers, events, commands or saved data for the guide layer until `Ribbon:RegisterGuide` succeeds. Several guides may be registered (one per `Ribbon.Guide` id); one is in use at a time, chosen as described under Registration.
 - **Guide data is a separate addon** (for example `Forever_Guide`, `## Dependencies: Ribbon`). It calls the builder at load. Ribbon ships no guide data.
 - **Lua builder that mirrors the RXP text format.** Chained calls (`:Goto`, `:Accept`, `:Kill`, ...) that compile to plain tables. Generated files read like the guides people know.
 - **Ids, not names.** Zones are `uiMapID`, everything else numeric ids. Each emitted file defines private `local NAME = id` constants so calls read as words.
@@ -39,7 +39,7 @@ Forever Guide (Rust)                         Ribbon (Lua)
 The emitter (`rust/build/ribbon.rs` in Forever Guide) writes one file per chapter; `docs/samples/mulgore.lua` is its output for the Mulgore starting guide. Shape:
 
 ```lua
-local R = Ribbon.Guide("forever-hordev1", { title = "WoW Forever (1-60)", schema = 1 })   -- get or create, shared by every chapter file
+local R = Ribbon.Guide("forever-hordev1", { title = "WoW Forever (1-60)", schema = 1, ribbon = "1.2.0" })   -- get or create; `ribbon` is the oldest Ribbon the guide was written for (optional; an older one warns), shared by every chapter file
 
 local MAP = { MULGORE = 1412 }                                  -- constant tables, one per kind of id
 local NPC = { GRULL_HAWKWIND = 2980, CHIEF_HAWKWIND = 2981 }    -- (tables, not locals: Lua allows 200 locals per chunk)
@@ -93,7 +93,8 @@ R:Chapter("1-11 Mulgore (Tauren)", { levels = { 1, 11 }, race = "TAUREN", factio
 ## Features
 
 ### 1. Registration and gating
-- `Ribbon:RegisterGuide(guide)` validates `schema`, structure and ids, returns `nil` on bad input, refuses a second guide.
+- `Ribbon:RegisterGuide(guide)` validates `schema`, structure and ids, returns `nil` on bad input.
+- **Several guides** (for example one per class): each `Ribbon.Guide(id, opts)` with a new id registers another guide and fires `GUIDE_REGISTERED`. `opts.class`, `opts.race`, `opts.faction` and `opts.flavor` (a token or a list, like `:Only{}`; all optional) say who a guide is for; a guide naming none is for everyone. Ribbon uses the guide that fits the character best: a guide for another class, race, faction or flavor is skipped; a class match scores 1000 minus the number of classes the guide names, a race match adds 100 minus the number of races (so classes decide and races break ties, a guide for one class beats a guide for two); equal scores keep registration order; when nothing fits the first registered guide is used, so a lone guide always plays. The player picks another with `/ribbon guide use <guide|auto>` (there is no picker in the panel); the pick is saved per character (`RibbonDB.guideChoice`) and `auto` follows the best fit again. Progress is kept per guide and character (`RibbonDB.guideBy`), so switching returns each guide to where it was left. `GUIDE_SWITCHED` fires on a change. Older Ribbons refuse a second guide id and ignore the lock options, so a guide set meant for them should keep one id.
 - Guide layer built lazily inside `RegisterGuide`; no frames or events before it.
 - `/ribbon guide` is absent from help and answers "no guide installed" when there is none.
 - Saved progress in `RibbonDB.guide[<character>]`, keyed by guide id; resumes if the guide returns.

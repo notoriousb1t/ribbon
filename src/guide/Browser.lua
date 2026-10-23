@@ -1411,6 +1411,17 @@ ns:On("GUIDE_STARTED", function()
   if ns.db and ns.db.guideDock and WorldMapFrame then Br.setDock(true, true) end
 end)
 
+-- A different guide: the chapters of the old one mean nothing now, so start again on the child page at the new one's step.
+ns:On("GUIDE_SWITCHED", function()
+  selected = nil
+  folded = {}
+  if dock then
+    Br.setQuery("")
+    Br.showSteps()
+    Br.refresh()
+  end
+end)
+
 function Br.dock() return dock end
 
 -- The quest log key: while a guide is active it opens the panel on its own, without the map. Outside a guide the key

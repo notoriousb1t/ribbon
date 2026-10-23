@@ -1,6 +1,6 @@
 -- Guide builder: the chained calls a generated guide file makes (see docs/guide-plan.md).
 --
---   local R = Ribbon.Guide("forever-horde", { title = "...", schema = 1 })
+--   local R = Ribbon.Guide("forever-horde", { title = "...", schema = 1, ribbon = "1.2.0" })
 --   R:Chapter("1-11 Mulgore", { levels = { 1, 11 } })
 --     :Step()
 --       :Goto(MAP.MULGORE, 44.50, 77.50)
@@ -381,26 +381,69 @@ local function nullGuide()
   return setmetatable(null, { __index = function() return function(self) return self end end })
 end
 
--- Ribbon.Guide(id, opts): the guide for `id`, created on first use. There is one guide; a second id is
--- refused. The first call is what registers the guide layer (GUIDE_REGISTERED).
+-- Whether version text "a.b.c" is older than "x.y.z" (missing parts count as 0). False when either is not a version.
+function B.versionOlder(have, need)
+  local function parts(v)
+    local out = {}
+    for n in tostring(v):gmatch("%d+") do out[#out + 1] = tonumber(n) end
+    if #out == 0 or not tostring(v):match("^%d") then return nil end
+    return out
+  end
+  local a, b = parts(have), parts(need)
+  if not (a and b) then return false end
+  for i = 1, math.max(#a, #b) do
+    local x, y = a[i] or 0, b[i] or 0
+    if x ~= y then return x < y end
+  end
+  return false
+end
+
+-- The class, race, faction and flavor a guide is for (opts.class = "HUNTER" or { "HUNTER", "WARLOCK" }, and so on), kept as the
+-- guide's `only` lock. A guide without any is for everyone. Planner.chooseGuide picks among the registered guides with it.
+local LOCK_KEYS = { "class", "race", "faction", "flavor" }
+
+local function guideLock(opts)
+  local only
+  for _, key in ipairs(LOCK_KEYS) do
+    local v = opts[key]
+    if isText(v) or (type(v) == "table" and #v > 0) then
+      only = only or {}
+      only[key] = v
+    end
+  end
+  return only
+end
+
+-- Every registered guide, in registration order. `ns.guide` is the one in use: the first registered until the player
+-- (or Planner.chooseGuide, once the character is known) picks another.
+ns.guides = {}
+
+-- Ribbon.Guide(id, opts): the guide for `id`, created on first use. Several guides may be registered, each with its own
+-- id; opts.class / race / faction / flavor say who a guide is for. The first call registers the guide layer
+-- (GUIDE_REGISTERED, fired once per guide).
 function ns.Guide(id, opts)
   opts = type(opts) == "table" and opts or {}
   if not isText(id) then
     ns:Print("guide refused: the guide id must be a non-empty string.")
     return nullGuide()
   end
-  if ns.guide then
-    if ns.guide.id == id then return ns.guide end
-    ns:Print(string.format("guide '%s' refused: '%s' is already registered (one guide at a time).", id, ns.guide.id))
-    return nullGuide()
+  for _, known in ipairs(ns.guides) do
+    if known.id == id then return known end
   end
   if opts.schema ~= B.SCHEMA then
     ns:Print(string.format("guide '%s' refused: it uses format %s and this Ribbon reads format %d.", id, tostring(opts.schema), B.SCHEMA))
     return nullGuide()
   end
-  local guide = setmetatable({ id = id, title = isText(opts.title) and opts.title or id, schema = opts.schema, chapters = {}, errors = {}, ignored = {},
+  local guide = setmetatable({ id = id, title = isText(opts.title) and opts.title or id, schema = opts.schema, chapters = {}, errors = {}, ignored = {}, only = guideLock(opts),
     names = { MAP = {}, NPC = {}, CREATURE = {}, OBJECT = {}, ITEM = {}, QUEST = {} } }, Guide)
-  ns.guide = guide
+  ns.guides[#ns.guides + 1] = guide
+  ns.guide = ns.guide or guide
+  -- opts.ribbon: the oldest Ribbon the guide was written for. An older one still loads it, with a warning that parts may
+  -- be rejected or missing. (A Ribbon from before this option ignores it.)
+  local have = ns.client and ns.client.addonVersion and ns.client.addonVersion()
+  if isText(opts.ribbon) and have and B.versionOlder(have, opts.ribbon) then
+    ns:Print(string.format("guide '%s' needs Ribbon %s or newer; this is %s. Parts of it may not load; update Ribbon.", id, opts.ribbon, have))
+  end
   ns:Fire("GUIDE_REGISTERED", guide)
   return guide
 end

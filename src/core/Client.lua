@@ -20,6 +20,14 @@ function client.probe()
   return missing
 end
 
+-- This addon's own version from its TOC ('## Version'), or nil.
+function client.addonVersion()
+  local get = (C_AddOns and C_AddOns.GetAddOnMetadata) or GetAddOnMetadata
+  if type(get) ~= "function" then return nil end
+  local ok, v = pcall(get, ADDON, "Version")
+  if ok and type(v) == "string" and v ~= "" then return v end
+end
+
 -- Facing in radians: 0 = north, increasing counter-clockwise.
 function client.facing()
   local ok, f = pcall(GetPlayerFacing)

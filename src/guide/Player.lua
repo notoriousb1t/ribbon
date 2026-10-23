@@ -62,14 +62,36 @@ local function save()
   local entry = S.flat[S.cursor]
   local kills = next(S.kills) and S.kills or nil
   local marks = next(S.marks) and S.marks or nil
-  ns.db.guide[S.who.key] = entry and { guide = S.guide.id, chapter = entry.chapter, step = entry.index, kills = kills, marks = marks }
+  local record = entry and { guide = S.guide.id, chapter = entry.chapter, step = entry.index, kills = kills, marks = marks }
     or { guide = S.guide.id, finished = true, kills = kills, marks = marks }
+  ns.db.guide[S.who.key] = record   -- the guide in use (the one earlier versions kept)
+  -- ... and the same under its id, so a character who switches guides finds each one where they left it.
+  ns.db.guideBy = ns.db.guideBy or {}
+  ns.db.guideBy[S.who.key] = ns.db.guideBy[S.who.key] or {}
+  ns.db.guideBy[S.who.key][S.guide.id] = record
 end
 
-local function saved()
+local function saved(guide)
+  guide = guide or S.guide
+  local by = ns.db and ns.db.guideBy
+  local own = by and by[S.who.key] and by[S.who.key][guide.id]
+  if own then return own end
   local all = ns.db and ns.db.guide
   local mine = all and all[S.who.key]
-  if mine and mine.guide == S.guide.id then return mine end
+  if mine and mine.guide == guide.id then return mine end
+end
+
+-- Takes a guide's saved position, kills and marks into the state (a fresh start when it has none).
+local function loadSaved(guide)
+  S.kills, S.marks, S.pos, S.finished = {}, {}, nil, nil
+  local mine = saved(guide)
+  if mine and type(mine.kills) == "table" then S.kills = mine.kills end
+  if mine and type(mine.marks) == "table" then S.marks = mine.marks end
+  if mine and mine.finished then
+    S.finished = true
+  elseif mine then
+    S.pos = { chapter = mine.chapter, step = mine.step }
+  end
 end
 
 -- Waypoints of the current step -------------------------------------------------------
@@ -419,14 +441,8 @@ function Pl.start(guide)
   if S then return end
   S = { guide = guide, who = ns.client.character(), view = {}, flat = {}, cursor = 1, waypoints = {}, arrived = {}, unplaced = {},
     kills = {}, marks = {}, callKey = {}, dirty = true }
-  local mine = saved()
-  if mine and type(mine.kills) == "table" then S.kills = mine.kills end
-  if mine and type(mine.marks) == "table" then S.marks = mine.marks end
-  if mine and mine.finished then
-    S.finished = true
-  elseif mine then
-    S.pos = { chapter = mine.chapter, step = mine.step }
-  end
+  ns.guide = guide
+  loadSaved(guide)
   ns:Every(POLL, Pl.refresh)
   if not ns.client.watchCombatLog(onCombat) then ns.client.watchKillXP(onKillXP) end
   ns.client.watchEvents({ "TRAINER_SHOW", "TAXIMAP_OPENED", "UI_INFO_MESSAGE", "HEARTHSTONE_BOUND" }, onNpcEvent)
@@ -446,14 +462,76 @@ ns:On("WAYPOINT_ARRIVED", function(wp)
   end
 end)
 
+-- Which guide -----------------------------------------------------------------------
+
+-- The guide the player picked by hand for this character (an id), or nil for "automatic".
+function Pl.choice()
+  local who = S and S.who or ns.client.character()
+  local all = ns.db and ns.db.guideChoice
+  return all and all[who.key] or nil
+end
+
+-- The guides with how well each fits the character, best first (see Planner.rankGuides).
+function Pl.ranked()
+  return planner.rankGuides(ns.guides, S and S.who or ns.client.character())
+end
+
+-- The guide to use now: the player's pick if it is registered, else the best fit. Second result: the best fit.
+function Pl.pick()
+  return planner.chooseGuide(ns.guides, S and S.who or ns.client.character(), Pl.choice())
+end
+
+-- Moves the running player to another registered guide, keeping each guide's own saved position.
+function Pl.switch(guide)
+  if not (S and guide) or S.guide == guide then return false end
+  ensure()
+  if #S.flat > 0 then save() end   -- a guide whose chapters have not arrived has no position to keep
+  clearWaypoints()
+  S.guide = guide
+  ns.guide = guide
+  loadSaved(guide)
+  S.view, S.flat, S.callKey, S.cursor, S.dirty = {}, {}, {}, 1, true
+  Pl.refresh()
+  ns:Fire("GUIDE_SWITCHED", guide)
+  return true
+end
+
+-- The player's pick: a registered guide id, or nil (or "auto") to follow the best fit again. Returns false for an unknown id.
+function Pl.choose(id)
+  if id == "auto" or id == "" then id = nil end
+  if id ~= nil then
+    local known = false
+    for _, g in ipairs(ns.guides) do known = known or g.id == id end
+    if not known then return false end
+  end
+  if ns.db then
+    ns.db.guideChoice = ns.db.guideChoice or {}
+    ns.db.guideChoice[(S and S.who or ns.client.character()).key] = id
+  end
+  local guide = Pl.pick()
+  if S then
+    if not Pl.switch(guide) then ns:Fire("GUIDE_SWITCHED", guide) end   -- the picker redraws even when the guide stays
+  elseif guide and ns.ready then
+    Pl.start(guide)
+  end
+  return true
+end
+
 local function tryStart()
-  if ns.guide and ns.ready then Pl.start(ns.guide) end
+  if not ns.ready then return end
+  if ns.guides and #ns.guides > 0 then
+    local guide = Pl.pick()
+    if not guide then return end
+    if S then Pl.switch(guide) else Pl.start(guide) end
+  elseif ns.guide then
+    Pl.start(ns.guide)
+  end
 end
 
 ns:On("INIT", tryStart)
 ns:On("GUIDE_REGISTERED", tryStart)
 
--- /ribbon guide [skip|prev|reset|list|errors]
+-- /ribbon guide [skip|prev|reset|list|errors|use]
 local base = ns.commands.guide
 ns.commands.guide = function(args)
   args = string.lower(args or "")
@@ -469,8 +547,34 @@ ns.commands.guide = function(args)
   elseif args == "list" or args == "" then
     if ns.guideBrowser then ns.guideBrowser.toggle() end
     return
+  elseif args == "use" or args:match("^use%s") or args == "guides" then
+    local wanted = args:match("^use%s+(.-)%s*$")
+    if wanted then
+      local id = wanted
+      -- A title or a start of an id works too ("use hunter").
+      for _, g in ipairs(ns.guides) do
+        if string.lower(g.id) == wanted or string.lower(g.title) == wanted then id = g.id end
+      end
+      if id == wanted and wanted ~= "auto" then
+        for _, g in ipairs(ns.guides) do
+          if id == wanted and (string.find(string.lower(g.id), wanted, 1, true) or string.find(string.lower(g.title), wanted, 1, true)) then id = g.id end
+        end
+      end
+      if not Pl.choose(id) then
+        ns:Print("no guide '" .. wanted .. "'; /ribbon guide use lists them.")
+        return
+      end
+    end
+    local recommended = select(2, Pl.pick())
+    for _, r in ipairs(Pl.ranked()) do
+      local g = r.guide
+      ns:Print(string.format("%s%s (%s)%s%s", S.guide == g and "* " or "  ", g.title, g.id,
+        planner.lockText(g.only) ~= "" and (" for " .. planner.lockText(g.only)) or "", g == recommended and ", recommended" or (r.eligible and "" or ", not for this character")))
+    end
+    ns:Print(Pl.choice() and ("chosen: " .. Pl.choice() .. " (/ribbon guide use auto to follow the best fit)") or "automatic: following the best fit.")
+    return
   else
-    ns:Print("guide commands: list, skip, prev, reset, status, errors")
+    ns:Print("guide commands: list, skip, prev, reset, status, errors, use [guide|auto]")
     return
   end
   local entry = S.flat[S.cursor]

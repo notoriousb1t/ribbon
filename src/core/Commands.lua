@@ -202,7 +202,7 @@ end
 
 local function help()
   return "commands: [zone] <x> <y> [description], clear, show, list, remove <uid>, compass [show|hide|toggle|lock|unlock|reset|width <n>|fov <n>], debug, dump <lua expression>"
-    .. (ns.guide and ", guide [list|skip|prev|reset|status|errors], guides, dock" or "")
+    .. (ns.guide and ", guide [list|skip|prev|reset|status|errors|use], guides, dock" or "")
 end
 
 function ns.HandleSlash(msg)

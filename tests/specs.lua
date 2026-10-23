@@ -32,6 +32,7 @@ return {
   "guide",
   "guideplanner",
   "guideplayer",
+  "guideselect",
   "guideui",
   "guidetime",
   "badge",
