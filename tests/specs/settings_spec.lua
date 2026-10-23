@@ -66,6 +66,24 @@ describe("Guide settings", function()
     for _, n in ipairs({ "GetNumActiveQuests", "GetNumAvailableQuests", "SelectAvailableQuest" }) do _G[n] = nil end
   end)
 
+  it("hands in a finished quest in a quest greeting by reading C_QuestLog (the old log calls answer 0 on Forever)", function()
+    local saved = { _G.C_QuestLog, _G.GetNumQuestLogEntries }
+    _G.C_QuestLog = {
+      GetNumQuestLogEntries = function() return 3 end,
+      GetInfo = function(i) return ({ { title = "Zone", isHeader = true }, { title = "A", questID = 1 }, { title = "B", questID = 2 } })[i] end,
+      IsComplete = function(id) return id == 2 end,
+    }
+    _G.GetNumQuestLogEntries = function() return 0 end
+    _G.GetNumActiveQuests = function() return 2 end
+    _G.GetActiveTitle = function(i) return ({ "A", "B" })[i] end
+    _G.SelectActiveQuest = function(i) calls[#calls + 1] = { "SelectActiveQuest", i } end
+    ctx.ns.guideSettings.handle("QUEST_GREETING")
+    expect(calls[1][1]).toBe("SelectActiveQuest")
+    expect(calls[1][2]).toBe(2)
+    _G.C_QuestLog, _G.GetNumQuestLogEntries = saved[1], saved[2]
+    for _, n in ipairs({ "GetNumActiveQuests", "GetActiveTitle", "SelectActiveQuest" }) do _G[n] = nil end
+  end)
+
   it("does nothing when the option is off or Shift is held", function()
     ctx.ns.guideSettings.set("autoQuest", false)
     ctx.ns.guideSettings.handle("QUEST_DETAIL")

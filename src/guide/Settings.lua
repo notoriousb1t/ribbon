@@ -76,7 +76,12 @@ end
 local function greeting()
   for i = 1, num("GetNumActiveQuests") do
     local title = type(_G.GetActiveTitle) == "function" and _G.GetActiveTitle(i)
-    if title and ns.client.questLogEntryComplete(title) then return call("SelectActiveQuest", i) end
+    local done = title and ns.client.questLogEntryComplete(title)
+    if not done and type(_G.GetActiveQuestID) == "function" and _G.C_QuestLog and _G.C_QuestLog.IsComplete then
+      local ok, id = pcall(_G.GetActiveQuestID, i)
+      if ok and id and id > 0 then done = _G.C_QuestLog.IsComplete(id) and true or false end
+    end
+    if done then return call("SelectActiveQuest", i) end
   end
   if num("GetNumAvailableQuests") > 0 then return call("SelectAvailableQuest", 1) end
 end

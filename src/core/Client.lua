@@ -280,6 +280,18 @@ end
 
 -- Is the quest log entry titled `title` finished? (A quest greeting lists active quests by title only.)
 function client.questLogEntryComplete(title)
+  -- Forever: the log is C_QuestLog's (the old GetNumQuestLogEntries answers 0 there).
+  if type(C_QuestLog) == "table" and type(C_QuestLog.GetNumQuestLogEntries) == "function" and type(C_QuestLog.GetInfo) == "function" then
+    local okN, count = safe(C_QuestLog, "GetNumQuestLogEntries")
+    for i = 1, okN and tonumber(count) or 0 do
+      local okInfo, info = safe(C_QuestLog, "GetInfo", i)
+      if okInfo and type(info) == "table" and not info.isHeader and info.title == title then
+        local _, complete = safe(C_QuestLog, "IsComplete", info.questID)
+        return complete and true or false
+      end
+    end
+    return false
+  end
   local ok, n = global("GetNumQuestLogEntries")
   if not ok or type(n) ~= "number" then return false end
   for i = 1, n do
