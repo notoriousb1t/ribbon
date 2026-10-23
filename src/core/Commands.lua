@@ -94,6 +94,94 @@ cmds.probe = function()
   if ns.db then ns.db.lastProbe = report end
 end
 
+-- Text of a value for the dump window: tables are listed key by key, sorted, to `depth` levels.
+local function format(value, depth, indent, seen)
+  if type(value) == "string" then return string.format("%q", value) end
+  if type(value) ~= "table" then return tostring(value) end
+  if seen[value] then return "<cycle>" end
+  if depth < 1 then return "{...}" end
+  seen[value] = true
+  local keys = {}
+  for k in pairs(value) do keys[#keys + 1] = k end
+  table.sort(keys, function(a, b)
+    if type(a) == type(b) and (type(a) == "number" or type(a) == "string") then return a < b end
+    return tostring(a) < tostring(b)
+  end)
+  local pad = indent .. "  "
+  local lines = {}
+  for _, k in ipairs(keys) do
+    lines[#lines + 1] = pad .. "[" .. format(k, 0, "", {}) .. "] = " .. format(value[k], depth - 1, pad, seen)
+  end
+  seen[value] = nil
+  if #lines == 0 then return "{}" end
+  return "{\n" .. table.concat(lines, "\n") .. "\n" .. indent .. "}"
+end
+
+-- All results of a call as numbered lines ("[1] = ..."), nested tables to four levels.
+function ns.FormatResults(n, ...)
+  local out = {}
+  for i = 1, n do out[#out + 1] = "[" .. i .. "] = " .. format((select(i, ...)), 4, "", {}) end
+  if n == 0 then return "(no results)" end
+  return table.concat(out, "\n")
+end
+
+-- A window holding text the player can select and copy (Ctrl+A, Ctrl+C); ESC closes it.
+local textWindow
+function ns.ShowText(title, text)
+  if not textWindow then
+    local ok, f = pcall(CreateFrame, "Frame", "RibbonTextWindow", UIParent, "BasicFrameTemplateWithInset")
+    if not ok or not f then f = CreateFrame("Frame", "RibbonTextWindow", UIParent, "BackdropTemplate") end
+    f:SetSize(640, 420)
+    f:SetPoint("CENTER")
+    f:SetFrameStrata("DIALOG")
+    f:EnableMouse(true)
+    f:SetMovable(true)
+    f:RegisterForDrag("LeftButton")
+    f:SetScript("OnDragStart", f.StartMoving)
+    f:SetScript("OnDragStop", f.StopMovingOrSizing)
+    f.heading = f:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    f.heading:SetPoint("TOPLEFT", 12, -6)
+    local scroll = CreateFrame("ScrollFrame", "RibbonTextWindowScroll", f, "UIPanelScrollFrameTemplate")
+    scroll:SetPoint("TOPLEFT", 12, -30)
+    scroll:SetPoint("BOTTOMRIGHT", -32, 12)
+    local box = CreateFrame("EditBox", nil, scroll)
+    box:SetMultiLine(true)
+    box:SetAutoFocus(false)
+    box:SetFontObject(_G.ChatFontNormal or _G.GameFontHighlight)
+    box:SetWidth(590)
+    box:SetScript("OnEscapePressed", function() f:Hide() end)
+    scroll:SetScrollChild(box)
+    f.box = box
+    if type(_G.UISpecialFrames) == "table" then table.insert(_G.UISpecialFrames, "RibbonTextWindow") end
+    textWindow = f
+  end
+  textWindow.heading:SetText(title or "")
+  textWindow.box:SetText(text or "")
+  textWindow:Show()
+  textWindow.box:SetFocus()
+  textWindow.box:HighlightText()
+  return textWindow
+end
+
+-- /ribbon dump <expression>: evaluates a Lua expression and shows every value it returns in a copyable window.
+cmds.dump = function(args)
+  if not args or args == "" then
+    ns:Print("usage: /ribbon dump <lua expression>, for example /ribbon dump C_QuestLog.GetQuestObjectives(837)")
+    return
+  end
+  local compile = _G.loadstring or _G.load
+  local fn, err = compile("return " .. args)
+  if not fn then
+    ns.ShowText("/ribbon dump " .. args, "syntax error: " .. tostring(err))
+    return
+  end
+  -- select("#") keeps nil results (the count a bare # would stop at).
+  local function show(ok, ...)
+    ns.ShowText("/ribbon dump " .. args, ok and ns.FormatResults(select("#", ...), ...) or ("error: " .. tostring((...))))
+  end
+  show(pcall(fn))
+end
+
 -- Status of the registered guide. The command exists always but is not advertised until a guide is registered.
 cmds.guide = function(args)
   local guide = ns.guide
@@ -113,7 +201,7 @@ cmds.guide = function(args)
 end
 
 local function help()
-  return "commands: [zone] <x> <y> [description], clear, show, list, remove <uid>, compass [show|hide|toggle|lock|unlock|reset|width <n>|fov <n>], debug"
+  return "commands: [zone] <x> <y> [description], clear, show, list, remove <uid>, compass [show|hide|toggle|lock|unlock|reset|width <n>|fov <n>], debug, dump <lua expression>"
     .. (ns.guide and ", guide [list|skip|prev|reset|status|errors], guides, dock" or "")
 end
 

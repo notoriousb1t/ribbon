@@ -211,7 +211,7 @@ end
 
 -- "done", "open" or "manual" (nothing the client can tell us) for one call.
 -- env: quest(id) -> "none"|"active"|"complete"|"done"; objective(quest, index) -> { have, need, finished } or nil;
---      level -> number; kills(call) -> kills counted for a Grind (optional); marked(call) -> whether the client saw a
+--      itemCount(item) -> items carried (optional); level -> number; kills(call) -> kills counted for a Grind (optional); marked(call) -> whether the client saw a
 --      Train, Fp or Home done (trainer opened, flight path known, hearthstone set; optional).
 local function callState(call, env)
   local kind = call.kind
@@ -226,6 +226,12 @@ local function callState(call, env)
     if q == "active" and call.index then
       local o = env.objective(call.quest, call.index)
       if o and o.finished then return "done" end
+    end
+    -- A loot objective of a quest not yet accepted (the route gathers a bought or ordinary-drop item on the way to the
+    -- giver): it is done once the bags hold the count, and the quest then starts with the objective finished.
+    if q == "none" and kind == "Loot" and call.item and call.count and env.itemCount then
+      local have = env.itemCount(call.item)
+      if have and have >= call.count then return "done" end
     end
     return "open"
   elseif kind == "Ding" then

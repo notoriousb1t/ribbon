@@ -278,6 +278,14 @@ function client.questStatus(questID)
   return "none"
 end
 
+-- How many of an item the player carries (bags; not the bank), or nil when the client cannot say. Forever and Classic Era both
+-- have the C_Item call; the old global answers where it is missing.
+function client.itemCount(itemID)
+  local ok, n = safe(_G.C_Item, "GetItemCount", itemID)
+  if not ok then ok, n = global("GetItemCount", itemID) end
+  if ok and type(n) == "number" then return n end
+end
+
 -- Is the quest log entry titled `title` finished? (A quest greeting lists active quests by title only.)
 function client.questLogEntryComplete(title)
   -- Forever: the log is C_QuestLog's (the old GetNumQuestLogEntries answers 0 there).

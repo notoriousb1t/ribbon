@@ -79,6 +79,25 @@ describe("Slash commands", function()
       expect(ctx.world:output()).toContain("unknown zone")
     end)
 
+    it("dump shows every result of an expression in a copyable window, nested tables sorted", function()
+      _G.RibbonDumpProbe = function() return 1, { b = "x", a = { 2 } }, nil end
+      SlashCmdList.RIBBON("dump RibbonDumpProbe()")
+      local text = RibbonTextWindow.box.state.text
+      expect(text).toContain("[1] = 1")
+      expect(text).toContain('["a"] = {')
+      expect(text).toContain('["b"] = "x"')
+      expect(text).toContain("[3] = nil")
+      expect(RibbonTextWindow.state.shown).toBe(true)
+      _G.RibbonDumpProbe = nil
+    end)
+
+    it("dump reports an error or a syntax error in the window instead of raising", function()
+      SlashCmdList.RIBBON("dump error('boom')")
+      expect(RibbonTextWindow.box.state.text).toContain("boom")
+      SlashCmdList.RIBBON("dump 1 +")
+      expect(RibbonTextWindow.box.state.text).toContain("syntax error")
+    end)
+
     it("subcommands win over coordinates", function()
       local uid = ctx.ns:AddWaypoint(1453, 50, 50)
       SlashCmdList.RIBBON("remove " .. uid)

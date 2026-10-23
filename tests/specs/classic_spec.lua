@@ -91,6 +91,16 @@ describe("Classic Era", function()
       expect(ctx.world.gossipPicked).toEqual({ { "active", 12 }, { "available", 13 } })
     end)
 
+    it("counts carried items through C_Item, else the old global, else says nothing", function()
+      _G.C_Item = { GetItemCount = function(id) return id == 7 and 4 or 0 end }
+      expect(client.itemCount(7)).toBe(4)
+      _G.C_Item = nil
+      _G.GetItemCount = function(id) return id == 7 and 2 or 0 end
+      expect(client.itemCount(7)).toBe(2)
+      _G.GetItemCount = nil
+      expect(client.itemCount(7)).toBeNil()
+    end)
+
     it("lists nothing when C_GossipInfo is missing or fails", function()
       _G.C_GossipInfo = nil
       expect(client.gossipQuests()).toEqual({ active = {}, available = {} })
@@ -115,6 +125,20 @@ describe("Classic Era", function()
       ctx.ns.guidePlayer.refresh()
       local _, cursor = ctx.ns.guidePlayer.current()
       expect(cursor).toBe(2)
+    end)
+
+    it("advances past a loot objective whose items are already in the bags, before the quest is accepted", function()
+      Ribbon.Guide("g", { title = "Test Guide", schema = 1 }):Chapter("One", { levels = { 1, 2 } })
+        :Step():Goto(1453, 50, 50):Loot(1015, 2, { quest = 90, index = 1 })
+        :Step():Goto(1453, 52, 52):Accept(90)
+        :Done()
+      _G.GetItemCount = function() return 1 end
+      ctx.ns.guidePlayer.refresh()
+      expect(select(2, ctx.ns.guidePlayer.current())).toBe(1)
+      _G.GetItemCount = function() return 2 end
+      ctx.ns.guidePlayer.refresh()
+      expect(select(2, ctx.ns.guidePlayer.current())).toBe(2)
+      _G.GetItemCount = nil
     end)
 
     it("answers a gossip window: a finished quest first, then an offered one", function()
@@ -178,6 +202,17 @@ describe("Classic Era", function()
       _G.C_Map.SetUserWaypoint = function() end
       _G.C_Map.ClearUserWaypoint = function() end
       expect(#ctx.ns.guideSettings.available()).toBe(4)
+    end)
+
+    it("advances past a loot objective whose items are already in the bags, through C_Item", function()
+      Ribbon.Guide("g", { title = "Test Guide", schema = 1 }):Chapter("One", { levels = { 1, 2 } })
+        :Step():Goto(1453, 50, 50):Loot(1015, 2, { quest = 90, index = 1 })
+        :Step():Goto(1453, 52, 52):Accept(90)
+        :Done()
+      _G.C_Item = { GetItemCount = function() return 2 end }
+      ctx.ns.guidePlayer.refresh()
+      expect(select(2, ctx.ns.guidePlayer.current())).toBe(2)
+      _G.C_Item = nil
     end)
 
     it("still picks gossip quests through the old globals, by index", function()

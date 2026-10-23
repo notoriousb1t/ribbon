@@ -41,7 +41,7 @@ local function marked(call)
 end
 
 local function env()
-  return { quest = ns.client.questStatus, objective = objective, level = S.who.level, xp = S.who.xp, kills = kills, marked = marked }
+  return { quest = ns.client.questStatus, objective = objective, itemCount = ns.client.itemCount, level = S.who.level, xp = S.who.xp, kills = kills, marked = marked }
 end
 
 -- Whether a call of the current guide is done, open or manual, for the map pins of a step's objectives.

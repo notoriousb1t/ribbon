@@ -107,6 +107,7 @@ describe("Guide planner and text", function()
       return {
         quest = function(id) return (t.quests or {})[id] or "none" end,
         objective = function(q, i) return (t.objectives or {})[q .. ":" .. i] end,
+        itemCount = t.items and function(id) return t.items[id] or 0 end or nil,
         level = t.level or 1,
       }
     end
@@ -131,6 +132,15 @@ describe("Guide planner and text", function()
       expect(P.stepDone(s, env({ quests = { [5] = "active" }, objectives = { ["5:1"] = { finished = true } } }))).toBe(true)
       expect(P.stepDone(s, env({ quests = { [5] = "complete" } }))).toBe(true)
       expect(P.stepDone(s, env())).toBe(false)   -- not accepted yet
+    end)
+
+    it("a loot objective before its quest is accepted is done once the bags hold the count", function()
+      local s = one(call("Loot", { item = 7, count = 3, quest = 5, index = 1 }))
+      expect(P.stepDone(s, env({ items = { [7] = 2 } }))).toBe(false)
+      expect(P.stepDone(s, env({ items = { [7] = 3 } }))).toBe(true)
+      expect(P.stepDone(s, env())).toBe(false)   -- the client cannot count items
+      -- once accepted, the quest log decides, not the bags
+      expect(P.stepDone(s, env({ items = { [7] = 3 }, quests = { [5] = "active" }, objectives = { ["5:1"] = { finished = false } } }))).toBe(false)
     end)
 
     it("needs every judged call done", function()
